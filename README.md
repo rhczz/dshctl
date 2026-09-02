@@ -2,6 +2,8 @@
 
 管理 DeepSeek Harness(deepseek-harness)源码仓库里 `dsh web` 后台服务的命令行工具。
 
+`dsh web` 的界面在浏览器里,但 npx / pnpm 只能以前台进程方式启动,命令长且占用终端,因此把它收进后台,一条命令完成启停、日志与更新。
+
 ## 依赖
 
 - bash、node(≥ 24.12,建议 24.20.0)、pnpm
