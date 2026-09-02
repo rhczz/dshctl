@@ -1,0 +1,546 @@
+#!/usr/bin/env bash
+#
+# dshctl — DSH (DeepSeek Harness) Web 服务 后台启停脚本(源码仓库模式)
+#
+# 用法:
+#   dshctl            # 等价于 dshctl start
+#   dshctl start      # 后台启动 DSH Web 并等待端口就绪(不执行 install/build)
+#   dshctl stop       # 停止 DSH Web(PID 文件 + 端口双保险)
+#   dshctl restart    # 重启
+#   dshctl status     # 查看运行状态
+#   dshctl logs       # 跟随查看日志 (Ctrl-C 退出;含 update/build 的记录)
+#   dshctl build      # 在仓库内执行 pnpm run build(输出实时可见并落盘日志)
+#   dshctl update     # git pull --ff-only + pnpm install + pnpm run build
+#                     # 服务运行中时:自动停服 → 更新构建 → 自动重启
+#
+# 可调环境变量:
+#   DSH_REPO_DIR    源码仓库路径,默认 ~/deepseek-harness;
+#                   下载后改成你自己的 deepseek-harness 克隆路径即可
+#   DSH_PORT        监听端口,默认 3080
+#   DSH_LOG_FILE    日志文件路径,默认 ~/.local/state/dsh/dsh-web.log
+#   DSH_PID_FILE    PID 文件路径,默认 ~/.local/state/dsh/dsh-web.pid
+#   DSH_NODE_VERSION  优先使用的 Node 版本(完整版本号),默认 24.20.0;
+#                     不设置或不可用时退回当前 PATH 里的 node。
+#
+# 设计原则(保证闭环与整洁):
+#   - "端口上有 DSH 进程在监听"是运行中的权威判据,PID 文件只是辅助记录;
+#   - 任何失败/中断路径都会清理自己创建的 PID 文件、互斥锁与残留进程;
+#   - stop 只杀经命令行校验确认属于 DSH 的进程,绝不误伤其他程序;
+#   - 僵尸进程 (Z 状态) 一律视为已死亡,防止陈旧记录被误判为存活;
+#   - start 只检查构建产物是否存在,绝不自动 install/build;
+#   - update/build 的输出 tee 到同一份日志:控制台原样可见,事后可查。
+
+set -u
+
+REPO="${DSH_REPO_DIR:-${HOME}/deepseek-harness}"
+BUILD_RECORD="${REPO}/.dsh-build/client-build-environment.json"
+PORT="${DSH_PORT:-3080}"
+STATE_DIR="${HOME}/.local/state/dsh"
+PID_FILE="${DSH_PID_FILE:-${STATE_DIR}/dsh-web.pid}"
+LOG_FILE="${DSH_LOG_FILE:-${STATE_DIR}/dsh-web.log}"
+LOCK_DIR="${STATE_DIR}/dshctl.lock"
+URL="http://127.0.0.1:${PORT}"
+# deepseek-harness 依赖 Node 内部 ModuleLoader.resolveSync 的 v2 签名,
+# 该签名从 Node 24.12 起才稳定;Node 24.11 及更早会在 client-modules
+# 扫描时全部解析失败(表现为页面 "Failed to load plugins")。
+DSH_NODE_VERSION="${DSH_NODE_VERSION:-24.20.0}"
+
+# 非交互 shell 可能没有 nvm 的 PATH,尝试加载
+if ! command -v node >/dev/null 2>&1 && [ -s "${HOME}/.nvm/nvm.sh" ]; then
+  # shellcheck disable=SC1091
+  . "${HOME}/.nvm/nvm.sh"
+fi
+
+# ---------- Node 版本 ----------
+
+# 优先使用 DSH_NODE_VERSION(存在于 nvm 时);否则沿用当前 PATH 的 node
+ensure_node() {
+  local target="${HOME}/.nvm/versions/node/v${DSH_NODE_VERSION}/bin"
+  if [ -x "${target}/node" ]; then
+    PATH="${target}:${PATH}"
+    export PATH
+    return 0
+  fi
+  if command -v node >/dev/null 2>&1; then
+    return 0
+  fi
+  echo "错误: 找不到可用的 node(期望 ${DSH_NODE_VERSION} 或 PATH 中的任意版本)" >&2
+  return 1
+}
+
+
+# ---------- 进程判定 ----------
+
+# 进程命令行(拿不到则为空)
+cmdline_of() {
+  ps -p "$1" -o args= 2>/dev/null | tr -d '\n' || true
+}
+
+# 该 PID 是否确属 DSH 相关进程(防误杀其他程序)
+# 覆盖实际进程形态:
+#   - node --import tsx/esm apps/cli/src/bin.ts web ...   (源码启动的服务进程)
+#   - node .../apps/cli/lib/bin.js web ...                (构建产物入口)
+#   - node .../pnpm.cjs --dir <仓库> dsh web ...          (pnpm 包装父进程)
+#   - node .../@deepseek-ai/dsh/lib/bin.js ...            (历史 npx 形态)
+is_dsh_process() {
+  local cmd
+  cmd="$(cmdline_of "$1")"
+  case "${cmd}" in
+    *"@deepseek-ai/dsh"*|*"node_modules/.bin/dsh"*|*"dsh/lib/bin.js"*)
+      return 0 ;;
+    *"apps/cli/src/bin.ts"*|*"apps/cli/lib/bin.js"*)
+      return 0 ;;
+    *"pnpm"*"${REPO}"*"dsh"*)
+      return 0 ;;
+  esac
+  return 1
+}
+
+# PID 是否还活着且不是僵尸
+alive_and_not_zombie() {
+  kill -0 "$1" 2>/dev/null || return 1
+  [ "$(ps -p "$1" -o stat= 2>/dev/null | tr -d ' ' | head -c 1)" = "Z" ] && return 1
+  return 0
+}
+
+# 端口上任意进程的 PID(只匹配 LISTEN 状态的监听进程,排除浏览器等客户端连接)
+port_pid() {
+  lsof -ti "tcp:${PORT}" -sTCP:LISTEN 2>/dev/null | head -n 1
+}
+
+# 端口上确属 DSH 的进程 PID
+dsh_port_pid() {
+  local pid
+  pid="$(port_pid)"
+  [ -n "${pid}" ] && is_dsh_process "${pid}" && echo "${pid}"
+}
+
+# 端口上非 DSH 的进程 PID(占用了我们的端口但不属于 DSH)
+foreign_port_pid() {
+  local pid
+  pid="$(port_pid)"
+  [ -n "${pid}" ] && ! is_dsh_process "${pid}" && echo "${pid}"
+}
+
+# PID 文件记录的启动进程是否存活
+recorded_alive() {
+  local pid
+  [ -f "${PID_FILE}" ] || return 1
+  pid="$(cat "${PID_FILE}" 2>/dev/null || true)"
+  [ -n "${pid}" ] || return 1
+  alive_and_not_zombie "${pid}"
+}
+
+# DSH 是否在运行(端口监听 或 记录的启动进程存活)
+is_running() {
+  [ -n "$(dsh_port_pid)" ] && return 0
+  recorded_alive && return 0
+  return 1
+}
+
+# ---------- 构建产物判定 ----------
+
+# 仓库是否已安装依赖且构建完成
+# 权威标记:.dsh-build/client-build-environment.json(成功构建的末尾才会写入)
+build_ready() {
+  [ -d "${REPO}/node_modules" ] && [ -f "${BUILD_RECORD}" ]
+}
+
+# ---------- 互斥锁(防并发操作;陈旧锁自愈) ----------
+
+acquire_lock() {
+  local waited=0 lock_pid
+  # 锁目录的父目录可能不存在(全新环境),先确保状态目录可用
+  mkdir -p "${STATE_DIR}" 2>/dev/null || {
+    echo "错误: 无法创建状态目录 ${STATE_DIR}" >&2
+    return 1
+  }
+  while ! mkdir "${LOCK_DIR}" 2>/dev/null; do
+    lock_pid=""
+    [ -f "${LOCK_DIR}/pid" ] && lock_pid="$(cat "${LOCK_DIR}/pid" 2>/dev/null || true)"
+    if [ -z "${lock_pid}" ] || ! alive_and_not_zombie "${lock_pid}"; then
+      # 持锁者已死或锁无记录:视为陈旧锁,清除重试
+      rm -rf "${LOCK_DIR}" 2>/dev/null || true
+      continue
+    fi
+    waited=$((waited + 1))
+    if [ "${waited}" -ge 20 ]; then
+      echo "错误: 另一个 dshctl 操作正在进行 (pid=${lock_pid})，请稍后再试" >&2
+      return 1
+    fi
+    sleep 0.5
+  done
+  echo "$$" >"${LOCK_DIR}/pid"
+  return 0
+}
+
+release_lock() {
+  rm -rf "${LOCK_DIR}" 2>/dev/null || true
+}
+
+# 任何退出路径(含 Ctrl-C)都释放锁
+trap 'release_lock' EXIT
+
+# ---------- 日志 ----------
+
+# 命令日志分段:update/build 与服务器日志写入同一文件,便于 dshctl logs 统一查询
+log_section() {
+  {
+    echo ""
+    echo "===== $(date '+%F %T') dshctl ${1:-unknown} ====="
+  } >>"${LOG_FILE}"
+}
+
+# 追加一行输出到日志
+log_line() {
+  echo "${1:-}" >>"${LOG_FILE}"
+}
+
+# ---------- 孤儿残留清理 ----------
+
+# 列出仓库中已不跟踪、且只含构建残留的包目录候选(每行一个绝对路径)。
+# 上游删除某个包后,git pull 不会带走其 gitignored 残留(lib/node_modules);
+# 这类目录仍会被根 tsdown workspace 按 packages/*/* 目录枚举当作普通包打包,
+# 若其 lib/types 是旧产物,就会复现"删除的导出导致构建失败"。
+# 判定口径与仓库 scripts/clean.ts 的 knownOrphanEntries(node_modules/lib/.typecheck)一致:
+#   - 是目录;
+#   - git ls-files 下没有任何已跟踪文件(整目录不受 git 跟踪);
+#   - 目录内容只含已知构建残留 —— 有 src/package.json 等其他内容一律跳过,
+#     不会误删新包或用户自建目录。
+orphan_candidates() {
+  local dir sub tracked content_only
+  for dir in "${REPO}"/packages/*/* "${REPO}"/vendor/*; do
+    [ -d "${dir}" ] || continue
+    tracked="$(git -C "${REPO}" ls-files -- "${dir}" 2>/dev/null | head -n 1)" || true
+    [ -z "${tracked}" ] || continue
+    content_only=1
+    for sub in "${dir}"/*; do
+      [ -e "${sub}" ] || continue
+      case "${sub}" in
+        "${dir}"/node_modules|"${dir}"/lib|"${dir}"/.typecheck) ;;
+        *) content_only=0; break ;;
+      esac
+    done
+    [ "${content_only}" = 1 ] && echo "${dir}"
+  done
+}
+
+# 删除已删除包的残留目录。无残留时零输出、零耗时;出错时只警告不中断构建,
+# 全量 pnpm run clean 仍是手动兜底。
+prune_orphans() {
+  local dir removed=0
+  while IFS= read -r dir; do
+    [ -n "${dir}" ] || continue
+    removed=$((removed + 1))
+    echo "清理已删除包的残留目录: ${dir}"
+    log_line "prune 孤儿残留: ${dir}"
+    rm -rf "${dir}" 2>/dev/null || {
+      echo "警告: 无法删除 ${dir}，构建将继续;可稍后手动执行 pnpm run clean" >&2
+      log_line "prune 失败: ${dir}"
+    }
+  done < <(orphan_candidates)
+  if [ "${removed}" -gt 0 ]; then
+    echo "已清理 ${removed} 个孤儿残留目录"
+    log_line "prune 完成: ${removed} 个"
+  fi
+}
+
+# ---------- 命令 ----------
+
+# 启动前置检查:仓库、node/pnpm、构建产物
+preflight() {
+  if [ ! -d "${REPO}" ]; then
+    echo "错误: 仓库目录不存在: ${REPO}" >&2
+    echo "提示: 可用环境变量 DSH_REPO_DIR 指定仓库路径" >&2
+    return 1
+  fi
+  ensure_node || return 1
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "错误: 找不到 pnpm，请先安装(或检查 PATH)" >&2
+    return 1
+  fi
+  if ! build_ready; then
+    echo "错误: 仓库尚未构建(缺少 ${BUILD_RECORD} 或 node_modules)" >&2
+    echo "提示: 请先运行 dshctl build 完成构建，再执行 dshctl start" >&2
+    return 1
+  fi
+  return 0
+}
+
+start() {
+  local fpid
+  fpid="$(foreign_port_pid)"
+  if [ -n "${fpid}" ]; then
+    echo "错误: 端口 ${PORT} 被其他程序占用 (pid=${fpid})，无法启动 DSH" >&2
+    return 1
+  fi
+  if is_running; then
+    echo "DSH Web 已在运行: ${URL} (pid=$(dsh_port_pid))"
+    return 0
+  fi
+
+  if ! mkdir -p "${STATE_DIR}" 2>/dev/null; then
+    echo "错误: 无法创建状态目录 ${STATE_DIR}" >&2
+    return 1
+  fi
+  if ! preflight; then
+    return 1
+  fi
+
+  # 清理陈旧 PID 文件(记录进程已死时)
+  if [ -f "${PID_FILE}" ] && ! recorded_alive; then
+    rm -f "${PID_FILE}"
+  fi
+
+  # 日志轮转:超过 1MB 时滚动为 .old，避免无限增长
+  if [ -f "${LOG_FILE}" ] && [ "$(wc -c <"${LOG_FILE}" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+    mv "${LOG_FILE}" "${LOG_FILE}.old" 2>/dev/null || true
+  fi
+
+  echo "正在后台启动 DSH Web ... (日志: ${LOG_FILE})"
+  log_section start
+  nohup pnpm --dir "${REPO}" dsh web --port "${PORT}" >>"${LOG_FILE}" 2>&1 &
+  echo "$!" >"${PID_FILE}"
+
+  # 等待端口就绪(最多 90 秒;源码启动经 tsx 加载可能稍慢)
+  for _ in $(seq 1 90); do
+    if [ -n "$(dsh_port_pid)" ]; then
+      echo "启动成功: ${URL} (pid=$(dsh_port_pid))"
+      return 0
+    fi
+    # 记录的启动进程提前退出说明启动失败
+    if [ -f "${PID_FILE}" ] && ! recorded_alive; then
+      break
+    fi
+    sleep 1
+  done
+
+  # ---- 失败/超时：主动清理本次启动的一切，不留残留 ----
+  echo "启动失败或超时，正在清理本次启动的进程 ..." >&2
+  local np ppid
+  np="$(cat "${PID_FILE}" 2>/dev/null || true)"
+  [ -n "${np}" ] && kill "${np}" 2>/dev/null || true   # 清理 pnpm 父进程
+  ppid="$(dsh_port_pid)"
+  [ -n "${ppid}" ] && kill "${ppid}" 2>/dev/null || true  # 清理残留的 DSH 进程
+  rm -f "${PID_FILE}"
+  sleep 2
+  # 确认没有残留(强杀兜底)
+  [ -n "${np}" ] && kill -0 "${np}" 2>/dev/null && kill -9 "${np}" 2>/dev/null || true
+  ppid="$(dsh_port_pid)"
+  [ -n "${ppid}" ] && kill -9 "${ppid}" 2>/dev/null || true
+  echo "已清理。日志尾部:" >&2
+  tail -n 15 "${LOG_FILE}" >&2 2>/dev/null || true
+  return 1
+}
+
+stop() {
+  local pid fpid np
+  fpid="$(foreign_port_pid)"
+  if [ -n "${fpid}" ]; then
+    echo "注意: 端口 ${PORT} 被非 DSH 进程占用 (pid=${fpid})，已跳过，不会误杀它" >&2
+  fi
+
+  if ! is_running && [ ! -f "${PID_FILE}" ]; then
+    echo "DSH Web 未在运行"
+    return 0
+  fi
+
+  pid="$(dsh_port_pid)"
+  np="$(cat "${PID_FILE}" 2>/dev/null || true)"
+  [ -n "${pid}" ] && echo "正在停止 DSH Web (pid=${pid}) ..." || echo "正在停止 DSH Web ..."
+
+  # 先杀真正监听端口的 DSH 进程，再杀记录的启动父进程
+  [ -n "${pid}" ] && kill "${pid}" 2>/dev/null || true
+  if [ -n "${np}" ] && is_dsh_process "${np}"; then
+    kill "${np}" 2>/dev/null || true
+  fi
+
+  for _ in $(seq 1 15); do
+    if [ -z "$(dsh_port_pid)" ]; then
+      rm -f "${PID_FILE}"
+      echo "已停止"
+      return 0
+    fi
+    sleep 1
+  done
+
+  # 兜底强杀(仅限确属 DSH 的进程)
+  pid="$(dsh_port_pid)"
+  if [ -n "${pid}" ]; then
+    echo "进程未退出，强制结束 (pid=${pid}) ..."
+    kill -9 "${pid}" 2>/dev/null || true
+  fi
+  [ -n "${np}" ] && kill -9 "${np}" 2>/dev/null || true
+  rm -f "${PID_FILE}"
+  echo "已停止"
+  return 0
+}
+
+build() {
+  if [ ! -d "${REPO}" ]; then
+    echo "错误: 仓库目录不存在: ${REPO}" >&2
+    return 1
+  fi
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "错误: 找不到 pnpm，请先安装(或检查 PATH)" >&2
+    return 1
+  fi
+  if [ ! -d "${REPO}/node_modules" ]; then
+    echo "错误: ${REPO}/node_modules 不存在，请先在仓库内执行 pnpm install" >&2
+    return 1
+  fi
+
+  if ! mkdir -p "${STATE_DIR}" 2>/dev/null; then
+    echo "错误: 无法创建状态目录 ${STATE_DIR}" >&2
+    return 1
+  fi
+
+  # 先清理已删除包的残留目录,避免陈旧的 lib/types 被 tsdown 打包导致构建失败
+  prune_orphans
+  log_section build
+  log_line "--- pnpm run build ---"
+
+  echo "正在构建仓库 ${REPO} ... (输出实时显示，同时写入日志)"
+  if ( set -o pipefail
+       cd "${REPO}" || exit 1
+       pnpm run build 2>&1 | tee -a "${LOG_FILE}"
+     ); then
+    echo "构建完成"
+    log_line "build 成功"
+    return 0
+  fi
+
+  echo "错误: 构建失败，详见日志: ${LOG_FILE}" >&2
+  log_line "build 失败"
+  return 1
+}
+
+update() {
+  local was_running=0
+  is_running && was_running=1
+
+  if [ ! -d "${REPO}" ]; then
+    echo "错误: 仓库目录不存在: ${REPO}" >&2
+    return 1
+  fi
+  if [ ! -d "${REPO}/.git" ]; then
+    echo "错误: ${REPO} 不是 git 仓库" >&2
+    return 1
+  fi
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "错误: 找不到 pnpm，请先安装(或检查 PATH)" >&2
+    return 1
+  fi
+
+  if [ "${was_running}" = 1 ]; then
+    echo "DSH Web 正在运行，先停止服务 ..."
+    stop || return 1
+  fi
+
+  if ! mkdir -p "${STATE_DIR}" 2>/dev/null; then
+    echo "错误: 无法创建状态目录 ${STATE_DIR}" >&2
+    return 1
+  fi
+  log_section update
+
+  # 阶段 1: 拉取最新代码(--ff-only，分歧时明确失败而非静默合并)
+  echo "--- git pull --ff-only ---"
+  if ! ( set -o pipefail
+         cd "${REPO}" || exit 1
+         git pull --ff-only 2>&1 | tee -a "${LOG_FILE}"
+       ); then
+    echo "错误: git pull 失败，代码未变更" >&2
+    if [ "${was_running}" = 1 ]; then
+      echo "仓库旧构建仍然完好，恢复启动旧版本 ..."
+      start
+    fi
+    return 1
+  fi
+  log_line "git pull 成功"
+
+  # 阶段 2a: 清理已删除包的残留目录(上游删除的包不会随 pull 带走 gitignored 残留)
+  prune_orphans
+
+  # 阶段 2: 安装依赖
+  echo "--- pnpm install ---"
+  if ! ( set -o pipefail
+         cd "${REPO}" || exit 1
+         pnpm install 2>&1 | tee -a "${LOG_FILE}"
+       ); then
+    echo "错误: pnpm install 失败，服务保持停止状态" >&2
+    echo "提示: 修复依赖问题后可运行 dshctl build && dshctl start" >&2
+    log_line "pnpm install 失败"
+    return 1
+  fi
+  log_line "pnpm install 成功"
+
+  # 阶段 3: 构建
+  echo "--- pnpm run build ---"
+  if ! ( set -o pipefail
+         cd "${REPO}" || exit 1
+         pnpm run build 2>&1 | tee -a "${LOG_FILE}"
+       ); then
+    echo "错误: 构建失败，服务保持停止状态" >&2
+    echo "提示: 修复构建问题后可运行 dshctl build && dshctl start" >&2
+    log_line "pnpm run build 失败"
+    return 1
+  fi
+  log_line "pnpm run build 成功"
+
+  echo "更新完成"
+  if [ "${was_running}" = 1 ]; then
+    echo "恢复启动 DSH Web ..."
+    start
+  fi
+  return 0
+}
+
+status() {
+  local pid fpid np
+  pid="$(dsh_port_pid)"
+  fpid="$(foreign_port_pid)"
+  np="$(cat "${PID_FILE}" 2>/dev/null || true)"
+
+  if [ -n "${pid}" ]; then
+    echo "状态: 运行中"
+    echo "地址: ${URL}"
+    echo "PID:  ${pid}"
+    [ -n "${np}" ] && echo "启动父进程PID: ${np}"
+    echo "日志:  ${LOG_FILE}"
+  elif [ -n "${fpid}" ]; then
+    echo "状态: 端口被占用（非 DSH 进程 pid=${fpid}）"
+    echo "地址: ${URL}"
+    echo "日志:  ${LOG_FILE}"
+  elif [ -n "${np}" ] && alive_and_not_zombie "${np}"; then
+    echo "状态: 启动中或关闭中（端口未就绪, pid=${np}）"
+    echo "日志: ${LOG_FILE}"
+  else
+    echo "状态: 未运行"
+    [ -f "${PID_FILE}" ] && { echo "已清理陈旧 PID 文件" ; rm -f "${PID_FILE}" ; }
+  fi
+}
+
+usage() {
+  echo "用法: $0 [start|stop|restart|status|logs|build|update]" >&2
+  echo "  start    后台启动 DSH Web(不执行 install/build)" >&2
+  echo "  stop     停止 DSH Web" >&2
+  echo "  restart  重启" >&2
+  echo "  status   查看运行状态" >&2
+  echo "  logs     跟随查看日志(含 update/build 记录)" >&2
+  echo "  build    在仓库内执行 pnpm run build" >&2
+  echo "  update   git pull --ff-only + pnpm install + pnpm run build(自动停/启服务)" >&2
+}
+
+case "${1:-start}" in
+  start)   acquire_lock || exit 1; ensure_node || exit 1; start ;;
+  stop)    acquire_lock || exit 1; stop ;;
+  restart) acquire_lock || exit 1; ensure_node || exit 1; stop && start ;;
+  update)  acquire_lock || exit 1; ensure_node || exit 1; update ;;
+  build)   acquire_lock || exit 1; ensure_node || exit 1; build ;;
+  status)  status ;;
+  logs)    tail -f "${LOG_FILE}" ;;
+  *)
+    usage
+    exit 1
+    ;;
+esac
