@@ -71,21 +71,24 @@ type mibTCPTable struct {
 	Table      [1]mibTCPRow
 }
 
-// mibTCP6Row mirrors MIB_TCP6ROW_OWNER_PID.
+// mibTCP6Row mirrors MIB_TCP6ROW_OWNER_PID, which is 56 bytes: both addresses
+// are 16 bytes and both scope ids are present.
 //
-// The IPv6 row is not the IPv4 row with wider addresses: the two 16-byte
-// addresses come first and the state follows them, with the scope id after the
-// local address. Reading an IPv6 table through the IPv4 layout therefore takes a
-// port out of the middle of an address, which reported every IPv6 listener as a
-// free port — the one answer a start must never be given.
+// The IPv6 row is not the IPv4 row with wider addresses. Every field sits at a
+// different offset, and the structure has a remote scope id between the remote
+// address and the remote port — the field whose absence made the row read as 52
+// bytes. Parsing a 56-byte row with that layout takes the port out of the middle
+// of an address and reports every IPv6 listener as a free port, which is the one
+// answer a start must never be given.
 type mibTCP6Row struct {
-	LocalAddr    [16]byte
-	LocalScopeID uint32
-	LocalPort    uint32
-	RemoteAddr   [16]byte
-	RemotePort   uint32
-	State        uint32
-	OwningPID    uint32
+	LocalAddr     [16]byte
+	LocalScopeID  uint32
+	LocalPort     uint32
+	RemoteAddr    [16]byte
+	RemoteScopeID uint32
+	RemotePort    uint32
+	State         uint32
+	OwningPID     uint32
 }
 
 // mibTCP6Table mirrors MIB_TCP6TABLE_OWNER_PID.

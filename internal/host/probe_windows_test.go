@@ -4,11 +4,9 @@ package host
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
 	"time"
 	"unsafe"
@@ -181,70 +179,45 @@ func TestListeningFindsAnIPv6OnlyListener(t *testing.T) {
 			t.Logf("table row: port=%d pid=%d", portOf(row.localPort), row.owningPID)
 		}
 		dumpTCP6Table(t, port)
-		t.Fatalf("port %d is listening on ::1 but was reported free (%d rows, err=%v)", port, len(rows), tableErr)
+		t.Fatalf("port %d is listening on ::1 but was reported free (%d rows from the probe, err=%v)", port, len(rows), tableErr)
 	}
 	if result.PID != os.Getpid() {
 		t.Fatalf("pid = %d, want this process %d", result.PID, os.Getpid())
 	}
 }
 
-// dumpTCP6Table prints the raw words of the IPv6 listening table.
+// dumpTCP6Table lists what the probe read from the IPv6 table.
 //
-// It exists because a row read through the wrong layout cannot be spotted by
-// reading the structure: the bytes are only wrong relative to an offset, and the
-// dump says which offset the port is really at. It is a diagnostic for the
-// listener test above, not a test of its own.
+// It runs only when the listener above was reported free, because that failure
+// cannot be diagnosed by reading the structure: a row read at the wrong offsets
+// still looks like a row. The layout itself is pinned by
+// TestTCPTableRowSizes, which is where a change to it belongs.
 func dumpTCP6Table(t *testing.T, wanted int) {
 	t.Helper()
-	words := func(family uint32) (int, []byte) {
-		var size uint32
-		status, _, _ := procExtendedTCP.Call(
-			0, uintptr(unsafe.Pointer(&size)), 1,
-			uintptr(family), uintptr(tcpTableOwnerPIDListener), 0)
-		if status != errorInsufficientBuffer && status != 0 {
-			t.Logf("family %d size query: status=%d", family, status)
-			return 0, nil
-		}
-		if size == 0 {
-			return 0, nil
-		}
-		buffer := make([]byte, size)
-		status, _, _ = procExtendedTCP.Call(
-			uintptr(unsafe.Pointer(&buffer[0])), uintptr(unsafe.Pointer(&size)), 1,
-			uintptr(family), uintptr(tcpTableOwnerPIDListener), 0)
-		t.Logf("family %d fetch: status=%d bytes=%d", family, status, size)
-		if status != 0 {
-			return 0, nil
-		}
-		count := int(*(*uint32)(unsafe.Pointer(&buffer[0])))
-		return count, buffer
+	var size uint32
+	status, _, _ := procExtendedTCP.Call(
+		0, uintptr(unsafe.Pointer(&size)), 1,
+		uintptr(addressFamilyINET6), uintptr(tcpTableOwnerPIDListener), 0)
+	if status != errorInsufficientBuffer && status != 0 {
+		t.Logf("IPv6 size query: status=%d", status)
+		return
 	}
-
-	// The wanted port in the byte order the kernel stores it in.
-	networkOrder := (wanted&0xFF)<<8 | (wanted>>8)&0xFF
-	t.Logf("looking for port %d (stored as %#06x)", wanted, networkOrder)
-
-	for _, entry := range []struct {
-		family uint32
-		row    int
-	}{{addressFamilyINET, 24}, {addressFamilyINET6, 52}} {
-		count, buffer := words(entry.family)
-		t.Logf("family %d rows=%d", entry.family, count)
-		for index := 0; index < count && index < 4; index++ {
-			base := 4 + index*entry.row
-			if base+entry.row > len(buffer) {
-				break
-			}
-			fields := make([]string, 0, entry.row/4)
-			for word := 0; word+4 <= entry.row; word += 4 {
-				value := *(*uint32)(unsafe.Pointer(&buffer[base+word]))
-				marker := ""
-				if value&0xFFFF == uint32(networkOrder) {
-					marker = "  <-- the port"
-				}
-				fields = append(fields, fmt.Sprintf("[%d]=%#08x%s", word, value, marker))
-			}
-			t.Logf("family %d row %d: %s", entry.family, index, strings.Join(fields, " "))
-		}
+	if size == 0 {
+		t.Logf("IPv6 table is empty")
+		return
+	}
+	buffer := make([]byte, size)
+	status, _, _ = procExtendedTCP.Call(
+		uintptr(unsafe.Pointer(&buffer[0])), uintptr(unsafe.Pointer(&size)), 1,
+		uintptr(addressFamilyINET6), uintptr(tcpTableOwnerPIDListener), 0)
+	if status != 0 {
+		t.Logf("IPv6 fetch: status=%d", status)
+		return
+	}
+	table := (*mibTCP6Table)(unsafe.Pointer(&buffer[0]))
+	count := int(table.NumEntries)
+	t.Logf("looking for port %d among %d IPv6 rows", wanted, count)
+	for _, row := range unsafe.Slice(&table.Table[0], count) {
+		t.Logf("IPv6 row: port=%d pid=%d state=%d", portOf(row.LocalPort), row.OwningPID, row.State)
 	}
 }
