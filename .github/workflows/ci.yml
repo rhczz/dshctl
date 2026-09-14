@@ -1,0 +1,214 @@
+name: CI
+
+# Tests run before anything is built, and the build jobs depend on them: a
+# platform binary is only produced from a commit whose tests passed. That is the
+# whole point of putting both in one pipeline.
+#
+# Trigger policy: every commit that lands on main is verified, and every pull
+# request aimed at main is verified before it can be merged. A branch nobody has
+# proposed against main runs nothing, which keeps the pipeline focused on the
+# history that is meant to stay green.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # Keep the toolchain honest about what it is building.
+  GOFLAGS: -trimpath
+  CGO_ENABLED: "0"
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every trigger compiles and tests on all three platforms, and one
+        # platform failing never cancels the others (fail-fast: false). The port
+        # and process probes are platform-specific code, and platform code that
+        # is never executed on its own platform is not tested at all.
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          # Pinned rather than taken from go.mod: the standard library advisory
+          # GO-2026-4602 is fixed in 1.25.8, and an older toolchain must not be
+          # selected silently.
+          go-version: "1.25.x"
+          check-latest: true
+
+      - name: Toolchain
+        run: go version
+
+      - name: Compile
+        # An explicit whole-module compile on each platform, ahead of the gates
+        # that only report failures per package: a build break has to show up as
+        # "this platform cannot compile the code", which is the one thing a
+        # cross-platform tool may never discover after a release.
+        run: go build ./...
+
+      - name: Formatting
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          unformatted="$(gofmt -s -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "these files need gofmt -s -w:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test (race detector)
+        run: go test -race -timeout 600s ./...
+
+      - name: Test (no race detector)
+        # The race build is the strict one; this run keeps a plain `go test`
+        # green on platforms where the race detector needs extra tooling.
+        run: go test -timeout 600s ./...
+
+  hermetic:
+    name: tests do not touch the environment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          check-latest: true
+
+      - name: Workflow file is valid
+        # A broken workflow fails silently until somebody notices CI stopped
+        # running, so its shape is checked here.
+        run: python3 scripts/check-workflow.py
+
+      - name: Run the suite against a throwaway HOME
+        # One implementation, shared with `make hermetic`, so the pipeline and a
+        # developer's machine cannot drift apart.
+        run: ./scripts/hermetic-check.sh
+
+      - name: Fail on unexpected skips
+        # A skipped test is an untested code path. The list below is the complete
+        # set of skips the suite is allowed to have on a runner that does not
+        # ship one of the optional tools; every one of them is a test that asks
+        # the real tool a question, so there is nothing for it to assert when the
+        # tool is absent. Any other skip means the suite silently stopped testing
+        # something, and a failure here is the signal to look at why.
+        #
+        # The pattern matches an indented line too: a skip inside a subtest is
+        # just as invisible as a top-level one, and anchoring the match at the
+        # start of the line would have let every subtest skip through.
+        run: |
+          set -euo pipefail
+          go test -v -timeout 600s ./... 2>&1 | tee /tmp/test-output.txt
+          allowed="$(cat <<'EOF'
+          TestInspectReadsARealProcess
+          TestNetstatFindsASocketThisProcessHolds
+          TestSSNamesTheSocketThisProcessHolds
+          TestSSReportsAFreePortAsFree
+          TestLsofNamesTheSocketThisProcessHolds
+          TestLsofDeclinesAFreePort
+          TestLsofDeclinesAnUnusableSelector
+          TestDescendsFromUsesTheProcessGroup
+          EOF
+          )"
+          unexpected="$(grep -E '^[[:space:]]*--- SKIP' /tmp/test-output.txt \
+            | sed -E 's/^[[:space:]]*--- SKIP: ([^ ]+).*/\1/' \
+            | sed -E 's#/.*$##' \
+            | sort -u \
+            | grep -vxF "$allowed" || true)"
+          if [ -n "$unexpected" ]; then
+            echo "unexpected skips:"
+            echo "$unexpected"
+            exit 1
+          fi
+          echo "only the documented optional-tool skips occurred"
+
+  build:
+    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: [test, hermetic]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          check-latest: true
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          suffix=""
+          [ "${{ matrix.goos }}" = "windows" ] && suffix=".exe"
+          version="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
+          commit="$(git rev-parse --short HEAD)"
+          date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          pkg=github.com/rhczz/dshctl/internal/version
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
+            -ldflags "-s -w -X ${pkg}.Version=${version} -X ${pkg}.Commit=${commit} -X ${pkg}.BuildDate=${date}" \
+            -o "dshctl_${{ matrix.goos }}_${{ matrix.goarch }}${suffix}" \
+            ./cmd/dshctl
+
+      - name: Smoke test the binary's metadata
+        # The binary cannot be executed for another platform, but it can be
+        # asked what it was built as. This catches a broken ldflags path.
+        # Every string literal in an Actions expression must be quoted: an
+        # unquoted word is parsed as a named value, and `amd64` is not one, so
+        # the whole workflow file is rejected before any job starts.
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          set -euo pipefail
+          chmod +x dshctl_linux_amd64
+          ./dshctl_linux_amd64 version | tee /tmp/version.txt
+          grep -q "linux/amd64" /tmp/version.txt
+          ./dshctl_linux_amd64 --help > /dev/null
+          ./dshctl_linux_amd64 doctor --json > /tmp/doctor.json || true
+          python3 -c "import json,sys; json.load(open('/tmp/doctor.json'))"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dshctl_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dshctl_${{ matrix.goos }}_${{ matrix.goarch }}*
+          if-no-files-found: error
+          retention-days: 14
+
+  vulncheck:
+    name: known vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          check-latest: true
+
+      - name: govulncheck
+        # Reported, not ignored: the standard library advisory GO-2026-4602 is
+        # fixed in Go 1.25.8, so a failure here means the pinned toolchain is
+        # older than the fix.
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          "$(go env GOPATH)/bin/govulncheck" ./...

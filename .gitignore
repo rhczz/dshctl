@@ -1,0 +1,16 @@
+# Build output
+bin/
+dist/
+dshctl.exe
+
+# Go test and coverage artifacts
+*.test
+*.out
+coverage.html
+
+# Editor and OS noise
+.DS_Store
+.vscode/
+
+# Root build output: `make build` writes bin/, a bare `go build` writes here.
+/dshctl

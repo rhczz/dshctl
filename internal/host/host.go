@@ -1,0 +1,101 @@
+// Package host is the only place in dshctl that talks to the operating system.
+//
+// Process liveness, process facts, port ownership, signal delivery and detached
+// process creation all have different shapes on Unix and on Windows. Each of
+// them is defined here once and implemented per platform behind build tags, so
+// the lifecycle code above this package never contains an "if windows".
+//
+// Two contracts matter more than the rest:
+//
+//   - "cannot look" is never reported as a fact. Every probe returns an error
+//     when the operating system refused to answer, so a caller can fail closed
+//     instead of concluding that a port is free or that a process is gone.
+//   - nothing here decides whether a process is dshctl's server. Ownership comes
+//     from the state record plus the start-time fingerprint; this package only
+//     reports what exists and delivers what it is told to deliver.
+package host
+
+import (
+	"context"
+	"errors"
+	"os/exec"
+	"time"
+)
+
+// ErrUnsupported reports that a probe cannot be answered on this platform with
+// the tools available. Callers must treat it as "unknown", never as "free".
+var ErrUnsupported = errors.New("当前平台无法完成该探测")
+
+// Request names the strength of a termination request.
+//
+// The strength is a request, not a guarantee: Windows has no portable graceful
+// signal, so both strengths end the process there, while Unix delivers SIGTERM
+// and SIGKILL respectively. Callers must therefore treat Graceful as "ask
+// nicely where the platform can" and verify the outcome themselves.
+type Request int
+
+const (
+	// Graceful asks the process to shut down and flush its state.
+	Graceful Request = iota
+	// Force ends the process without giving it a chance to clean up.
+	Force
+)
+
+// Facts describes a process as far as the operating system will say.
+type Facts struct {
+	// PID is the process that was inspected.
+	PID int
+	// Alive reports whether the process exists.
+	Alive bool
+	// StartedAt is the process start time in Unix seconds, or 0 when unknown.
+	StartedAt int64
+	// Command is the command line, or empty when it could not be read.
+	Command string
+	// Source names the tool that answered, for diagnostics.
+	Source string
+}
+
+// Host is the operating-system surface dshctl depends on.
+type Host struct {
+	lookPath func(string) (string, error)
+}
+
+// New returns a Host bound to the real machine.
+func New() *Host {
+	return &Host{lookPath: exec.LookPath}
+}
+
+// NewWithLookPath returns a Host whose executable lookups are substituted. The
+// port probes still use the real operating system; tests use it to decide which
+// of them report themselves as available.
+func NewWithLookPath(lookPath func(string) (string, error)) *Host {
+	if lookPath == nil {
+		lookPath = exec.LookPath
+	}
+	return &Host{lookPath: lookPath}
+}
+
+// PortResult is what a port probe learned.
+type PortResult struct {
+	// Listening reports whether something is listening.
+	Listening bool
+	// PID is the listening process, or 0 when the platform did not report one.
+	PID int
+}
+
+// CtxTimeout bounds a probe that a platform tool answers.
+const probeTimeout = 10 * time.Second
+
+// probeContext derives a bounded context for one probe.
+//
+// A nil context is treated as the background context so that a probe can never
+// panic a caller that did not bother to pass one.
+func probeContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, ok := ctx.Deadline(); ok {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, probeTimeout)
+}
