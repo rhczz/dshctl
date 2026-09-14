@@ -17,7 +17,6 @@ import (
 
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/exitcode"
-	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/run"
 	"github.com/rhczz/dshctl/internal/service"
 	"github.com/rhczz/dshctl/internal/version"
@@ -236,16 +235,11 @@ func parseGlobals(args []string) (globals, []string, error) {
 // loadSettings resolves the effective settings with the global flags layered on
 // top of the environment and the config file.
 func loadSettings(parsed globals, getenv func(string) string) (config.Settings, error) {
-	effective := getenv
-	if parsed.configSet {
-		effective = func(key string) string {
-			if key == paths.EnvConfigFile {
-				return parsed.configPath
-			}
-			return getenv(key)
-		}
-	}
 	overrides := config.Overrides{Port: parsed.port}
+	if parsed.configSet {
+		configPath := parsed.configPath
+		overrides.ConfigPath = &configPath
+	}
 	if parsed.repoSet {
 		repoDir := parsed.repoDir
 		overrides.RepoDir = &repoDir
@@ -254,7 +248,7 @@ func loadSettings(parsed globals, getenv func(string) string) (config.Settings, 
 		nodeVersion := parsed.nodeVersion
 		overrides.NodeVersion = &nodeVersion
 	}
-	return config.Load(effective, overrides)
+	return config.Load(getenv, overrides)
 }
 
 // findCommand returns the command with the given name.

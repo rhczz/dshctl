@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import pathlib
+import signal
 import subprocess
 import sys
 import time
@@ -86,11 +87,25 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         ["./internal/nodejs/"],
     ),
     (
-        "the settings document outranks the environment no longer",
+        "the --node flag is ignored",
         "internal/config/config.go",
         "switch {\n\tcase overrides.NodeVersion != nil && strings.TrimSpace(*overrides.NodeVersion) != \"\":",
         "switch {\n\tcase false:",
         ["./internal/config/", "./internal/service/"],
+    ),
+    (
+        "the settings document outranks the environment for the release",
+        "internal/config/config.go",
+        "\tcase environment != \"\":\n\t\tsettings.NodeVersion = environment\n\t\tsources.NodeVersion = \"env\"\n\tcase configured != \"\":\n\t\tsettings.NodeVersion = configured\n\t\tsources.NodeVersion = \"file\"",
+        "\tcase configured != \"\":\n\t\tsettings.NodeVersion = configured\n\t\tsources.NodeVersion = \"file\"\n\tcase environment != \"\":\n\t\tsettings.NodeVersion = environment\n\t\tsources.NodeVersion = \"env\"",
+        ["./internal/config/", "./internal/service/"],
+    ),
+    (
+        "the --config flag is ignored",
+        "internal/config/config.go",
+        "if override != nil && strings.TrimSpace(*override) != \"\" {",
+        "if override != nil && false {",
+        ["./internal/config/", "./internal/cli/"],
     ),
     (
         "an undetermined release is written into the document",
@@ -215,11 +230,23 @@ def main() -> int:
             survivors.append(name)
             continue
         target.write_text(text.replace(original, mutated, 1))
+        # A mutation that is applied and never restored leaves the tree broken for
+        # whoever runs next, and being killed mid-run is exactly when that
+        # happens: a signal turns into SystemExit here, so the restore below
+        # still runs.
+        previous = {
+            signal.SIGINT: signal.getsignal(signal.SIGINT),
+            signal.SIGTERM: signal.getsignal(signal.SIGTERM),
+        }
+        signal.signal(signal.SIGINT, lambda *_: sys.exit(130))
+        signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
         started = time.time()
         try:
             outcome, output = run(packages)
         finally:
             target.write_text(text)
+            for received, handler in previous.items():
+                signal.signal(received, handler)
         elapsed = time.time() - started
         failed = [line for line in output.splitlines() if line.startswith("--- FAIL")]
         if outcome == "passed":

@@ -474,27 +474,28 @@ func (s *Service) resolveNode(ctx context.Context) (nodejs.Installation, error) 
 	case nodejs.Untested:
 		s.warn("%s", verdict.Reason)
 	}
-	s.warnShadowedNodeVersion(installation)
+	s.warnOverriddenNodeVersion(installation)
 	return installation, nil
 }
 
-// warnShadowedNodeVersion reports an environment variable that lost to the
-// settings document.
+// warnOverriddenNodeVersion reports a settings document whose release this run
+// does not use.
 //
-// The Node release is the one setting where the document outranks the
-// environment, so a variable that is set and ignored is exactly the kind of
-// silent surprise this warns about: the operator sees why the value they
-// exported is not the value in use.
-func (s *Service) warnShadowedNodeVersion(installation nodejs.Installation) {
-	if s.Settings.Sources.NodeVersion != "file" {
+// An environment variable is invisible once it is exported, so a worker shell
+// that carries one must not silently move the service onto another runtime: the
+// release in effect, the one the document names, and the command that fixes the
+// difference are all worth one line. The flag does not need this — it was typed
+// for this invocation, and start reports it on its own.
+func (s *Service) warnOverriddenNodeVersion(installation nodejs.Installation) {
+	if s.Settings.Sources.NodeVersion != "env" {
 		return
 	}
-	raw := strings.TrimSpace(s.environment()(paths.EnvNodeVersion))
-	if raw == "" || nodejs.Matches(installation.Version, raw) {
+	configured := s.Settings.ConfiguredNodeVersion
+	if configured == "" || nodejs.Matches(installation.Version, configured) {
 		return
 	}
-	s.warn("环境变量 %s=%s 被配置里的 nodeVersion=%s 覆盖(优先级: --node > 配置文件 > %s > PATH)",
-		paths.EnvNodeVersion, raw, installation.Version, paths.EnvNodeVersion)
+	s.warn("环境变量 %s=%s 覆盖了配置里的 nodeVersion=%s，本次运行使用 %s",
+		paths.EnvNodeVersion, s.Settings.NodeVersion, configured, installation.Version)
 }
 
 // pnpmPath resolves the pnpm executable.

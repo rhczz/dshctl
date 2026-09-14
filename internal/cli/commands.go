@@ -130,7 +130,7 @@ func Usage(w io.Writer) {
   -V, --version     打印版本
 
 Node:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12.0 一律拒绝
-          优先级: --node > 配置文件 nodeVersion > DSH_NODE_VERSION > PATH
+          优先级: --node > DSH_NODE_VERSION > 配置文件 nodeVersion > PATH
 
 状态目录: $DSHCTL_STATE_DIR 或 $DSH_HOME/dshctl 或 ~/.dsh/dshctl
 退出码:   0 成功/运行中, 1 失败, 2 用法或配置错误, 3 未运行, 4 前置检查失败, 5 锁超时

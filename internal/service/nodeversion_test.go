@@ -41,7 +41,7 @@ var writeBackRows = map[string]func(*testing.T){
 	"W4":  testWriteBackW4RecordsAReleaseNamedByAFlag,
 	"W5":  testWriteBackW5RecordsAReleaseNamedByTheEnvironment,
 	"W6":  testWriteBackW6KeepsAConfiguredReleaseWhenAFlagOverridesIt,
-	"W7":  testWriteBackW7KeepsAConfiguredReleaseWhenTheEnvironmentDiffers,
+	"W7":  testWriteBackW7UsesTheEnvironmentAndKeepsTheConfiguredRelease,
 	"W8":  testWriteBackW8RecordsAnUnverifiedMajorVersion,
 	"W9":  testWriteBackW9RecordsDuringAnUpdate,
 	"W10": testWriteBackW10NeverWritesFromAReadOnlyCommand,
@@ -175,13 +175,17 @@ func testWriteBackW6KeepsAConfiguredReleaseWhenAFlagOverridesIt(t *testing.T) {
 	}
 }
 
-// testWriteBackW7KeepsAConfiguredReleaseWhenTheEnvironmentDiffers pins the
-// documented precedence: the document outranks the environment for this setting,
-// and the environment is reported as ignored rather than silently dropped.
-func testWriteBackW7KeepsAConfiguredReleaseWhenTheEnvironmentDiffers(t *testing.T) {
+// testWriteBackW7UsesTheEnvironmentAndKeepsTheConfiguredRelease pins the two
+// halves of an environment override: the variable decides this run, and the
+// document — which belongs to the operator — is neither rewritten nor silently
+// ignored. The warning is the half that cannot be seen otherwise, because an
+// exported variable leaves no trace in the command that was typed.
+func testWriteBackW7UsesTheEnvironmentAndKeepsTheConfiguredRelease(t *testing.T) {
 	f := newFixture(t)
 	f.pinNode(t, config.TestedNodeVersion)
-	f.Settings.Sources.NodeVersion = "file"
+	f.installNodeTree(t, "26.1.0")
+	f.Settings.NodeVersion = "26.1.0"
+	f.Settings.Sources.NodeVersion = "env"
 	f.Getenv = func(key string) string {
 		if key == paths.EnvNodeVersion {
 			return "26.1.0"
@@ -192,8 +196,18 @@ func testWriteBackW7KeepsAConfiguredReleaseWhenTheEnvironmentDiffers(t *testing.
 	f.startSucceeds(t)
 
 	f.wantRecordedNodeVersion(t, config.TestedNodeVersion)
-	if !strings.Contains(f.errOut.String(), paths.EnvNodeVersion+"=26.1.0") {
-		t.Fatalf("stderr = %q, want the ignored environment variable reported", f.errOut.String())
+	record, ok := f.stateRecord(t)
+	if !ok {
+		t.Fatal("no runtime record was written")
+	}
+	if record.NodeVersion != "26.1.0" {
+		t.Fatalf("record.NodeVersion = %q, want the release the environment named", record.NodeVersion)
+	}
+	stderr := f.errOut.String()
+	for _, want := range []string{paths.EnvNodeVersion + "=26.1.0", "nodeVersion=" + config.TestedNodeVersion} {
+		if !strings.Contains(stderr, want) {
+			t.Fatalf("stderr = %q, want it to contain %q", stderr, want)
+		}
 	}
 }
 

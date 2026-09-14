@@ -166,6 +166,8 @@ type File struct {
 
 // Overrides are the optional values a caller can supply from flags.
 type Overrides struct {
+	// ConfigPath wins over every other source for the settings document itself.
+	ConfigPath *string
 	// RepoDir wins over every other source.
 	RepoDir *string
 	// Port wins over every other source.
@@ -209,7 +211,7 @@ func Load(getenv paths.Getenv, overrides Overrides) (Settings, error) {
 	if err != nil {
 		return Settings{}, usagef("%v", err)
 	}
-	configPath, configSource, err := resolveConfigPath(getenv, stateDir)
+	configPath, configSource, err := resolveConfigPath(getenv, stateDir, overrides.ConfigPath)
 	if err != nil {
 		return Settings{}, usagef("%v", err)
 	}
@@ -246,8 +248,8 @@ func Load(getenv paths.Getenv, overrides Overrides) (Settings, error) {
 	if overrides.Port != nil {
 		sources.Port = "flag"
 	}
-	// The Node release is layered on its own, and last: it is the one setting
-	// where the document outranks the environment (see applyNodeVersion).
+	// The Node release is layered last because it needs the document itself, not
+	// just the settings the document produced (see applyNodeVersion).
 	applyNodeVersion(&settings, &sources, document, found, getenv, overrides)
 
 	logPath, logSource, err := resolveLogPath(getenv, stateDir)
@@ -671,13 +673,12 @@ func applyOverrides(settings *Settings, overrides Overrides) error {
 
 // applyNodeVersion layers the Node release this installation runs.
 //
-// The order is flag, then the settings document, then the environment — the one
-// place this setting differs from every other one. The reason is what the value
-// means: once a start has succeeded, the document holds the release that
-// demonstrably works on this machine, and an environment variable left over in a
-// shell must not silently move a long-running service onto another runtime. The
-// value the document names is recorded separately because it decides whether a
-// successful start writes the release back.
+// The order is the one every other setting follows: flag, then environment, then
+// the settings document, then the default — with one addition at the bottom.
+// Where the other settings have a built-in value, this one has "nothing named a
+// release yet": the resolution reads it from PATH, and a successful start
+// records what it used. The value the document names is kept separately because
+// it is what decides whether that write-back happens at all.
 func applyNodeVersion(settings *Settings, sources *Sources, document File, found bool, getenv paths.Getenv, overrides Overrides) {
 	configured := ""
 	if found && document.NodeVersion != nil {
@@ -685,16 +686,17 @@ func applyNodeVersion(settings *Settings, sources *Sources, document File, found
 	}
 	settings.ConfiguredNodeVersion = configured
 
+	environment := strings.TrimSpace(getenv(paths.EnvNodeVersion))
 	switch {
 	case overrides.NodeVersion != nil && strings.TrimSpace(*overrides.NodeVersion) != "":
 		settings.NodeVersion = strings.TrimSpace(*overrides.NodeVersion)
 		sources.NodeVersion = "flag"
+	case environment != "":
+		settings.NodeVersion = environment
+		sources.NodeVersion = "env"
 	case configured != "":
 		settings.NodeVersion = configured
 		sources.NodeVersion = "file"
-	case strings.TrimSpace(getenv(paths.EnvNodeVersion)) != "":
-		settings.NodeVersion = strings.TrimSpace(getenv(paths.EnvNodeVersion))
-		sources.NodeVersion = "env"
 	default:
 		// Nothing names a release: the resolution reads it from PATH and a
 		// successful start writes it down.
@@ -719,7 +721,18 @@ func resolveStateDir(getenv paths.Getenv) (string, string, error) {
 }
 
 // resolveConfigPath resolves the config file and names its source.
-func resolveConfigPath(getenv paths.Getenv, stateDir string) (string, string, error) {
+//
+// The layers are flag, environment, default, like every other path. The flag is
+// layered here rather than by rewriting the environment lookup, so that the
+// source `-v` prints is the layer that actually supplied the value.
+func resolveConfigPath(getenv paths.Getenv, stateDir string, override *string) (string, string, error) {
+	if override != nil && strings.TrimSpace(*override) != "" {
+		path, err := paths.Resolve(*override)
+		if err != nil {
+			return "", "", fmt.Errorf("参数 --config: %w", err)
+		}
+		return path, "flag", nil
+	}
 	if strings.TrimSpace(getenv(paths.EnvConfigFile)) != "" {
 		path, err := paths.ConfigFile(getenv)
 		if err != nil {

@@ -109,22 +109,22 @@ dshctl stop                   # 停止
 | `DSH_LOG_FILE` | 日志文件路径 | `<状态目录>/dsh-web.log` |
 | `DSH_REPO_DIR` | 仓库目录，等价 `--repo` | `~/deepseek-harness` |
 | `DSH_PORT` | 监听端口，等价 `--port` | `3080` |
-| `DSH_NODE_VERSION` | Node 版本，等价 `--node`；**只在配置里没有 `nodeVersion` 时生效** | 按 PATH 解析 |
+| `DSH_NODE_VERSION` | Node 版本，等价 `--node`；覆盖配置文件里的 `nodeVersion`（仅本次运行） | 按 PATH 解析 |
 
 规则：
 
 - 路径类变量必须是绝对路径或以 `~` 开头（不支持 `~user`）；相对路径会被拒绝，因为它会让状态目录和操作锁跟着当前目录漂移。
 - 只含空白的变量视为未设置。
-- 优先级：命令行参数 > 环境变量 > 配置文件 > 默认值。**唯一的例外是 `DSH_NODE_VERSION`**：`--node` > 配置文件 `nodeVersion` > `DSH_NODE_VERSION` > PATH，因为写进配置的那个版本是这台机器上验证过能跑的。
+- 优先级：命令行参数 > 环境变量 > 配置文件 > 默认值。所有配置项都按这个顺序，没有例外。Node 版本唯一的不同是最后一层：它没有内置默认值，没人指定版本时按 PATH 解析（见下节）。
 - dshctl 另外读取操作系统自身的 `PATH`（解析 `node`、`pnpm`、`git`，以及 Unix 上的 `lsof`/`ss`/`netstat`/`ps`）和 `HOME`（Windows 上是 `USERPROFILE`）来确定主目录与默认路径；这两个不是 dshctl 的配置项，但会决定上面这些默认值。
 - 不可配置：Node 最低版本 `24.12.0` 是代码里的常量，任何配置项、参数或环境变量都改不动它；状态目录内的文件名（`dshctl.lock`、`dsh-web-<端口>.state.json`）也是固定的。
 
 ## Node 版本
 
-Node 版本可以来自四个地方，优先级是 `--node` > 配置文件 `nodeVersion` > `DSH_NODE_VERSION` > PATH：
+Node 版本可以来自四个地方，优先级是 `--node` > `DSH_NODE_VERSION` > 配置文件 `nodeVersion` > PATH：
 
 - 配置里没有 `nodeVersion` 时，dshctl 用 PATH 上的那个 node（nvm、fnm、Homebrew、n、Volta、asdf、mise、官方安装包都一样），并在首次成功启动后把它写进配置，此后固定使用该版本。
-- `--node` 只影响本次运行，不写配置；只有当配置里还没有版本时才会写进去。
+- `--node` 与 `DSH_NODE_VERSION` 都只影响本次运行，不写配置；只有当配置里还没有版本时，成功启动才会把用到的版本写进去。用环境变量覆盖配置里的版本时会打印一行说明，因为导出的变量在命令里看不见。
 - 任何来源只要低于 `24.12.0` 都会被拒绝启动（退出码 4），并打印各安装方式的安装命令；高于已验证大版本（24.x）会警告但继续。
 - 若 PATH 上是版本管理器的转发条目（shim / 符号链接），dshctl 会解析出真正的解释器并把它的目录前置给服务进程。
 - `doctor` 显示当前会使用哪个 node，`status` 的运行记录里带着正在跑的服务所用的版本。

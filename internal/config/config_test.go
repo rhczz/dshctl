@@ -121,10 +121,10 @@ func TestPrecedence(t *testing.T) {
 	if fromEnv.Port != 2222 || fromEnv.RepoDir != filepath.Join(fixtureHome(), "from", "env") {
 		t.Fatalf("environment must win over the file: %+v", fromEnv)
 	}
-	// The Node release is the one setting whose layers are ordered differently,
-	// and its own order is pinned by the P rows in config_nodeversion_test.go.
-	if fromEnv.NodeVersion != "20.0.0" || fromEnv.Sources.NodeVersion != "file" {
-		t.Fatalf("nodeVersion = %q from %q, want the file's value: the document outranks the environment",
+	// The Node release follows the same order as every other setting; the P rows
+	// in config_nodeversion_test.go pin it case by case.
+	if fromEnv.NodeVersion != "21.0.0" || fromEnv.Sources.NodeVersion != "env" {
+		t.Fatalf("nodeVersion = %q from %q, want the environment's value",
 			fromEnv.NodeVersion, fromEnv.Sources.NodeVersion)
 	}
 	if fromEnv.Sources.Port != "env" || fromEnv.Sources.RepoDir != "env" {
@@ -651,5 +651,48 @@ func TestProvisionRefusesADirectoryAtTheConfigPath(t *testing.T) {
 	info, statErr := os.Stat(configPath)
 	if statErr != nil || !info.IsDir() {
 		t.Fatalf("the directory at the config path was disturbed: %v", statErr)
+	}
+}
+
+// TestTheConfigPathFlagIsLayeredAndNamed pins that --config is a layer like
+// every other path value — flag, then environment, then the default — and that
+// the verbose output names the layer that supplied it.
+//
+// It used to be applied by rewriting the environment lookup, so a --config value
+// was reported as coming from DSHCTL_CONFIG: the one question `-v` exists to
+// answer ("which layer set this?") got the wrong answer.
+func TestTheConfigPathFlagIsLayeredAndNamed(t *testing.T) {
+	root := t.TempDir()
+	envPath := filepath.Join(root, "from-env.json")
+	flagPath := filepath.Join(root, "from-flag.json")
+	environment := env{
+		paths.EnvHarnessHome: filepath.Join(root, "harness"),
+		paths.EnvStateDir:    filepath.Join(root, "state"),
+		paths.EnvConfigFile:  envPath,
+	}
+
+	fromEnv, err := Load(environment.Getenv, Overrides{})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if fromEnv.ConfigPath != envPath || fromEnv.Sources.ConfigPath != "env "+paths.EnvConfigFile {
+		t.Fatalf("config path = %q from %q, want the environment's path",
+			fromEnv.ConfigPath, fromEnv.Sources.ConfigPath)
+	}
+
+	fromFlag, err := Load(environment.Getenv, Overrides{ConfigPath: &flagPath})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if fromFlag.ConfigPath != flagPath || fromFlag.Sources.ConfigPath != "flag" {
+		t.Fatalf("config path = %q from %q, want the flag's path attributed to the flag",
+			fromFlag.ConfigPath, fromFlag.Sources.ConfigPath)
+	}
+
+	relative := filepath.Join("relative", "config.json")
+	if _, err := Load(environment.Getenv, Overrides{ConfigPath: &relative}); err == nil {
+		t.Fatal("a relative --config must be refused")
+	} else if !strings.Contains(err.Error(), "--config") {
+		t.Fatalf("error = %v, want it to name the flag", err)
 	}
 }

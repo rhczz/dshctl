@@ -110,7 +110,7 @@ func (w *nodeWorld) fields() map[string]any {
 // precedenceRows is the P section of the decision table.
 var precedenceRows = map[string]func(*testing.T){
 	"P1": testPrecedenceP1TheFlagWins,
-	"P2": testPrecedenceP2TheFileBeatsTheEnvironment,
+	"P2": testPrecedenceP2TheEnvironmentBeatsTheFile,
 	"P3": testPrecedenceP3TheEnvironmentAppliesWhenTheFileIsSilent,
 	"P4": testPrecedenceP4NothingIsDeterminedByDefault,
 	"P5": testPrecedenceP5WhitespaceIsNotAValue,
@@ -142,26 +142,31 @@ func testPrecedenceP1TheFlagWins(t *testing.T) {
 	}
 }
 
-// testPrecedenceP2TheFileBeatsTheEnvironment pins the one place this setting
-// differs from every other one. The release a machine runs is written down by
-// the first successful start, and an environment variable left over in a shell
-// must not silently move a service onto another runtime.
-func testPrecedenceP2TheFileBeatsTheEnvironment(t *testing.T) {
+// testPrecedenceP2TheEnvironmentBeatsTheFile pins that this setting is layered
+// like every other one: an exported variable is a decision about this run, and
+// the document is what a run without one falls back to.
+func testPrecedenceP2TheEnvironmentBeatsTheFile(t *testing.T) {
 	w := newNodeWorld(t).
 		writeDocument(`{"nodeVersion": "24.19.0"}`).
 		withVariable(paths.EnvNodeVersion, "24.21.0")
 
 	settings := w.load(Overrides{})
-	if settings.NodeVersion != "24.19.0" {
-		t.Fatalf("NodeVersion = %q, want the file's value to beat the environment", settings.NodeVersion)
+	if settings.NodeVersion != "24.21.0" {
+		t.Fatalf("NodeVersion = %q, want the environment's value to beat the file", settings.NodeVersion)
 	}
-	if settings.Sources.NodeVersion != "file" {
-		t.Fatalf("source = %q, want file", settings.Sources.NodeVersion)
+	if settings.Sources.NodeVersion != "env" {
+		t.Fatalf("source = %q, want env", settings.Sources.NodeVersion)
+	}
+	if settings.ConfiguredNodeVersion != "24.19.0" {
+		t.Fatalf("ConfiguredNodeVersion = %q, want the file's value kept for the write-back rule",
+			settings.ConfiguredNodeVersion)
 	}
 }
 
-// testPrecedenceP3TheEnvironmentAppliesWhenTheFileIsSilent pins the third layer:
-// an installation whose document names no release honours the environment.
+// testPrecedenceP3TheEnvironmentAppliesWhenTheFileIsSilent pins that the
+// environment needs no cooperation from the document: a file that names a
+// release is overridden above, and one that names none is simply the layer
+// below.
 func testPrecedenceP3TheEnvironmentAppliesWhenTheFileIsSilent(t *testing.T) {
 	w := newNodeWorld(t).
 		writeDocument(`{"port": 3081}`).
@@ -258,9 +263,9 @@ func testPrecedenceP7NullAndEmptyMeanUndetermined(t *testing.T) {
 }
 
 // testPrecedenceP8TheConfiguredReleaseTracksTheFile pins the input the write-back
-// rule is built on: what the file names, independently of which layer won. A
-// flag must not make the file look configured, and a flag must not make it look
-// empty either.
+// rule is built on: what the file names, independently of which layer won. An
+// override must not make the file look configured, and it must not make it look
+// empty either — the difference decides whether a successful start rewrites it.
 func testPrecedenceP8TheConfiguredReleaseTracksTheFile(t *testing.T) {
 	version := "24.21.0"
 
