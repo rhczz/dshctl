@@ -177,17 +177,61 @@ func stubToolPath(t *testing.T, programs ...string) string {
 			// runtime on PATH is followed by `node -v` to learn its version, and
 			// a stub that answers with noise would make the command under test
 			// decide it is running an ancient Node.
-			if runtime.GOOS == "windows" {
-				body = "@echo v" + config.DefaultNodeVersion + "\r\n"
-			} else {
-				body = "#!/bin/sh\necho v" + config.DefaultNodeVersion + "\n"
-			}
+			name, body = nodeStubBody(config.TestedNodeVersion)
 		}
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o755); err != nil {
 			t.Fatalf("write the %s stub: %v", program, err)
 		}
 	}
 	return dir + string(os.PathListSeparator) + minimalToolPath()
+}
+
+// nodeStubBody renders a fake node that reports version, in the shape the
+// platform resolves and executes.
+func nodeStubBody(version string) (string, string) {
+	if runtime.GOOS == "windows" {
+		return "node.cmd", "@echo v" + version + "\r\n"
+	}
+	return "node", "#!/bin/sh\necho v" + version + "\n"
+}
+
+// stubNodePath writes a node stub that reports version, together with a pnpm
+// stub, and returns a PATH that finds them ahead of the operating system's own
+// directories.
+//
+// It is how a test says which release the machine serves, which is the input the
+// whole resolution is about. pnpm comes along because every mutating command
+// resolves it before the runtime, so a machine without it never reaches the
+// decision under test.
+func stubNodePath(t *testing.T, version string) string {
+	t.Helper()
+	dir := t.TempDir()
+	name, body := nodeStubBody(version)
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o755); err != nil {
+		t.Fatalf("write the node stub: %v", err)
+	}
+	pnpmName, pnpmBody := "pnpm", "#!/bin/sh\nexit 0\n"
+	if runtime.GOOS == "windows" {
+		pnpmName, pnpmBody = "pnpm.cmd", "@exit /b 0\r\n"
+	}
+	if err := os.WriteFile(filepath.Join(dir, pnpmName), []byte(pnpmBody), 0o755); err != nil {
+		t.Fatalf("write the pnpm stub: %v", err)
+	}
+	return dir + string(os.PathListSeparator) + minimalToolPath()
+}
+
+// readSettingsDocument decodes the settings document of a run.
+func readSettingsDocument(t *testing.T, stateDir string) map[string]any {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(stateDir, "config.json"))
+	if err != nil {
+		t.Fatalf("read the settings document: %v", err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(data, &document); err != nil {
+		t.Fatalf("decode the settings document: %v\n%s", err, data)
+	}
+	return document
 }
 
 // binaryEnvironment builds the environment the binary runs with.
@@ -206,7 +250,6 @@ func binaryEnvironment(t *testing.T, root, home, stateDir string) []string {
 		"DSHCTL_CONFIG=" + filepath.Join(stateDir, "config.json"),
 		"DSH_LOG_FILE=" + filepath.Join(stateDir, "dsh-web.log"),
 		"DSH_REPO_DIR=" + filepath.Join(root, "repo"),
-		"DSH_NODE_VERSION=latest",
 		"DSH_PORT=" + freePortString(t),
 		// A pnpm installed through corepack is a shim that downloads the real
 		// package on first use, which would make `doctor` depend on the network

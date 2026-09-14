@@ -3,13 +3,19 @@ package nodejs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/rhczz/dshctl/internal/run"
 )
+
+// The decision table this file pins is the R section of the resolution matrix:
+// one case per row, all of them listed in matrix_completeness_test.go so a row
+// cannot be dropped silently.
 
 // installNVM creates an nvm-style release under home and returns the node path.
 func installNVM(t *testing.T, home, version string) string {
@@ -30,6 +36,12 @@ func installFNMLegacy(t *testing.T, home, version string) string {
 	return writeNode(t, filepath.Join(home, ".local", "share", "fnm", "node-versions", "v"+version, "bin", nodeBinaryName))
 }
 
+// installNVMWindows creates the layout nvm-windows uses.
+func installNVMWindows(t *testing.T, home, version string) string {
+	t.Helper()
+	return writeNode(t, filepath.Join(home, "AppData", "Roaming", "nvm", "v"+version, nodeBinaryName))
+}
+
 // writeNode creates an executable file and returns its path.
 func writeNode(t *testing.T, path string) string {
 	t.Helper()
@@ -42,333 +54,481 @@ func writeNode(t *testing.T, path string) string {
 	return path
 }
 
-// resolver returns a resolver whose PATH lookup always fails, so only the
-// version managers can answer.
-func resolver() *Resolver {
-	return &Resolver{
-		LookPath: func(string) (string, error) { return "", errors.New("not found") },
-		Glob:     filepath.Glob,
-		Stat:     os.Stat,
-	}
+// Probe argument keys: the two questions the resolver asks a node binary.
+const (
+	versionProbe  = "-v"
+	execPathProbe = "-p process.execPath"
+)
+
+// machine is a fictional host: a home that may hold version managers, a PATH
+// that may or may not hold a node, and a node binary that answers — or refuses
+// to answer — the two questions the resolver asks it.
+type machine struct {
+	t       *testing.T
+	home    string
+	pathHit string
+	answers map[string]probeAnswer
+	probed  []string
+	globs   []string
 }
 
-// TestResolvePrefersThePinnedNVMRelease pins the ordinary configuration.
-func TestResolvePrefersThePinnedNVMRelease(t *testing.T) {
-	home := t.TempDir()
-	want := installNVM(t, home, "24.20.0")
-	installNVM(t, home, "24.21.0")
-
-	got, err := resolver().Resolve(Preferences{Version: "24.20.0", Home: home})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if got.NodePath != want {
-		t.Fatalf("NodePath = %q, want %q", got.NodePath, want)
-	}
-	if got.Version != "24.20.0" || got.Source != SourceNVM {
-		t.Fatalf("resolved = %+v", got)
-	}
-	if got.BinDir != filepath.Dir(want) {
-		t.Fatalf("BinDir = %q, want %q", got.BinDir, filepath.Dir(want))
-	}
-}
-
-// TestResolveFindsFNMLayouts is the regression test for probing <version>/bin
-// instead of fnm's <version>/installation/bin, which made the whole fnm branch
-// dead code.
-func TestResolveFindsFNMLayouts(t *testing.T) {
-	cases := []struct {
-		name    string
-		install func(*testing.T, string, string) string
-	}{
-		{"current layout", installFNM},
-		{"legacy layout", installFNMLegacy},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			home := t.TempDir()
-			want := testCase.install(t, home, "24.20.0")
-
-			got, err := resolver().Resolve(Preferences{Version: "24.20.0", Home: home})
-			if err != nil {
-				t.Fatalf("Resolve: %v", err)
-			}
-			if got.NodePath != want || got.Source != SourceFNM {
-				t.Fatalf("resolved = %+v, want the fnm installation at %q", got, want)
-			}
-		})
-	}
-}
-
-// TestResolveFindsTheNVMWindowsLayout pins the layout nvm-windows uses: the
-// runtime sits directly under the version directory, without a bin/ level. A
-// search that only understood the Unix layout found nothing here and reported
-// "no Node installed" for a working installation.
-func TestResolveFindsTheNVMWindowsLayout(t *testing.T) {
-	home := t.TempDir()
-	want := writeNode(t, filepath.Join(home, "AppData", "Roaming", "nvm", "v24.20.0", nodeBinaryName))
-
-	got, err := resolver().Resolve(Preferences{Version: "24.20.0", Home: home})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if got.NodePath != want || got.Source != SourceNVM {
-		t.Fatalf("resolved = %+v, want the nvm-windows installation at %q", got, want)
-	}
-}
-
-// TestResolveLatestPicksTheNewestRelease pins the "latest" selector across both
-// version managers.
-func TestResolveLatestPicksTheNewestRelease(t *testing.T) {
-	home := t.TempDir()
-	installNVM(t, home, "22.19.0")
-	newest := installFNM(t, home, "24.21.0")
-	installNVM(t, home, "24.20.0")
-
-	for _, requested := range []string{"", "latest", "LATEST"} {
-		got, err := resolver().Resolve(Preferences{Version: requested, Home: home})
-		if err != nil {
-			t.Fatalf("Resolve(%q): %v", requested, err)
-		}
-		if got.NodePath != newest {
-			t.Fatalf("Resolve(%q) = %q, want %q", requested, got.NodePath, newest)
-		}
-	}
-}
-
-// TestResolveAcceptsAnEquivalentVersionString pins that "24.20" and "v24.20.0"
-// name the same release instead of failing an exact string comparison.
-func TestResolveAcceptsAnEquivalentVersionString(t *testing.T) {
-	home := t.TempDir()
-	want := installNVM(t, home, "24.20.0")
-	for _, requested := range []string{"24.20.0", "v24.20.0", "24.20"} {
-		got, err := resolver().Resolve(Preferences{Version: requested, Home: home})
-		if err != nil {
-			t.Fatalf("Resolve(%q): %v", requested, err)
-		}
-		if got.NodePath != want {
-			t.Fatalf("Resolve(%q) = %q, want %q", requested, got.NodePath, want)
-		}
-	}
-}
-
-// TestResolveRefusesAMissingPinnedRelease pins that a pin is never satisfied by
-// an unrelated release.
-func TestResolveRefusesAMissingPinnedRelease(t *testing.T) {
-	home := t.TempDir()
-	installNVM(t, home, "24.20.0")
-
-	_, err := resolver().Resolve(Preferences{Version: "24.99.0", Home: home})
-	if err == nil {
-		t.Fatal("expected an error for a release that is not installed")
-	}
-	if !contains(err.Error(), "24.99.0") {
-		t.Fatalf("error = %v, want it to name the requested release", err)
-	}
-}
-
-// TestResolveIgnoresUnusableInstallations pins that a version directory without
-// a runnable node binary, or with a directory where the binary belongs, is not a
-// candidate.
-func TestResolveIgnoresUnusableInstallations(t *testing.T) {
-	home := t.TempDir()
-	root := filepath.Join(home, ".nvm", "versions", "node")
-	// A release directory with no bin/node at all.
-	if err := os.MkdirAll(filepath.Join(root, "v24.20.0", "bin"), 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	// A release directory whose node is a directory.
-	if err := os.MkdirAll(filepath.Join(root, "v24.21.0", "bin", nodeBinaryName), 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	// A directory whose name is not a version.
-	if err := os.MkdirAll(filepath.Join(root, "current", "bin"), 0o755); err != nil {
-		t.Fatalf("mkdir: %v", err)
-	}
-	want := installNVM(t, home, "24.22.0")
-
-	got, err := resolver().Resolve(Preferences{Home: home})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if got.NodePath != want {
-		t.Fatalf("NodePath = %q, want %q", got.NodePath, want)
-	}
-}
-
-// TestResolveFallsBackToPATH pins the last resort, and that the caller can learn
-// the version it actually got.
-func TestResolveFallsBackToPATH(t *testing.T) {
-	fallback := &Resolver{
-		LookPath: func(name string) (string, error) {
-			if name == "node" {
-				return "/usr/local/bin/node", nil
-			}
-			return "", errors.New("not found")
-		},
-		Glob: filepath.Glob,
-		Stat: os.Stat,
-	}
-	// With a pin that is not installed anywhere, the resolve fails...
-	if _, err := fallback.Resolve(Preferences{Version: "24.99.0", Home: t.TempDir()}); err == nil {
-		t.Fatal("a missing pinned release must fail")
-	}
-	// ...while "latest" accepts what PATH offers.
-	got, err := fallback.Resolve(Preferences{Home: t.TempDir()})
-	if err != nil {
-		t.Fatalf("Resolve: %v", err)
-	}
-	if got.Source != SourcePath || got.NodePath != "/usr/local/bin/node" {
-		t.Fatalf("resolved = %+v", got)
-	}
-	if got.Version != "" {
-		t.Fatalf("a PATH hit has no version until it is asked, got %q", got.Version)
-	}
-}
-
-// TestResolveWithoutAnyNode pins the failure message.
-func TestResolveWithoutAnyNode(t *testing.T) {
-	_, err := resolver().Resolve(Preferences{Version: "24.20.0", Home: t.TempDir()})
-	if err == nil {
-		t.Fatal("expected an error")
-	}
-	if !contains(err.Error(), "nvm") || !contains(err.Error(), "fnm") {
-		t.Fatalf("error = %v, want it to name where it looked", err)
-	}
-}
-
-// TestInfoReadsTheVersionAndReportsAMismatch pins the PATH fallback: the binary
-// is asked for its release, and a release that does not satisfy the request is
-// reported rather than silently used.
-func TestInfoReadsTheVersionAndReportsAMismatch(t *testing.T) {
-	stub := fakeOutput{stdout: "v22.19.0\n"}
-	resolver := &Resolver{Output: stub}
-
-	got := resolver.Info(context.Background(), Installation{NodePath: "/usr/bin/node", Source: SourcePath}, "24.20.0")
-	if got.Version != "22.19.0" {
-		t.Fatalf("Version = %q, want 22.19.0", got.Version)
-	}
-	if got.Requested != "24.20.0" {
-		t.Fatalf("Requested = %q, want the release that was asked for", got.Requested)
-	}
-
-	// A satisfying version reports no mismatch.
-	stub.stdout = "v24.20.0\n"
-	got = (&Resolver{Output: stub}).Info(context.Background(), Installation{NodePath: "/usr/bin/node"}, "24.20")
-	if got.Requested != "" {
-		t.Fatalf("Requested = %q, want empty when the release satisfies the pin", got.Requested)
-	}
-
-	// "latest" never reports a mismatch.
-	got = (&Resolver{Output: stub}).Info(context.Background(), Installation{NodePath: "/usr/bin/node"}, Latest)
-	if got.Requested != "" {
-		t.Fatalf("Requested = %q, want empty for latest", got.Requested)
-	}
-}
-
-// TestInfoKeepsAKnownVersion pins that a version implied by a directory name is
-// not re-read from the binary.
-func TestInfoKeepsAKnownVersion(t *testing.T) {
-	stub := fakeOutput{stdout: "v99.0.0\n"}
-	got := (&Resolver{Output: stub}).Info(context.Background(), Installation{Version: "24.20.0", NodePath: "/nvm/node"}, "24.20.0")
-	if got.Version != "24.20.0" {
-		t.Fatalf("Version = %q, want the directory name", got.Version)
-	}
-}
-
-// TestInfoToleratesAnUnrunnableNode pins that a failed probe leaves the version
-// unknown instead of failing the operation.
-func TestInfoToleratesAnUnrunnableNode(t *testing.T) {
-	stub := fakeOutput{err: errors.New("boom")}
-	got := (&Resolver{Output: stub}).Info(context.Background(), Installation{NodePath: "/usr/bin/node"}, "24.20.0")
-	if got.Version != "" {
-		t.Fatalf("Version = %q, want empty", got.Version)
-	}
-	if got.Requested != "" {
-		t.Fatalf("Requested = %q, want empty when the version is unknown", got.Requested)
-	}
-}
-
-// fakeOutput answers captured output.
-type fakeOutput struct {
+// probeAnswer is what the fictional node binary prints, or why it fails.
+type probeAnswer struct {
 	stdout string
 	err    error
 }
 
-// Output implements run.Outputer.
-func (f fakeOutput) Output(context.Context, run.Command) (string, error) {
-	return f.stdout, f.err
+// newMachine returns a machine whose PATH holds no node and whose home is empty.
+func newMachine(t *testing.T) *machine {
+	t.Helper()
+	return &machine{t: t, home: t.TempDir(), answers: map[string]probeAnswer{}}
 }
 
-// Capture implements run.Capturer.
-func (f fakeOutput) Capture(context.Context, run.Command) run.Result {
-	return run.Result{Stdout: f.stdout, Err: f.err}
+// nodeOnPATH makes `node` resolve to path and answer with version, as a direct
+// installation would: the binary is the interpreter that runs.
+func (m *machine) nodeOnPATH(path, version string) {
+	m.pathHit = path
+	m.answers[versionProbe] = probeAnswer{stdout: "v" + version + "\n"}
+	m.answers[execPathProbe] = probeAnswer{stdout: path + "\n"}
 }
 
-// TestCompareAndMatches pins the version arithmetic.
-func TestCompareAndMatches(t *testing.T) {
-	cases := []struct {
-		left, right string
-		want        int
-	}{
-		{"24.20.0", "24.20.0", 0},
-		{"24.20.0", "24.12.0", 1},
-		{"24.12.0", "24.20.0", -1},
-		{"24.20", "24.20.0", 0},
-		{"v24.20.0", "24.20.0", 0},
-		{"24.20.0-rc.1", "24.20.0", 0},
-		{"24.20.0+build5", "24.20.0", 0},
-		{"22.19.0", "24.0.0", -1},
-		{"24.0.0", "24.0.1", -1},
-		{"24.0.10", "24.0.9", 1},
-		{"garbage", "0.0.0", 0},
+// forwardingNodeOnPATH makes `node` resolve to a shim that forwards to real.
+func (m *machine) forwardingNodeOnPATH(shim, real, version string) {
+	m.pathHit = shim
+	m.answers[versionProbe] = probeAnswer{stdout: "v" + version + "\n"}
+	m.answers[execPathProbe] = probeAnswer{stdout: real + "\n"}
+}
+
+// installNVM installs a release under the machine's home.
+func (m *machine) installNVM(version string) string { return installNVM(m.t, m.home, version) }
+
+// installFNM installs a release under the machine's home.
+func (m *machine) installFNM(version string) string { return installFNM(m.t, m.home, version) }
+
+// resolver wires the machine into a Resolver.
+func (m *machine) resolver() *Resolver {
+	return &Resolver{
+		LookPath: func(name string) (string, error) {
+			if name != "node" {
+				return "", os.ErrNotExist
+			}
+			if m.pathHit == "" {
+				return "", os.ErrNotExist
+			}
+			return m.pathHit, nil
+		},
+		Glob: func(pattern string) ([]string, error) {
+			m.globs = append(m.globs, pattern)
+			return filepath.Glob(pattern)
+		},
+		Stat:   os.Stat,
+		Output: m,
 	}
-	for _, testCase := range cases {
-		if got := Compare(testCase.left, testCase.right); got != testCase.want {
-			t.Fatalf("Compare(%q, %q) = %d, want %d", testCase.left, testCase.right, got, testCase.want)
+}
+
+// Output implements run.Outputer, recording every probe.
+func (m *machine) Output(_ context.Context, cmd run.Command) (string, error) {
+	key := strings.Join(cmd.Args, " ")
+	m.probed = append(m.probed, key)
+	answer, ok := m.answers[key]
+	if !ok {
+		return "", fmt.Errorf("意外的探针: %s %s", cmd.Name, key)
+	}
+	return answer.stdout, answer.err
+}
+
+// probedKeys returns the argument keys the fictional node was asked, in order.
+func (m *machine) probedKeys() []string { return append([]string(nil), m.probed...) }
+
+// wantProbes fails the test unless exactly the given probes were made.
+func (m *machine) wantProbes(t *testing.T, want ...string) {
+	t.Helper()
+	got := m.probedKeys()
+	if len(got) != len(want) {
+		t.Fatalf("探针 = %v, want %v", got, want)
+	}
+	for index := range want {
+		if got[index] != want[index] {
+			t.Fatalf("探针 = %v, want %v", got, want)
 		}
 	}
-	if !Matches("24.20.0", "24.20") || Matches("24.20.0", "24.21") {
-		t.Fatal("Matches does not agree with Compare")
-	}
-	if Matches("", "24.20") || Matches("24.20", "") {
-		t.Fatal("an empty version never matches")
+}
+
+// resolveRows is the R section of the decision table: one case per row.
+var resolveRows = map[string]func(*testing.T){
+	"R1":  testResolveR1DiscoversFromPATH,
+	"R2":  testResolveR2ReportsAMissingPATHNode,
+	"R3":  testResolveR3ReportsAnUnusablePATHNode,
+	"R4":  testResolveR4ReturnsWhateverPATHServes,
+	"R5":  testResolveR5FindsARequestedReleaseOnPATH,
+	"R6":  testResolveR6LetsTheManagersAnswerWithoutProbing,
+	"R7":  testResolveR7FindsARequestedReleaseInFNM,
+	"R8":  testResolveR8ReportsAMissingRequestedRelease,
+	"R9":  testResolveR9PicksTheRequestedReleaseExactly,
+	"R10": testResolveR10FollowsAForwardingShim,
+	"R11": testResolveR11ToleratesAFailedExecPathProbe,
+	"R12": testResolveR12ReportsARequestThatNamesNothing,
+	"R13": testResolveR13NeverGlobsARelativePathWithoutAHome,
+}
+
+// TestResolveMatrix runs every row of the resolution table.
+func TestResolveMatrix(t *testing.T) {
+	for id, run := range resolveRows {
+		t.Run(id, func(t *testing.T) { run(t) })
 	}
 }
 
-// TestParseVersion pins the `node -v` reader.
-func TestParseVersion(t *testing.T) {
-	cases := map[string]string{
-		"v24.20.0\n":   "24.20.0",
-		"24.20.0":      "24.20.0",
-		"  v22.19.0  ": "22.19.0",
-		"v24.20.0 \n":  "24.20.0",
-		"":             "",
-		"v":            "",
+// TestResolveR1DiscoversFromPATH pins the default path: nothing was asked for,
+// so the runtime is what PATH serves, and its release is read from the binary.
+func testResolveR1DiscoversFromPATH(t *testing.T) {
+	m := newMachine(t)
+	binary := filepath.Join(m.home, "usr", "bin", nodeBinaryName)
+	m.nodeOnPATH(binary, "24.20.0")
+
+	got, err := m.resolver().Resolve(context.Background(), Preferences{Home: m.home})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
 	}
-	for input, want := range cases {
-		if got := ParseVersion(input); got != want {
-			t.Fatalf("ParseVersion(%q) = %q, want %q", input, got, want)
+	want := Installation{
+		Version:  "24.20.0",
+		NodePath: binary,
+		BinDir:   filepath.Dir(binary),
+		Source:   SourcePath,
+	}
+	if got != want {
+		t.Fatalf("resolved = %+v, want %+v", got, want)
+	}
+	m.wantProbes(t, versionProbe, execPathProbe)
+}
+
+// TestResolveR2ReportsAMissingPATHNode pins the failure that carries the
+// observation instead of a message: PATH had nothing to offer.
+func testResolveR2ReportsAMissingPATHNode(t *testing.T) {
+	m := newMachine(t)
+
+	_, err := m.resolver().Resolve(context.Background(), Preferences{Home: m.home})
+	failure := wantFailure(t, err)
+	if failure.Requested != "" {
+		t.Fatalf("Requested = %q, want empty for a discovery", failure.Requested)
+	}
+	if len(failure.Observations) != 1 {
+		t.Fatalf("observations = %+v, want exactly one", failure.Observations)
+	}
+	if failure.Observations[0].Source != SourcePath {
+		t.Fatalf("observation = %+v, want the PATH observation", failure.Observations[0])
+	}
+	if failure.Err != nil {
+		t.Fatalf("Err = %v, want nil: nothing was there to fail", failure.Err)
+	}
+	m.wantProbes(t)
+}
+
+// TestResolveR3ReportsAnUnusablePATHNode pins what a node that cannot say what
+// it is means: the failure names the path and carries the reason, so the
+// operator learns which binary is broken instead of reading "no Node".
+func testResolveR3ReportsAnUnusablePATHNode(t *testing.T) {
+	m := newMachine(t)
+	binary := filepath.Join(m.home, "usr", "bin", nodeBinaryName)
+	m.pathHit = binary
+	m.answers[versionProbe] = probeAnswer{err: errors.New("exit status 1")}
+
+	_, err := m.resolver().Resolve(context.Background(), Preferences{Home: m.home})
+	failure := wantFailure(t, err)
+	if failure.Err == nil || !strings.Contains(failure.Err.Error(), "exit status 1") {
+		t.Fatalf("Err = %v, want the probe's own failure", failure.Err)
+	}
+	observation := failure.Observations[0]
+	if observation.Path != binary {
+		t.Fatalf("observation = %+v, want it to name %q", observation, binary)
+	}
+}
+
+// TestResolveR4ReturnsWhateverPATHServes pins that the resolver reports what it
+// found: the minimum-version gate is Assess's decision, not the resolver's, so
+// there is exactly one place where a release is refused.
+func testResolveR4ReturnsWhateverPATHServes(t *testing.T) {
+	m := newMachine(t)
+	binary := filepath.Join(m.home, "usr", "bin", nodeBinaryName)
+	m.nodeOnPATH(binary, "22.14.0")
+
+	got, err := m.resolver().Resolve(context.Background(), Preferences{Home: m.home})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if got.Version != "22.14.0" {
+		t.Fatalf("Version = %q, want the release PATH serves", got.Version)
+	}
+}
+
+// TestResolveR5FindsARequestedReleaseOnPATH pins the case the version-manager
+// scan alone used to miss: a release installed by something else — Homebrew, n,
+// the official installer — that is exactly the one asked for.
+func testResolveR5FindsARequestedReleaseOnPATH(t *testing.T) {
+	m := newMachine(t)
+	binary := filepath.Join(m.home, "opt", "homebrew", "bin", nodeBinaryName)
+	m.nodeOnPATH(binary, "24.20.0")
+
+	got, err := m.resolver().Resolve(context.Background(), Preferences{Version: "24.20.0", Home: m.home})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if got.NodePath != binary || got.Version != "24.20.0" || got.Source != SourcePath {
+		t.Fatalf("resolved = %+v, want the PATH installation at %q", got, binary)
+	}
+}
+
+// TestResolveR6LetsTheManagersAnswerWithoutProbing pins two things at once: a
+// requested release that a version manager holds wins over a different node on
+// PATH, and finding it costs no process at all — the release is implied by the
+// directory name.
+func testResolveR6LetsTheManagersAnswerWithoutProbing(t *testing.T) {
+	m := newMachine(t)
+	want := m.installNVM("24.20.0")
+	m.installNVM("24.21.0")
+	// PATH serves a different release entirely: it must not be consulted.
+	m.nodeOnPATH(filepath.Join(m.home, "usr", "bin", nodeBinaryName), "22.14.0")
+
+	got, err := m.resolver().Resolve(context.Background(), Preferences{Version: "24.20.0", Home: m.home})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if got.NodePath != want || got.Version != "24.20.0" || got.Source != SourceNVM {
+		t.Fatalf("resolved = %+v, want the nvm installation at %q", got, want)
+	}
+	m.wantProbes(t)
+}
+
+// TestResolveR7FindsARequestedReleaseInFNM pins the fnm half of the manager
+// scan: a release that only fnm holds is found, and no process is started.
+func testResolveR7FindsARequestedReleaseInFNM(t *testing.T) {
+	m := newMachine(t)
+	want := m.installFNM("24.20.0")
+
+	got, err := m.resolver().Resolve(context.Background(), Preferences{Version: "24.20.0", Home: m.home})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if got.NodePath != want || got.Source != SourceFNM || got.Version != "24.20.0" {
+		t.Fatalf("resolved = %+v, want the fnm installation at %q", got, want)
+	}
+	m.wantProbes(t)
+}
+
+// TestResolveR8ReportsAMissingRequestedRelease pins the report of a release that
+// is installed nowhere: it names the release and shows what PATH had instead,
+// because "22.14.0 is on your PATH" is the fact the operator needs to see.
+func testResolveR8ReportsAMissingRequestedRelease(t *testing.T) {
+	m := newMachine(t)
+	m.installNVM("24.19.0")
+	m.nodeOnPATH(filepath.Join(m.home, "usr", "bin", nodeBinaryName), "22.14.0")
+
+	_, err := m.resolver().Resolve(context.Background(), Preferences{Version: "24.20.0", Home: m.home})
+	failure := wantFailure(t, err)
+	if failure.Requested != "24.20.0" {
+		t.Fatalf("Requested = %q, want the release that was asked for", failure.Requested)
+	}
+	if len(failure.Observations) != 2 {
+		t.Fatalf("observations = %+v, want the managers and PATH", failure.Observations)
+	}
+	if failure.Observations[0].Source != SourceManagers || !strings.Contains(failure.Observations[0].Detail, "24.19.0") {
+		t.Fatalf("managers observation = %+v, want it to name the newest release found", failure.Observations[0])
+	}
+	if failure.Observations[1].Version != "22.14.0" {
+		t.Fatalf("PATH observation = %+v, want the release PATH serves", failure.Observations[1])
+	}
+}
+
+// TestResolveR9PicksTheRequestedReleaseExactly pins that a request is satisfied
+// by that release and not by a neighbouring one.
+func testResolveR9PicksTheRequestedReleaseExactly(t *testing.T) {
+	m := newMachine(t)
+	m.installNVM("24.20.0")
+	want := m.installNVM("24.19.0")
+	m.installNVM("24.21.0")
+
+	for _, requested := range []string{"24.19.0", "24.19", "v24.19.0", " 24.19.0 "} {
+		got, err := m.resolver().Resolve(context.Background(), Preferences{Version: requested, Home: m.home})
+		if err != nil {
+			t.Fatalf("Resolve(%q): %v", requested, err)
+		}
+		if got.NodePath != want || got.Version != "24.19.0" {
+			t.Fatalf("Resolve(%q) = %+v, want the 24.19.0 installation at %q", requested, got, want)
 		}
 	}
 }
 
-// TestAtLeast pins the minimum-version check, including the unknown case.
-func TestAtLeast(t *testing.T) {
-	cases := []struct {
-		version string
-		minimum string
-		want    bool
-	}{
-		{"24.20.0", "24.12.0", true},
-		{"24.12.0", "24.12.0", true},
-		{"22.19.0", "24.12.0", false},
-		{"", "24.12.0", false},
+// TestResolveR10FollowsAForwardingShim pins that the runtime handed to the
+// server is the interpreter, not the forwarder: a shim resolves by its own rules
+// at exec time, so the directory put in front of PATH must be the real one.
+func testResolveR10FollowsAForwardingShim(t *testing.T) {
+	m := newMachine(t)
+	shim := filepath.Join(m.home, ".asdf", "shims", nodeBinaryName)
+	real := filepath.Join(m.home, ".asdf", "installs", "nodejs", "24.20.0", "bin", nodeBinaryName)
+	m.forwardingNodeOnPATH(shim, real, "24.20.0")
+
+	got, err := m.resolver().Resolve(context.Background(), Preferences{Home: m.home})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
 	}
-	for _, testCase := range cases {
-		if got := (Installation{Version: testCase.version}).AtLeast(testCase.minimum); got != testCase.want {
-			t.Fatalf("AtLeast(%q, %q) = %v, want %v", testCase.version, testCase.minimum, got, testCase.want)
+	if got.NodePath != real || got.BinDir != filepath.Dir(real) {
+		t.Fatalf("resolved = %+v, want the real interpreter at %q", got, real)
+	}
+	if !got.ViaShim {
+		t.Fatalf("resolved = %+v, want ViaShim reported", got)
+	}
+}
+
+// TestResolveR11ToleratesAFailedExecPathProbe pins the degradation: a binary
+// that cannot be asked where it lives is still usable, and the directory of the
+// PATH hit is the best available answer.
+func testResolveR11ToleratesAFailedExecPathProbe(t *testing.T) {
+	m := newMachine(t)
+	binary := filepath.Join(m.home, "usr", "bin", nodeBinaryName)
+	m.nodeOnPATH(binary, "24.20.0")
+	m.answers[execPathProbe] = probeAnswer{err: errors.New("boom")}
+
+	got, err := m.resolver().Resolve(context.Background(), Preferences{Home: m.home})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if got.NodePath != binary || got.BinDir != filepath.Dir(binary) || got.ViaShim {
+		t.Fatalf("resolved = %+v, want the PATH hit at %q with no shim reported", got, binary)
+	}
+}
+
+// TestResolveR12ReportsARequestThatNamesNothing pins that a value which is not a
+// release is reported as a request that cannot be satisfied rather than being
+// silently reinterpreted.
+func testResolveR12ReportsARequestThatNamesNothing(t *testing.T) {
+	for _, requested := range []string{"latest", "abc", "v"} {
+		m := newMachine(t)
+		m.nodeOnPATH(filepath.Join(m.home, "usr", "bin", nodeBinaryName), "24.20.0")
+
+		_, err := m.resolver().Resolve(context.Background(), Preferences{Version: requested, Home: m.home})
+		failure := wantFailure(t, err)
+		if failure.Requested == "" {
+			t.Fatalf("Resolve(%q) reported a discovery failure, want the request named", requested)
 		}
+	}
+}
+
+// TestResolveR13NeverGlobsARelativePathWithoutAHome pins what an unset home must
+// not do.
+//
+// Every root the resolver searches is built by joining the home directory, and
+// filepath.Join("", …) produces a path relative to the process's working
+// directory rather than an empty one. A resolver handed an empty home therefore
+// searches the caller's working directory for .nvm/versions/node/* — a lookup
+// whose answer depends on where dshctl happened to be started.
+func testResolveR13NeverGlobsARelativePathWithoutAHome(t *testing.T) {
+	var patterns []string
+	recording := &Resolver{
+		LookPath: func(string) (string, error) { return "", os.ErrNotExist },
+		Glob: func(pattern string) ([]string, error) {
+			patterns = append(patterns, pattern)
+			return nil, nil
+		},
+		Stat: os.Stat,
+	}
+
+	if _, err := recording.Resolve(context.Background(), Preferences{Home: ""}); err == nil {
+		t.Fatal("with no home and nothing on PATH the resolve must fail")
+	}
+	for _, pattern := range patterns {
+		if !filepath.IsAbs(pattern) {
+			t.Errorf("Resolve searched the relative path %q: an empty Home must not make the resolver read the working directory", pattern)
+		}
+	}
+}
+
+// wantFailure asserts that a resolution was refused, and returns the refusal so
+// a row can assert on what it carries.
+func wantFailure(t *testing.T, failure *Failure) *Failure {
+	t.Helper()
+	if failure == nil {
+		t.Fatal("expected a resolution failure")
+	}
+	return failure
+}
+
+// TestResolveFillsInAnEmptyHomeFromThePlatform pins what an unset Home means.
+//
+// The version managers live in the operating system's home directory, so a
+// preference that names none is filled in from the platform rather than left
+// empty. The throwaway HOME here is the only home the test process can see, so
+// the installation that comes back is the one the fallback resolved.
+func TestResolveFillsInAnEmptyHomeFromThePlatform(t *testing.T) {
+	home := t.TempDir()
+	// os.UserHomeDir reads $HOME on Unix and %USERPROFILE% on Windows.
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+
+	want := installNVM(t, home, "24.20.0")
+	got, err := newMachineWithHome(t, home).resolver().Resolve(
+		context.Background(), Preferences{Version: "24.20.0", Home: ""})
+	if err != nil {
+		t.Fatalf("Resolve with no home: %v", err)
+	}
+	if got.NodePath != want || got.Source != SourceNVM || got.Version != "24.20.0" {
+		t.Fatalf("resolved = %+v, want the nvm installation at %q", got, want)
+	}
+}
+
+// newMachineWithHome returns a machine whose home is the given directory rather
+// than a fresh temporary one.
+func newMachineWithHome(t *testing.T, home string) *machine {
+	t.Helper()
+	return &machine{t: t, home: home, answers: map[string]probeAnswer{}}
+}
+
+// TestResolvedInstallationsAreWellFormed pins the invariants every caller leans
+// on: a resolved installation names a release, an absolute binary of a known
+// origin, and the directory that binary lives in.
+func TestResolvedInstallationsAreWellFormed(t *testing.T) {
+	cases := map[string]func(*testing.T) (Installation, *Failure){
+		"from PATH": func(t *testing.T) (Installation, *Failure) {
+			m := newMachine(t)
+			m.nodeOnPATH(filepath.Join(m.home, "usr", "bin", nodeBinaryName), "24.20.0")
+			return m.resolver().Resolve(context.Background(), Preferences{Home: m.home})
+		},
+		"through a shim": func(t *testing.T) (Installation, *Failure) {
+			m := newMachine(t)
+			m.forwardingNodeOnPATH(
+				filepath.Join(m.home, "shims", nodeBinaryName),
+				filepath.Join(m.home, "real", "bin", nodeBinaryName),
+				"24.20.0")
+			return m.resolver().Resolve(context.Background(), Preferences{Home: m.home})
+		},
+		"from nvm": func(t *testing.T) (Installation, *Failure) {
+			m := newMachine(t)
+			m.installNVM("24.20.0")
+			return m.resolver().Resolve(context.Background(), Preferences{Version: "24.20.0", Home: m.home})
+		},
+	}
+	for name, resolve := range cases {
+		t.Run(name, func(t *testing.T) {
+			got, err := resolve(t)
+			if err != nil {
+				t.Fatalf("Resolve: %v", err)
+			}
+			if got.Version == "" {
+				t.Error("Version is empty: a resolution must name the release it will run")
+			}
+			if !filepath.IsAbs(got.NodePath) || !filepath.IsAbs(got.BinDir) {
+				t.Errorf("resolved = %+v, want absolute paths", got)
+			}
+			if got.BinDir != filepath.Dir(got.NodePath) {
+				t.Errorf("BinDir = %q, want the directory of %q", got.BinDir, got.NodePath)
+			}
+			switch got.Source {
+			case SourceNVM, SourceFNM, SourcePath:
+			default:
+				t.Errorf("Source = %q, want one of the documented origins", got.Source)
+			}
+			if got.Source != SourcePath && got.ViaShim {
+				t.Errorf("resolved = %+v, want ViaShim only for a PATH hit", got)
+			}
+		})
 	}
 }
 
@@ -388,16 +548,6 @@ func TestIsExecutable(t *testing.T) {
 	}
 }
 
-// contains reports whether haystack holds needle.
-func contains(haystack, needle string) bool {
-	for index := 0; index+len(needle) <= len(haystack); index++ {
-		if haystack[index:index+len(needle)] == needle {
-			return true
-		}
-	}
-	return false
-}
-
 // TestNodeBinaryNameMatchesThePlatform pins the executable name itself: the
 // layout tests share the constant with the implementation, so only this
 // assertion would catch a Windows build that looked for "node" instead of
@@ -412,4 +562,14 @@ func TestNodeBinaryNameMatchesThePlatform(t *testing.T) {
 	if nodeBinaryName != "node" {
 		t.Fatalf("nodeBinaryName = %q, want node", nodeBinaryName)
 	}
+}
+
+// contains reports whether haystack holds needle.
+func contains(haystack, needle string) bool {
+	for index := 0; index+len(needle) <= len(haystack); index++ {
+		if haystack[index:index+len(needle)] == needle {
+			return true
+		}
+	}
+	return false
 }

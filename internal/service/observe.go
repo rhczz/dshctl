@@ -73,6 +73,11 @@ type Status struct {
 	RecordedPID int `json:"recordedPid,omitempty"`
 	// RecordedPhase is the phase in the runtime record, or empty.
 	RecordedPhase string `json:"recordedPhase,omitempty"`
+	// RecordedNodeVersion is the release the recorded server was started with,
+	// or empty when the record predates the field.
+	RecordedNodeVersion string `json:"recordedNodeVersion,omitempty"`
+	// RecordedNodePath is the binary that server was started with.
+	RecordedNodePath string `json:"recordedNodePath,omitempty"`
 	// RecordLive reports that the record names a process that is alive and
 	// whose start time still matches: a server this dshctl started and can
 	// still end, whether or not it holds the port.
@@ -193,6 +198,8 @@ func (s *Service) observe(ctx context.Context) (observed, error) {
 	if hasRecord {
 		status.RecordedPID = record.PID
 		status.RecordedPhase = string(record.Phase)
+		status.RecordedNodeVersion = record.NodeVersion
+		status.RecordedNodePath = record.NodePath
 		status.URLFromRecord = record.URL
 	}
 

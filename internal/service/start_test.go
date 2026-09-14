@@ -104,9 +104,9 @@ var startPreflightCases = []struct {
 			// the default: the resolver must refuse rather than silently use a
 			// runtime the operator did not ask for.
 			f.seedNodeInstallation(t, "25.1.1")
-			f.Settings.NodeVersion = config.DefaultNodeVersion
+			f.Settings.NodeVersion = config.TestedNodeVersion
 		},
-		phrase: "找不到 Node " + config.DefaultNodeVersion,
+		phrase: "找不到 Node " + config.TestedNodeVersion,
 	},
 }
 
@@ -194,13 +194,13 @@ func TestStartHandsTheServerTheExactCommand(t *testing.T) {
 // nodeInstallationFor reports the fake node binary the fixture resolves, so a
 // test can assert on the bin directory the child is handed without repeating how
 // the fixture lays the tree out.
+//
+// It asks the resolver rather than the PATH lookup: a release a version manager
+// holds is resolved without consulting PATH at all, so the two answers are not
+// the same thing and the assertion has to be about the one the start uses.
 func nodeInstallationFor(t *testing.T, f *fixture) string {
 	t.Helper()
-	path, err := f.Node.LookPath("node")
-	if err != nil {
-		t.Fatalf("resolve the fixture's node: %v", err)
-	}
-	return path
+	return f.resolvedNode(t).NodePath
 }
 
 // TestStartPrintsTheAnnouncedAddress pins the line that turns a successful start

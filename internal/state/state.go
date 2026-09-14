@@ -67,6 +67,12 @@ type Record struct {
 	// process group the server lives in. It is kept so the whole group can be
 	// ended as a unit; it is not what ownership is decided from.
 	SpawnedPID int `json:"spawnedPid,omitempty"`
+	// NodeVersion is the Node release the server was started with, when known.
+	// It is recorded because --node can differ from the settings document, so
+	// the record is the only place that says what this instance runs.
+	NodeVersion string `json:"nodeVersion,omitempty"`
+	// NodePath is the node binary the server was started with, when known.
+	NodePath string `json:"nodePath,omitempty"`
 	// Phase is what dshctl observed the last time it wrote the record.
 	Phase Phase `json:"phase"`
 	// UpdatedAt is when the record was last written, in Unix seconds.
@@ -235,6 +241,10 @@ func (r Record) Describe() string {
 	if r.URL != "" {
 		builder.WriteString(", url=")
 		builder.WriteString(r.URL)
+	}
+	if r.NodeVersion != "" {
+		builder.WriteString(", node=")
+		builder.WriteString(r.NodeVersion)
 	}
 	return builder.String()
 }

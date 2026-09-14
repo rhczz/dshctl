@@ -123,11 +123,14 @@ func Usage(w io.Writer) {
 全局参数:
   --repo <路径>     覆盖仓库目录(环境变量 DSH_REPO_DIR)
   --port <端口>     覆盖监听端口(环境变量 DSH_PORT)
-  --node <版本>     覆盖 Node 版本(环境变量 DSH_NODE_VERSION, 可用 latest)
+  --node <版本>     指定 Node 版本, 仅本次生效(环境变量 DSH_NODE_VERSION)
   --config <文件>   覆盖配置文件路径(环境变量 DSHCTL_CONFIG)
   -v, --verbose     打印生效配置及其来源
   -h, --help        显示帮助
   -V, --version     打印版本
+
+Node:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12.0 一律拒绝
+          优先级: --node > 配置文件 nodeVersion > DSH_NODE_VERSION > PATH
 
 状态目录: $DSHCTL_STATE_DIR 或 $DSH_HOME/dshctl 或 ~/.dsh/dshctl
 退出码:   0 成功/运行中, 1 失败, 2 用法或配置错误, 3 未运行, 4 前置检查失败, 5 锁超时

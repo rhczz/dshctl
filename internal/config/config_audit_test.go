@@ -101,7 +101,7 @@ func TestTopLevelNullMeansDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if settings.Port != DefaultPort || settings.NodeVersion != DefaultNodeVersion ||
+	if settings.Port != DefaultPort || settings.NodeVersion != "" ||
 		settings.StartTimeout != DefaultStartTimeout || settings.LogRotateBytes != DefaultLogRotateBytes {
 		t.Fatalf("settings = %+v, want every default", settings)
 	}
@@ -134,7 +134,6 @@ func TestValidateNamesEveryFieldItRejects(t *testing.T) {
 		{"an empty repoDir", func(s *Settings) { s.RepoDir = "" }, "repoDir 不能为空"},
 		{"a whitespace repoDir", func(s *Settings) { s.RepoDir = "   " }, "repoDir 不能为空"},
 		{"a relative repoDir", func(s *Settings) { s.RepoDir = "repo" }, "repoDir 必须是绝对路径"},
-		{"an empty nodeVersion", func(s *Settings) { s.NodeVersion = "" }, "nodeVersion 不能为空"},
 		{"a port below the range", func(s *Settings) { s.Port = MinPort - 1 }, "port 必须在"},
 		{"a port above the range", func(s *Settings) { s.Port = MaxPort + 1 }, "port 必须在"},
 		{"a zero start timeout", func(s *Settings) { s.StartTimeout = 0 }, "startTimeoutSeconds 必须至少为 1 秒"},
@@ -340,9 +339,11 @@ func TestEncodeOmitsAnEmptyRepoDir(t *testing.T) {
 	if _, present := document["repoDir"]; present {
 		t.Fatalf("document = %v, want no repoDir key", document)
 	}
-	// Every other setting is still recorded, so the document stays a complete
-	// description of the tunable surface.
-	for _, key := range []string{"port", "nodeVersion", "startTimeoutSeconds", "stopTimeoutSeconds", "lockTimeoutSeconds", "logRotateBytes"} {
+	// Every setting that has a value is still recorded, so the document stays a
+	// complete description of the tunable surface. The Node release is absent
+	// while it is undetermined; TestEncodeWritesTheReleaseOnlyWhenItIsDetermined
+	// pins both halves of that.
+	for _, key := range []string{"port", "startTimeoutSeconds", "stopTimeoutSeconds", "lockTimeoutSeconds", "logRotateBytes"} {
 		if _, present := document[key]; !present {
 			t.Fatalf("document = %v, want it to record %q", document, key)
 		}
@@ -363,7 +364,7 @@ func TestDescribeOfAZeroSettingsIsStillWellFormed(t *testing.T) {
 		"状态目录:  ()",
 		"仓库目录:  ()",
 		"监听端口: 0 ()",
-		"Node 版本:  ()",
+		"Node 版本: (未确定，启动时按 PATH 解析) ()",
 		"日志文件:  ()",
 		"启动超时: 0s",
 		"停止超时: 0s",
@@ -408,12 +409,10 @@ func TestLoadRejectsARelativeConfigPath(t *testing.T) {
 // TestNodeVersionEnvironmentWhitespace pins how DSH_NODE_VERSION treats the
 // spaces around its value.
 //
-// The guard that decides whether the variable is set trims a copy, so a value of
-// spaces alone is ignored and the default survives. The value that is actually
-// stored is *not* trimmed — unlike DSH_REPO_DIR and DSH_PORT, which are
-// normalised — so a padded value reaches Settings verbatim and is only cleaned up
-// later, when nodejs.Resolve trims what it was asked for. Both halves are pinned
-// here because the asymmetry is invisible otherwise.
+// A value of spaces alone is not a release and is ignored, so the setting stays
+// undetermined and the next start resolves one from PATH. A padded value is
+// trimmed at the boundary rather than stored verbatim: the release it names is
+// what every later comparison and the written-back document must carry.
 func TestNodeVersionEnvironmentWhitespace(t *testing.T) {
 	environment, _ := configDocument(t, "")
 
@@ -422,8 +421,8 @@ func TestNodeVersionEnvironmentWhitespace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load with a whitespace-only node version: %v", err)
 	}
-	if settings.NodeVersion != DefaultNodeVersion {
-		t.Fatalf("nodeVersion = %q, want the default %q", settings.NodeVersion, DefaultNodeVersion)
+	if settings.NodeVersion != "" {
+		t.Fatalf("nodeVersion = %q, want it undetermined", settings.NodeVersion)
 	}
 	if settings.Sources.NodeVersion != "default" {
 		t.Fatalf("nodeVersion source = %q, want default", settings.Sources.NodeVersion)
@@ -437,7 +436,7 @@ func TestNodeVersionEnvironmentWhitespace(t *testing.T) {
 	if settings.Sources.NodeVersion != "env" {
 		t.Fatalf("nodeVersion source = %q, want env", settings.Sources.NodeVersion)
 	}
-	if settings.NodeVersion != "  24.20.0  " {
-		t.Fatalf("nodeVersion = %q, want the padded value the environment supplied", settings.NodeVersion)
+	if settings.NodeVersion != "24.20.0" {
+		t.Fatalf("nodeVersion = %q, want the trimmed release", settings.NodeVersion)
 	}
 }

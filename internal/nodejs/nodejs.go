@@ -1,5 +1,17 @@
 // Package nodejs resolves the Node.js runtime dshctl launches the Web server
-// with, preferring an nvm or fnm installation and falling back to PATH.
+// with.
+//
+// Resolution has two modes and one gate.
+//
+//   - A release was asked for (the configuration names one, or the operator
+//     passed --node): it is looked for in the version managers first, which
+//     costs no process, and on PATH second, where it must match exactly.
+//   - Nothing was asked for: the runtime is whatever `node` on PATH is, and its
+//     release is read from the binary itself.
+//
+// Which release is asked for is decided by the caller (see internal/config);
+// whether the result is usable is decided by Assess, so the same verdict applies
+// to every source instead of only to some.
 package nodejs
 
 import (
@@ -10,14 +22,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/run"
 )
-
-// Latest selects the newest installed release instead of a pinned version.
-const Latest = "latest"
 
 // Source labels reported by Installation.Source.
 const (
@@ -31,25 +41,27 @@ const (
 
 // Installation is the resolved Node runtime.
 type Installation struct {
-	// Version is the release without its leading v. It is empty for a PATH hit
-	// until Info fills it in by running the binary.
+	// Version is the release without its leading v.
 	Version string
-	// NodePath is the absolute path of the node binary.
+	// NodePath is the path of the binary that will run: the real interpreter,
+	// not the forwarding shim PATH named, when the two differ.
 	NodePath string
 	// BinDir is the directory prepended to PATH so pnpm and node agree.
 	BinDir string
 	// Source names where the installation came from.
 	Source string
-	// Requested echoes the version that was asked for when it was not installed.
-	Requested string
+	// ViaShim reports that the PATH hit was a forwarding entry — a shim or a
+	// symlink — and that NodePath and BinDir name what it forwards to.
+	ViaShim bool
 }
 
-// Preferences describes what the operator asked for.
+// Preferences describes what the caller asked for.
 type Preferences struct {
-	// Version is a release such as "24.20.0", "latest", or empty for the newest
-	// installed release.
+	// Version is a release such as "24.20.0". An empty value means "use the
+	// node the environment already provides", which is resolved from PATH.
 	Version string
 	// Home is the operating-system home directory holding the version managers.
+	// It is only consulted when a release was asked for.
 	Home string
 }
 
@@ -61,8 +73,8 @@ type Resolver struct {
 	Glob func(string) ([]string, error)
 	// Stat probes a path; nil uses os.Stat.
 	Stat func(string) (os.FileInfo, error)
-	// Output runs the node binary when a version has to be read from it; nil
-	// collects output with the real runner.
+	// Output runs the node binary to learn what it is; nil collects output with
+	// the real runner.
 	Output run.Outputer
 }
 
@@ -71,69 +83,278 @@ func NewResolver() *Resolver {
 	return &Resolver{LookPath: run.LookPath, Glob: filepath.Glob, Stat: os.Stat, Output: run.NewRunner()}
 }
 
-// output returns the collector used to read a version from a node binary.
-func (r *Resolver) output() run.Outputer {
-	if r.Output != nil {
-		return r.Output
-	}
-	return run.NewRunner()
-}
+// probeTimeout bounds how long a node binary is given to answer.
+//
+// A version-manager shim can decide to install a runtime on first use and block
+// on the network. A preflight that waits forever is worse than one that fails,
+// so the wait is bounded before the process is started.
+const probeTimeout = 10 * time.Second
 
 // Resolve finds the Node runtime to use.
 //
 // Returns:
 //   - the resolved installation.
-//   - an error when no runtime can be found at all, or when a pinned release was
-//     asked for and is not installed anywhere.
-func (r *Resolver) Resolve(prefs Preferences) (Installation, error) {
-	requested := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(prefs.Version), "v"))
-	latest := requested == "" || strings.EqualFold(requested, Latest)
+//   - a non-nil *Failure when no usable runtime could be found: a requested
+//     release is installed nowhere, PATH has no node, or the node on PATH cannot
+//     say what it is. The concrete type is returned rather than an error so that
+//     a caller cannot forget to render the failure: there is no other kind of
+//     failure this function reports.
+func (r *Resolver) Resolve(ctx context.Context, prefs Preferences) (Installation, *Failure) {
+	// Only an absent request means "discover". A value that names nothing —
+	// "latest", "v", a typo — is a request that cannot be satisfied, and saying
+	// so is the difference between a corrected setting and a silently different
+	// runtime.
+	requested := strings.TrimSpace(prefs.Version)
+	if requested == "" {
+		return r.discover(ctx)
+	}
+	return r.findRequested(ctx, requested, prefs.Home)
+}
 
-	candidates := r.installed(r.home(prefs.Home))
-	if !latest {
-		for _, candidate := range candidates {
-			if Matches(candidate.version, requested) {
-				return candidate.installation(), nil
-			}
+// discover uses the runtime the environment already provides.
+//
+// The binary on PATH is asked what it is, because there is no directory name to
+// trust here: a binary that cannot answer is not a runtime dshctl can claim
+// anything about.
+func (r *Resolver) discover(ctx context.Context) (Installation, *Failure) {
+	path, err := r.lookPath("node")
+	if err != nil {
+		return Installation{}, &Failure{Observations: []Observation{{Source: SourcePath, Detail: "没有 node"}}}
+	}
+	installation, probeErr := r.inspect(ctx, path)
+	if probeErr != nil {
+		return Installation{}, &Failure{
+			Observations: []Observation{{Source: SourcePath, Path: path, Detail: unusableDetail(probeErr)}},
+			Err:          probeErr,
 		}
-		return Installation{}, fmt.Errorf(
-			"找不到 Node %s(已查找 nvm 与 fnm 的安装目录)\n"+
-				"可选: 安装该版本;把配置里的 nodeVersion 改成已安装的版本或 %q;"+
-				"或临时用环境变量 %s=%s 使用 PATH 中最新的 Node",
-			requested, Latest, paths.EnvNodeVersion, Latest)
 	}
+	return installation, nil
+}
 
-	sort.SliceStable(candidates, func(i, j int) bool {
-		return Compare(candidates[i].version, candidates[j].version) > 0
-	})
-	if len(candidates) > 0 {
-		return candidates[0].installation(), nil
+// findRequested looks for one release: the version managers first, which costs
+// no process because the directory name carries the release, and PATH second,
+// where the release has to be read from the binary and must match exactly.
+func (r *Resolver) findRequested(ctx context.Context, requested, home string) (Installation, *Failure) {
+	candidates := r.installed(r.home(home))
+	for _, candidate := range candidates {
+		if Matches(candidate.version, requested) {
+			return candidate.installation(), nil
+		}
 	}
+	managers := managersObservation(candidates)
 
 	path, err := r.lookPath("node")
 	if err != nil {
-		return Installation{}, fmt.Errorf("找不到可用的 node(已查找 nvm、fnm 与 PATH): 请安装 Node 或把它加入 PATH")
-	}
-	return Installation{NodePath: path, BinDir: filepath.Dir(path), Source: SourcePath}, nil
-}
-
-// Info runs `<node> -v` to learn the release of an installation whose version is
-// not implied by a directory name, such as a PATH hit.
-//
-// When the requested version is known and the found one differs, Requested is
-// set so the caller can warn instead of silently using something else.
-func (r *Resolver) Info(ctx context.Context, installation Installation, requested string) Installation {
-	if installation.Version == "" {
-		if out, err := r.output().Output(ctx, run.Command{Name: installation.NodePath, Args: []string{"-v"}}); err == nil {
-			installation.Version = ParseVersion(out)
+		return Installation{}, &Failure{
+			Requested:    requested,
+			Observations: []Observation{managers, {Source: SourcePath, Detail: "没有 node"}},
 		}
 	}
-	wanted := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(requested), "v"))
-	if wanted != "" && !strings.EqualFold(wanted, Latest) && installation.Version != "" &&
-		!Matches(installation.Version, wanted) {
-		installation.Requested = wanted
+	installation, probeErr := r.inspect(ctx, path)
+	if probeErr != nil {
+		return Installation{}, &Failure{
+			Requested:    requested,
+			Observations: []Observation{managers, {Source: SourcePath, Path: path, Detail: unusableDetail(probeErr)}},
+			Err:          probeErr,
+		}
 	}
-	return installation
+	if Matches(installation.Version, requested) {
+		return installation, nil
+	}
+	return Installation{}, &Failure{
+		Requested:    requested,
+		Observations: []Observation{managers, {Source: SourcePath, Path: path, Version: installation.Version}},
+	}
+}
+
+// inspect asks a node binary what it is: which release it is, and — when it can
+// say — which interpreter actually runs. The two answers differ when PATH names
+// a forwarding entry, and the forwarder can resolve differently at exec time, so
+// the real interpreter is what gets used.
+func (r *Resolver) inspect(ctx context.Context, path string) (Installation, error) {
+	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
+	defer cancel()
+
+	out, err := r.output().Output(ctx, run.Command{Name: path, Args: []string{"-v"}})
+	if err != nil {
+		return Installation{}, fmt.Errorf("无法执行 `%s -v`: %w", path, err)
+	}
+	version := ParseVersion(out)
+	// The token has to look like a release. A binary that answers with a
+	// sentence is not a runtime dshctl can describe, and reporting it as an
+	// unreadable version is clearer than letting "not" travel onward as a release
+	// that the gate then refuses.
+	if version == "" || !startsWithDigit(version) {
+		return Installation{}, fmt.Errorf("`%s -v` 的输出里没有版本: %q", path, strings.TrimSpace(out))
+	}
+	installation := Installation{
+		Version:  version,
+		NodePath: path,
+		BinDir:   filepath.Dir(path),
+		Source:   SourcePath,
+	}
+
+	// The second question is best-effort: an answer that is not an absolute path
+	// tells nothing, and a binary that cannot answer it is still usable.
+	real, err := r.output().Output(ctx, run.Command{Name: path, Args: []string{"-p", "process.execPath"}})
+	if err != nil {
+		return installation, nil
+	}
+	execPath := strings.TrimSpace(real)
+	if execPath == "" || !filepath.IsAbs(execPath) {
+		return installation, nil
+	}
+	if filepath.Dir(execPath) != installation.BinDir {
+		installation.ViaShim = true
+	}
+	installation.NodePath = execPath
+	installation.BinDir = filepath.Dir(execPath)
+	return installation, nil
+}
+
+// unusableDetail explains why a binary on PATH could not be turned into a
+// runtime, in the words of the failure itself.
+func unusableDetail(err error) string { return "无法确定版本: " + err.Error() }
+
+// managersObservation summarises what the version managers had to offer.
+func managersObservation(candidates []candidate) Observation {
+	if len(candidates) == 0 {
+		return Observation{Source: SourceManagers, Detail: "没有安装"}
+	}
+	// installed() reports releases from the highest down.
+	return Observation{Source: SourceManagers, Detail: "最新的是 " + candidates[0].version}
+}
+
+// Failure reports why no runtime could be resolved. It carries facts rather
+// than a message: the wording belongs to the caller, which knows the release
+// dshctl requires.
+type Failure struct {
+	// Requested is the release that was asked for, or empty when the runtime was
+	// to be discovered on PATH.
+	Requested string
+	// Observations records what each place that was looked at had to offer.
+	Observations []Observation
+	// Err is the reason a candidate that existed could not be used.
+	Err error
+}
+
+// Error renders a compact technical summary, for logs and for wrapping.
+func (f *Failure) Error() string {
+	switch {
+	case f.Requested != "":
+		return fmt.Sprintf("找不到 Node %s", f.Requested)
+	case f.Err != nil:
+		return fmt.Sprintf("PATH 上的 node 无法使用: %v", f.Err)
+	default:
+		return "PATH 上没有 node"
+	}
+}
+
+// Unwrap exposes the underlying failure, when there was one.
+func (f *Failure) Unwrap() error { return f.Err }
+
+// Observation is what one place had to offer.
+type Observation struct {
+	// Source is SourceNVM, SourceFNM, SourcePath, or SourceManagers for the
+	// summary of both version managers.
+	Source string
+	// Path is the binary that was examined, when there was one.
+	Path string
+	// Version is the release that was found, when it could be read.
+	Version string
+	// Detail explains the state of this source in one clause.
+	Detail string
+}
+
+// SourceManagers labels the summary of the version-manager scan.
+const SourceManagers = "managers"
+
+// Verdict statuses.
+const (
+	// Supported means the release is inside the range dshctl is verified for.
+	Supported = "supported"
+	// Untested means the release is usable but outside the verified range.
+	Untested = "untested"
+	// TooOld means the release is below the minimum dshctl runs with.
+	TooOld = "too-old"
+)
+
+// Verdict is the judgment on a resolved installation.
+type Verdict struct {
+	// Status is one of the status constants.
+	Status string
+	// Reason explains a status other than Supported in one line.
+	Reason string
+	// Remedy is the fix block, set when the installation must not be used.
+	Remedy string
+}
+
+// Assess judges a resolved installation against the supported range.
+//
+// The minimum is a hard floor: a release below it is refused whatever named it,
+// because dshctl cannot serve a Web client with it. A release in another major
+// version than the one dshctl is verified against is usable but reported.
+func Assess(installation Installation, minimum, tested string) Verdict {
+	if Compare(installation.Version, minimum) < 0 {
+		return Verdict{
+			Status: TooOld,
+			Reason: fmt.Sprintf("Node %s 低于最低要求 %s(%s，来源 %s)",
+				installation.Version, minimum, installation.NodePath, originLabel(installation.Source)),
+			Remedy: Remedies(minimum, tested),
+		}
+	}
+	if majorOf(installation.Version) != majorOf(tested) {
+		return Verdict{
+			Status: Untested,
+			Reason: fmt.Sprintf("Node %s 不在 dshctl 的验证范围内(已验证 %s；%s，来源 %s)；"+
+				"若 Web 端出现 \"Failed to load plugins\" 请改用 Node %d.x",
+				installation.Version, tested, installation.NodePath, originLabel(installation.Source), majorOf(tested)),
+		}
+	}
+	return Verdict{Status: Supported}
+}
+
+// Remedies renders the fix block: one line per way of installing Node, plus the
+// one-shot escape hatch that fixes the version for this installation only.
+func Remedies(minimum, tested string) string {
+	major := majorOf(minimum)
+	return fmt.Sprintf(`修复(任选一种):
+  nvm:      nvm install %[1]d && nvm alias default %[1]d
+  fnm:      fnm install %[1]d && fnm default %[1]d
+  Homebrew: brew install node@%[1]d
+  n:        n %[1]d
+  Volta:    volta install node@%[1]d
+  asdf:     asdf install nodejs %[2]s && asdf global nodejs %[2]s
+  mise:     mise use -g node@%[1]d
+  nodenv:   nodenv install %[2]s && nodenv global %[2]s
+  官方安装包: https://nodejs.org/en/download
+也可以只指定一次: --node <版本> 或 DSH_NODE_VERSION=<版本>(成功后写入配置)`, major, tested)
+}
+
+// Describe renders the operator-facing explanation of a resolution failure: what
+// was asked for, what each place had to offer, and every way to fix it.
+func Describe(failure *Failure, minimum, tested string) string {
+	var builder strings.Builder
+	if failure.Requested != "" {
+		fmt.Fprintf(&builder, "找不到 Node %s(已查找 nvm/fnm 的安装目录与 PATH)", failure.Requested)
+	} else {
+		builder.WriteString("找不到可用的 node")
+	}
+	for _, observation := range failure.Observations {
+		builder.WriteString("\n")
+		builder.WriteString(describeObservation(observation))
+	}
+	builder.WriteString("\n")
+	builder.WriteString(Remedies(minimum, tested))
+	return builder.String()
+}
+
+// output returns the collector used to ask a node binary what it is.
+func (r *Resolver) output() run.Outputer {
+	if r.Output != nil {
+		return r.Output
+	}
+	return run.NewRunner()
 }
 
 // home fills in the home directory the version managers live under.
@@ -155,7 +376,7 @@ func (r *Resolver) home(preferred string) string {
 	return resolved
 }
 
-// installed lists the nvm and fnm releases under home.
+// installed lists the nvm and fnm releases under home, newest first.
 //
 // An empty home yields nothing at all: there is no absolute place to look, and
 // searching a relative one would answer with the working directory.
@@ -178,6 +399,9 @@ func (r *Resolver) installed(home string) []candidate {
 		// Older fnm layouts put the runtime directly under the version.
 		candidates = append(candidates, r.collect(root, "*", SourceFNM)...)
 	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		return Compare(candidates[i].version, candidates[j].version) > 0
+	})
 	return candidates
 }
 
@@ -220,12 +444,12 @@ func (r *Resolver) collect(root, pattern, source string) []candidate {
 			continue
 		}
 		var nodePath string
-		for _, candidate := range []string{
+		for _, attempt := range []string{
 			filepath.Join(dir, "bin", nodeBinaryName),
 			filepath.Join(dir, nodeBinaryName),
 		} {
-			if r.isExecutableFile(candidate) {
-				nodePath = candidate
+			if r.isExecutableFile(attempt) {
+				nodePath = attempt
 				break
 			}
 		}
@@ -301,7 +525,8 @@ func (r *Resolver) lookPath(name string) (string, error) {
 // after it — a warning on the same line, a second line, a stray carriage return
 // — is not part of it. Every kind of space ends the token, not only the ASCII
 // ones a caller thinks of, because a value that came back with whitespace inside
-// it would be compared against directory names and pins as if it were a release.
+// it would be compared against directory names and requests as if it were a
+// release.
 func ParseVersion(out string) string {
 	trimmed := strings.TrimSpace(out)
 	trimmed = strings.TrimPrefix(trimmed, "v")
@@ -352,15 +577,6 @@ func Matches(installed, requested string) bool {
 	return Compare(installed, requested) == 0
 }
 
-// AtLeast reports whether the installation satisfies a minimum. An unknown
-// version never satisfies it, so callers warn instead of assuming.
-func (i Installation) AtLeast(minimum string) bool {
-	if i.Version == "" {
-		return false
-	}
-	return Compare(i.Version, minimum) >= 0
-}
-
 // numericSegments splits a version into its leading numeric components.
 func numericSegments(version string) []int {
 	trimmed := strings.TrimPrefix(strings.TrimSpace(version), "v")
@@ -389,4 +605,47 @@ func numericSegments(version string) []int {
 // startsWithDigit reports whether a version directory name is usable.
 func startsWithDigit(value string) bool {
 	return value != "" && value[0] >= '0' && value[0] <= '9'
+}
+
+// majorOf reports the major version of a release, or 0 when it has none.
+//
+// numericSegments always answers with at least one segment — splitting the empty
+// string yields one empty one — so the leading segment is always there.
+func majorOf(version string) int {
+	return numericSegments(version)[0]
+}
+
+// observationLabel names a source the way the failure text refers to it. The
+// manager summary covers both managers, and PATH is spelled the way operators
+// spell it.
+func observationLabel(source string) string {
+	switch source {
+	case SourcePath:
+		return "PATH"
+	case SourceManagers:
+		return "nvm/fnm"
+	default:
+		return source
+	}
+}
+
+// originLabel names where a resolved installation came from, inside a sentence.
+func originLabel(source string) string {
+	if source == SourcePath {
+		return "PATH"
+	}
+	return source
+}
+
+// describeObservation renders one observation as a line of the failure text.
+func describeObservation(observation Observation) string {
+	label := observationLabel(observation.Source)
+	switch {
+	case observation.Path != "" && observation.Version != "":
+		return fmt.Sprintf("  %s: %s 是 %s", label, observation.Path, observation.Version)
+	case observation.Path != "":
+		return fmt.Sprintf("  %s: %s %s", label, observation.Path, observation.Detail)
+	default:
+		return fmt.Sprintf("  %s: %s", label, observation.Detail)
+	}
 }

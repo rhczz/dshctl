@@ -104,6 +104,14 @@ setInterval(() => {}, 1000);
 	if startA.code != 0 {
 		t.Fatalf("start A exit = %d\nstdout=%s\nstderr=%s", startA.code, startA.stdout, startA.stderr)
 	}
+	// The first successful start records the release it used. This is the whole
+	// point of the model seen from outside: the installation stops depending on
+	// what PATH happens to serve the next time, and the next start below reads
+	// the recorded release instead.
+	if document := readSettingsDocument(t, stateDir); document["nodeVersion"] == nil {
+		t.Fatalf("settings document = %v, want the release the first start used", document)
+	}
+
 	// The cleanup is registered the moment the first server exists, so even a
 	// failure in the second start cannot leave a detached, forever-serving
 	// process on the machine. Stopping a port that never started is a harmless

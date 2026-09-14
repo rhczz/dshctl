@@ -50,3 +50,34 @@ func TestAnUnreadableConfigFileIsReportedAsAFailure(t *testing.T) {
 			code, err, exitcode.Failure)
 	}
 }
+
+// TestWritingBackIntoAReadOnlyStateDirectoryIsReported pins what a start does
+// when it cannot record the release it used: the failure has to reach the
+// caller, which reports it as a warning rather than as a failed start. The
+// service is already running by then, and a version that could not be written
+// down is not a reason to stop it.
+func TestWritingBackIntoAReadOnlyStateDirectoryIsReported(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores the permission bits this test needs")
+	}
+	root := t.TempDir()
+	stateDir := filepath.Join(root, "state")
+	if err := os.MkdirAll(stateDir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	settings := Default(fixtureHome())
+	settings.StateDir = stateDir
+	settings.ConfigPath = filepath.Join(stateDir, "config.json")
+	if err := os.Chmod(stateDir, 0o500); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(stateDir, 0o700) })
+
+	err := settings.RecordNodeVersion("24.20.0")
+	if err == nil {
+		t.Fatal("writing into a directory that cannot be written must be reported")
+	}
+	if !strings.Contains(err.Error(), "config.json") && !strings.Contains(err.Error(), "state") {
+		t.Fatalf("error = %v, want it to name what could not be written", err)
+	}
+}

@@ -19,7 +19,7 @@ TEST_TIMEOUT ?= 600s
 
 PLATFORMS := darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64
 
-.PHONY: build vet test test-race hermetic workflow-check fmt fmt-check check ci cross install uninstall clean help
+.PHONY: build vet test test-race hermetic workflow-check fmt fmt-check check ci cross mutation install uninstall clean help
 
 ## build: compile the binary into bin/dshctl
 build:
@@ -75,6 +75,10 @@ check: fmt-check vet test
 ## ci: what the pipeline runs on every commit
 ci: workflow-check fmt-check vet hermetic
 	go test -race ./...
+
+## mutation: break each Node decision and require the suite to notice
+mutation:
+	@python3 scripts/mutation-check.py
 
 ## install: copy the built binary onto PATH
 install: build

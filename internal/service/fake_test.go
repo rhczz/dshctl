@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -120,10 +121,26 @@ type fakeHost struct {
 	diesImmediately bool
 	// trackedFiles is the NUL-separated answer to git ls-files.
 	trackedFiles string
+	// nodeVersion is the release the fictional node binary reports, and
+	// nodeExecPath where it says it lives. They are the two answers a probe
+	// gets, and they decide what the resolver concludes.
+	nodeVersion  string
+	nodeExecPath string
+	// probedNode records the questions put to a node binary, in order, so a test
+	// can pin how many processes a resolution costs.
+	probedNode []string
 }
 
 func newFakeHost() *fakeHost {
-	return &fakeHost{processes: map[int]*fakeProcess{}, nextPID: 9000, ready: true}
+	// The release a machine's PATH node reports by default: the one dshctl is
+	// verified against. Tests that need another one set it.
+	const defaultNodeVersion = config.TestedNodeVersion
+	return &fakeHost{
+		processes:   map[int]*fakeProcess{},
+		nextPID:     9000,
+		ready:       true,
+		nodeVersion: defaultNodeVersion,
+	}
 }
 
 // spawnCall is one call the service made to the launcher: everything it decided
@@ -429,11 +446,37 @@ func (h *fakeHost) Capture(_ context.Context, cmd run.Command) run.Result {
 			return run.Result{}
 		}
 	case "node":
-		return run.Result{Stdout: "v" + config.DefaultNodeVersion}
+		return run.Result{Stdout: h.answerNode(cmd)}
 	case "pnpm":
 		return run.Result{Stdout: "11.0.0"}
 	}
 	return run.Result{}
+}
+
+// answerNode plays the two questions the resolver puts to a node binary.
+//
+// A real probe runs a real process; here the answers are the fixture's, which is
+// what keeps every resolution test off the operator's machine. The questions are
+// recorded so a test can pin what a resolution cost.
+func (h *fakeHost) answerNode(cmd run.Command) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	probe := strings.Join(cmd.Args, " ")
+	h.probedNode = append(h.probedNode, probe)
+	if hasArgument(cmd, "-p") {
+		if h.nodeExecPath == "" {
+			return ""
+		}
+		return h.nodeExecPath + "\n"
+	}
+	return "v" + h.nodeVersion + "\n"
+}
+
+// nodeProbes returns the questions put to a node binary so far.
+func (h *fakeHost) nodeProbes() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]string(nil), h.probedNode...)
 }
 
 // lsFiles answers the prune's tracking query from the fixture's script.
@@ -583,6 +626,7 @@ func newFixture(t *testing.T) *fixture {
 	settings.StopTimeout = 2 * time.Second
 
 	h := newFakeHost()
+	h.nodeExecPath = signature
 	out := &syncBuffer{}
 	errOut := &syncBuffer{}
 	svc := &Service{
@@ -798,8 +842,8 @@ func reserveFreePort(t *testing.T) int {
 // nodeSignature creates a fake node installation and returns its binary path.
 func nodeSignature(t *testing.T, root string) string {
 	t.Helper()
-	path := filepath.Join(root, ".nvm", "versions", "node", "v"+config.DefaultNodeVersion, "bin", fixtureNodeName())
-	writeFile(t, path, "#!/bin/sh\necho v"+config.DefaultNodeVersion+"\n")
+	path := filepath.Join(root, ".nvm", "versions", "node", "v"+config.TestedNodeVersion, "bin", fixtureNodeName())
+	writeFile(t, path, "#!/bin/sh\necho v"+config.TestedNodeVersion+"\n")
 	if err := os.Chmod(path, 0o755); err != nil {
 		t.Fatalf("chmod fake node: %v", err)
 	}
@@ -1024,6 +1068,17 @@ func (f *fixture) wantNoPull(t *testing.T) {
 func (f *fixture) seedNodeInstallation(t *testing.T, version string) {
 	t.Helper()
 	f.Settings.NodeVersion = version
+	f.Settings.ConfiguredNodeVersion = version
+	f.Settings.Sources.NodeVersion = "file"
+	f.installNodeTree(t, version)
+}
+
+// installNodeTree puts a release in the fixture's version-manager tree and makes
+// PATH serve it, without touching the settings: it is the on-disk half of a
+// runtime, which a test combines with whichever settings state it is about.
+func (f *fixture) installNodeTree(t *testing.T, version string) string {
+	t.Helper()
+	f.host.nodeVersion = version
 	if err := os.RemoveAll(filepath.Join(f.root, ".nvm")); err != nil {
 		t.Fatalf("remove the previous node installation: %v", err)
 	}
@@ -1032,12 +1087,121 @@ func (f *fixture) seedNodeInstallation(t *testing.T, version string) {
 	if err := os.Chmod(path, 0o755); err != nil {
 		t.Fatalf("chmod fake node: %v", err)
 	}
+	f.host.nodeExecPath = path
 	f.Node.LookPath = func(name string) (string, error) {
 		if name == "node" {
 			return path, nil
 		}
 		return "/fake/bin/" + name, nil
 	}
+	return path
+}
+
+// servePATHNode makes the machine's PATH node report version. The settings are
+// left alone, which is the shape of an installation that has not determined a
+// release yet — and of one whose document names a release that PATH happens to
+// serve.
+func (f *fixture) servePATHNode(t *testing.T, version string) {
+	t.Helper()
+	f.host.nodeVersion = version
+}
+
+// pinNode models an installation whose settings document already names a
+// release: the file holds it, and the settings the service runs with carry it as
+// both the effective value and the configured one.
+func (f *fixture) pinNode(t *testing.T, version string) {
+	t.Helper()
+	f.Settings.NodeVersion = version
+	f.Settings.ConfiguredNodeVersion = version
+	f.Settings.Sources.NodeVersion = "file"
+	writeFile(t, f.Settings.ConfigPath, `{"nodeVersion": "`+version+`"}`+"\n")
+}
+
+// serveNodeThroughShim makes PATH serve a forwarding entry — the shape asdf,
+// mise and volta install — whose real interpreter lives elsewhere. It returns
+// both paths so a test can assert which one is used.
+func (f *fixture) serveNodeThroughShim(t *testing.T, version string) (string, string) {
+	t.Helper()
+	real := filepath.Join(f.root, "installs", "node", version, "bin", fixtureNodeName())
+	writeFile(t, real, "#!/bin/sh\necho v"+version+"\n")
+	shim := filepath.Join(f.root, "shims", fixtureNodeName())
+	writeFile(t, shim, "#!/bin/sh\nexec "+real+" \"$@\"\n")
+	f.host.nodeVersion = version
+	f.host.nodeExecPath = real
+	f.Node.LookPath = func(name string) (string, error) {
+		if name == "node" {
+			return shim, nil
+		}
+		return "/fake/bin/" + name, nil
+	}
+	return shim, real
+}
+
+// servedNodePath reports the binary the fixture's PATH serves, whatever the
+// settings say.
+//
+// The doctor baseline uses it rather than the resolver: the cases about a
+// runtime that cannot be resolved replace the Node row, and a baseline that
+// insisted on resolving would make exactly those cases untestable.
+func (f *fixture) servedNodePath(t *testing.T) string {
+	t.Helper()
+	if f.host.nodeExecPath == "" {
+		t.Fatal("the fixture serves no node binary")
+	}
+	return f.host.nodeExecPath
+}
+
+// configDocument decodes the settings document the fixture wrote.
+func (f *fixture) configDocument(t *testing.T) map[string]any {
+	t.Helper()
+	data, err := os.ReadFile(f.Settings.ConfigPath)
+	if err != nil {
+		t.Fatalf("read the settings document: %v", err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(data, &document); err != nil {
+		t.Fatalf("decode the settings document: %v\n%s", err, data)
+	}
+	return document
+}
+
+// wantRecordedNodeVersion asserts the release the settings document names.
+func (f *fixture) wantRecordedNodeVersion(t *testing.T, want string) {
+	t.Helper()
+	if got := f.configDocument(t)["nodeVersion"]; got != want {
+		t.Fatalf("settings document nodeVersion = %v, want %q", got, want)
+	}
+}
+
+// wantNoRecordedNodeVersion asserts the settings document names no release.
+func (f *fixture) wantNoRecordedNodeVersion(t *testing.T) {
+	t.Helper()
+	if got, present := f.configDocument(t)["nodeVersion"]; present {
+		t.Fatalf("settings document nodeVersion = %v, want none", got)
+	}
+}
+
+// wantNodeBinDir asserts the directory the child is handed in front of PATH,
+// which is how the runtime dshctl resolved reaches the server.
+func (f *fixture) wantNodeBinDir(t *testing.T, want string) {
+	t.Helper()
+	call := f.wantSpawn(t)
+	wantEnvPathPrefix(t, call.env, want)
+}
+
+// resolvedNode resolves the runtime the way the service does, so a test can
+// assert on the bin directory without repeating how the fixture lays the tree
+// out.
+func (f *fixture) resolvedNode(t *testing.T) nodejs.Installation {
+	t.Helper()
+	installation, err := f.Node.Resolve(context.Background(), nodejs.Preferences{
+		Version: f.Settings.NodeVersion,
+		Home:    f.root,
+	})
+	if err != nil {
+		t.Fatalf("resolve the fixture's node: %v", err)
+	}
+	return installation
 }
 
 // seedCorruptRecord writes bytes that are not a runtime record to the record

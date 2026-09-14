@@ -102,6 +102,28 @@ jobs:
         # developer's machine cannot drift apart.
         run: ./scripts/hermetic-check.sh
 
+      - name: Coverage of the Node resolution
+        # The resolution decides which runtime a long-running service uses, and
+        # its whole surface is pure logic that every platform exercises: the
+        # package is required to be covered statement by statement. The other
+        # packages are reported rather than gated, because their uncovered
+        # branches are platform-specific by nature.
+        run: |
+          set -euo pipefail
+          go test -coverprofile=/tmp/nodejs.cover ./internal/nodejs/
+          total="$(go tool cover -func=/tmp/nodejs.cover | awk '/^total:/ {print $3}')"
+          echo "internal/nodejs coverage: $total"
+          if [ "$total" != "100.0%" ]; then
+            go tool cover -func=/tmp/nodejs.cover | awk '$3 != "100.0%"'
+            echo "internal/nodejs must stay fully covered"
+            exit 1
+          fi
+          go test -coverprofile=/tmp/config.cover ./internal/config/ > /dev/null
+          go test -coverprofile=/tmp/service.cover ./internal/service/ > /dev/null
+          for package in config service; do
+            echo "internal/$package coverage: $(go tool cover -func=/tmp/$package.cover | awk '/^total:/ {print $3}')"
+          done
+
       - name: Fail on unexpected skips
         # A skipped test is an untested code path. The list below is the complete
         # set of skips the suite is allowed to have on a runner that does not

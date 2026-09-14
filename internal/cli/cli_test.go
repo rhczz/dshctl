@@ -58,7 +58,7 @@ func freshEnvironment(t *testing.T, overrides map[string]string) (map[string]str
 		"DSH_REPO_DIR":     filepath.Join(root, "repo"),
 		"DSHCTL_CONFIG":    filepath.Join(stateDir, "config.json"),
 		"DSH_LOG_FILE":     filepath.Join(stateDir, "dsh-web.log"),
-		"DSH_NODE_VERSION": config.DefaultNodeVersion,
+		"DSH_NODE_VERSION": config.TestedNodeVersion,
 		"DSH_PORT":         strconv.Itoa(freePort(t)),
 		// The home directory is redirected too: `doctor` resolves Node against
 		// paths.Home(), and reading the operator's ~/.nvm or ~/.local/share/fnm

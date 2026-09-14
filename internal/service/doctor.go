@@ -9,6 +9,7 @@ import (
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/detach"
 	"github.com/rhczz/dshctl/internal/lock"
+	"github.com/rhczz/dshctl/internal/nodejs"
 	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/run"
 )
@@ -99,20 +100,28 @@ func (s *Service) Doctor(ctx context.Context) []Check {
 }
 
 // doctorNode reports the Node runtime resolution.
+//
+// The row is the resolution a start would use, judged by the same gate: a doctor
+// that disagreed with the start about a machine would be worse than no doctor at
+// all.
 func (s *Service) doctorNode(ctx context.Context, add func(string, string, string)) {
 	installation, err := s.resolveNode(ctx)
 	if err != nil {
 		add("Node", CheckFail, err.Error())
 		return
 	}
-	detail := fmt.Sprintf("%s (%s, %s)", installation.NodePath, fallback(installation.Version, "版本未知"), installation.Source)
-	switch {
-	case installation.Version == "":
-		add("Node", CheckWarn, detail+"，无法确定版本")
-	case !installation.AtLeast(config.MinNodeVersion):
-		add("Node", CheckWarn, detail+fmt.Sprintf("，低于 %s，Web 端可能出现 \"Failed to load plugins\"", config.MinNodeVersion))
-	default:
+	detail := fmt.Sprintf("%s (%s, %s)", installation.NodePath, installation.Version, installation.Source)
+	if installation.ViaShim {
+		detail += "，经转发条目解析"
+	}
+	// A release the gate refuses never reaches this point: resolveNode reports it
+	// as the failure above. Everything else is usable, so the row separates
+	// "inside the verified range" from "used, and said out loud".
+	switch verdict := nodejs.Assess(installation, config.MinNodeVersion, config.TestedNodeVersion); verdict.Status {
+	case nodejs.Supported:
 		add("Node", CheckOK, detail)
+	default:
+		add("Node", CheckWarn, detail+"；"+verdict.Reason)
 	}
 }
 

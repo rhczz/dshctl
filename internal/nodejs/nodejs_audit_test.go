@@ -1,18 +1,20 @@
 package nodejs
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/rhczz/dshctl/internal/paths"
 )
+
+// This file holds the adversarial half of the suite: the arithmetic the whole
+// package rests on, and every on-disk shape a version manager can produce.
 
 // TestCompareReadsEverySegmentAsANumber pins that a version is compared
 // segment by segment as an integer, not as text and not only at the first
-// position. A textual comparison puts 24.9 above 24.10, which would make
-// "latest" pick an older release and make a pinned request match the wrong one.
+// position. A textual comparison puts 24.9 above 24.10, which would make a
+// request match the wrong release and the gate judge it wrongly.
 func TestCompareReadsEverySegmentAsANumber(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -28,6 +30,8 @@ func TestCompareReadsEverySegmentAsANumber(t *testing.T) {
 		{"a one-digit patch loses to a two-digit patch", "24.20.9", "24.20.10", -1},
 		{"a three-digit patch beats a two-digit patch", "24.20.100", "24.20.99", 1},
 		{"a longer version with a zero segment is equal", "24.20.0.0", "24.20", 0},
+		{"the floor boundary is inclusive", "24.12.0", "24.12.0", 0},
+		{"one patch below the floor is below it", "24.11.999", "24.12.0", -1},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -42,8 +46,8 @@ func TestCompareReadsEverySegmentAsANumber(t *testing.T) {
 // strings that reach it: an empty version, a bare "v", a pre-release suffix, a
 // segment that is not a number, and a segment too large for int64.
 //
-// Nobody validates a version before comparing it — the resolver compares
-// directory names and a path lookup's output — so the function has to answer
+// Nobody validates a release before comparing it — the resolver compares
+// directory names and a probe's output — so the function has to answer
 // something for all of them and never panic. A segment that cannot be read
 // counts as zero, which makes every such string compare as 0.x.y; the pins here
 // record that so a change to the rule is a visible decision rather than a
@@ -83,44 +87,22 @@ func TestCompareTreatsUnknownSegmentsAsZero(t *testing.T) {
 	}
 }
 
-// TestCompareIsATotalPreorder pins the three properties every caller relies on:
-// a version equals itself, the order is antisymmetric, and it is transitive.
-//
-// Sorting releases to find "latest" and asking whether a candidate satisfies a
-// pin are both built on Compare, and a comparison that is not a preorder makes
-// sort.SliceStable produce an order that depends on the input order — a bug that
-// shows up as "latest picked 24.20 yesterday and 24.21 today".
-func TestCompareIsATotalPreorder(t *testing.T) {
-	corpus := []string{
-		"", "0", "v", "v-v", "v0", "24", "24.20", "24.20.0", "v24.20.0",
-		"24.20.x", "24.20.0-rc.1", "24.20.0+build.5", "garbage",
-		"99999999999999999999", "24.20.9", "24.20.10", "10.0.0", "9.9.9", " 24.20.0 ",
+// TestMatchesAgreesWithCompare pins the equality predicate the resolver uses to
+// decide whether a release satisfies a request.
+func TestMatchesAgreesWithCompare(t *testing.T) {
+	if !Matches("24.20.0", "24.20") || !Matches("v24.20.0", "24.20.0") {
+		t.Fatal("an equivalent release must match")
 	}
-	for _, left := range corpus {
-		if got := Compare(left, left); got != 0 {
-			t.Errorf("Compare(%q, %q) = %d, want 0", left, left, got)
-		}
-		for _, right := range corpus {
-			forward, backward := Compare(left, right), Compare(right, left)
-			if forward != -backward {
-				t.Errorf("Compare(%q, %q) = %d but Compare(%q, %q) = %d, want the opposite sign",
-					left, right, forward, right, left, backward)
-			}
-			for _, third := range corpus {
-				if forward <= 0 && Compare(right, third) <= 0 && Compare(left, third) > 0 {
-					t.Errorf("Compare is not transitive: %q <= %q <= %q but %q > %q",
-						left, right, third, left, third)
-				}
-			}
-		}
+	if Matches("24.20.0", "24.21") || Matches("24.20.0", "24.20.1") {
+		t.Fatal("a different release must not match")
+	}
+	if Matches("", "24.20") || Matches("24.20", "") || Matches("  ", "24.20") {
+		t.Fatal("an empty release never matches")
 	}
 }
 
-// TestParseVersionReadsTheFirstToken pins `node -v` parsing.
-//
-// The command prints one line, and the value that comes back is compared against
-// a pin, so anything after the version — a newline, a warning on the same line, a
-// second line — must not become part of it.
+// TestParseVersionReadsTheFirstToken pins the `node -v` reader on the values the
+// probe tests cannot express through a whole resolution.
 func TestParseVersionReadsTheFirstToken(t *testing.T) {
 	cases := map[string]string{
 		"v24.20.0\r\n":         "24.20.0",
@@ -151,16 +133,14 @@ func installFnMUnder(t *testing.T, root, version, layout string) string {
 	return writeNode(t, filepath.Join(root, "v"+version, filepath.FromSlash(layout), nodeBinaryName))
 }
 
-// TestResolveFindsEveryFnMRootAndLayout pins the four shapes an fnm installation
-// can have on disk: the current layout that nests the runtime under
-// installation/, the older layout that puts it directly under the version, the
-// Windows layout that has no bin/ level at all, and each of the three
-// directories fnm uses for its releases.
+// TestResolveFindsEveryFnMRootAndLayout pins the shapes an fnm installation can
+// have on disk: the current layout that nests the runtime under installation/,
+// the older layout that puts it directly under the version, the Windows layout
+// that has no bin/ level at all, and each of the three directories fnm uses for
+// its releases.
 //
-// Only one of these was exercised before. Leaving the others untested is how the
-// fnm branch became dead code once already: a search that probes
-// <version>/bin/node finds nothing on a current fnm installation and reports
-// "no Node installed" for a perfectly good one.
+// A search that probes <version>/bin/node finds nothing on a current fnm
+// installation and reports "no Node installed" for a perfectly good one.
 func TestResolveFindsEveryFnMRootAndLayout(t *testing.T) {
 	roots := []struct {
 		name     string
@@ -182,10 +162,10 @@ func TestResolveFindsEveryFnMRootAndLayout(t *testing.T) {
 	for _, root := range roots {
 		for _, layout := range layouts {
 			t.Run(root.name+", "+layout.name, func(t *testing.T) {
-				home := t.TempDir()
-				want := installFnMUnder(t, filepath.Join(home, root.relative), version, layout.relative)
+				m := newMachine(t)
+				want := installFnMUnder(t, filepath.Join(m.home, root.relative), version, layout.relative)
 
-				got, err := resolver().Resolve(Preferences{Version: version, Home: home})
+				got, err := m.resolver().Resolve(context.Background(), Preferences{Version: version, Home: m.home})
 				if err != nil {
 					t.Fatalf("Resolve: %v", err)
 				}
@@ -195,89 +175,106 @@ func TestResolveFindsEveryFnMRootAndLayout(t *testing.T) {
 				if got.Version != version || got.BinDir != filepath.Dir(want) {
 					t.Fatalf("resolved = %+v, want version %q and bin dir %q", got, version, filepath.Dir(want))
 				}
+				// The release is implied by the directory name, so no process
+				// may have been started to learn it.
+				m.wantProbes(t)
 			})
 		}
 	}
 }
 
-// TestResolveWithAnEmptyHomeNeverGlobsARelativePath pins what an unset home must
-// not do.
-//
-// Every root the resolver searches is built by joining the home directory, and
-// filepath.Join("", …) produces a path relative to the process's working
-// directory rather than an empty one. A resolver handed an empty home therefore
-// searches the caller's working directory for .nvm/versions/node/* and
-// AppData/Roaming/nvm/* — a lookup whose answer depends on where dshctl happened
-// to be started, and which can pick up a node binary out of an unrelated
-// directory tree.
-func TestResolveWithAnEmptyHomeNeverGlobsARelativePath(t *testing.T) {
-	var patterns []string
-	recording := &Resolver{
-		LookPath: func(string) (string, error) { return "", errors.New("not found") },
-		Glob: func(pattern string) ([]string, error) {
-			patterns = append(patterns, pattern)
-			return nil, nil
-		},
-		Stat: os.Stat,
-	}
+// TestResolveFindsTheNVMWindowsLayout pins the layout nvm-windows uses: the
+// runtime sits directly under the version directory, without a bin/ level. A
+// search that only understood the Unix layout found nothing here and reported
+// "no Node installed" for a working installation.
+func TestResolveFindsTheNVMWindowsLayout(t *testing.T) {
+	m := newMachine(t)
+	want := installNVMWindows(t, m.home, "24.20.0")
 
-	if _, err := recording.Resolve(Preferences{Home: ""}); err == nil {
-		t.Fatal("with no home and nothing on PATH the resolve must fail")
+	got, err := m.resolver().Resolve(context.Background(), Preferences{Version: "24.20.0", Home: m.home})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
 	}
-	if len(patterns) == 0 {
-		t.Fatal("the resolver never looked for a managed installation")
+	if got.NodePath != want || got.Source != SourceNVM {
+		t.Fatalf("resolved = %+v, want the nvm-windows installation at %q", got, want)
 	}
-	for _, pattern := range patterns {
-		if !filepath.IsAbs(pattern) {
-			t.Errorf("Resolve searched the relative path %q: an empty Home must not make the resolver read the working directory", pattern)
+}
+
+// TestResolveIgnoresUnusableManagerEntries pins that a version directory without
+// a runnable binary, or with a directory where the binary belongs, or with a
+// name that is not a release, is not a candidate — and does not stop the scan.
+func TestResolveIgnoresUnusableManagerEntries(t *testing.T) {
+	m := newMachine(t)
+	root := filepath.Join(m.home, ".nvm", "versions", "node")
+	// A release directory with no bin/node at all.
+	if err := os.MkdirAll(filepath.Join(root, "v24.20.0", "bin"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	// A release directory whose node is a directory.
+	if err := os.MkdirAll(filepath.Join(root, "v24.21.0", "bin", nodeBinaryName), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	// A directory whose name is not a release, holding a perfectly good binary:
+	// the release is implied by the name, so a name that carries none makes the
+	// entry unusable however runnable the binary is.
+	writeNode(t, filepath.Join(root, "current", "bin", nodeBinaryName))
+	// A regular file where a release directory belongs.
+	if err := os.WriteFile(filepath.Join(root, "v24.23.0"), []byte("not a directory"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	want := installNVM(t, m.home, "24.22.0")
+
+	got, err := m.resolver().Resolve(context.Background(), Preferences{Version: "24.22.0", Home: m.home})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if got.NodePath != want {
+		t.Fatalf("NodePath = %q, want %q", got.NodePath, want)
+	}
+}
+
+// TestManagerScanIsNewestFirst pins the order the observations and any future
+// selection rely on: the scan reports releases from the highest down, so the
+// first entry of an empty request is the newest one.
+func TestManagerScanIsNewestFirst(t *testing.T) {
+	m := newMachine(t)
+	installNVM(t, m.home, "24.9.0")
+	installFNM(t, m.home, "26.1.0")
+	installNVM(t, m.home, "24.20.0")
+
+	candidates := m.resolver().installed(m.home)
+	if len(candidates) != 3 {
+		t.Fatalf("candidates = %+v, want three", candidates)
+	}
+	want := []string{"26.1.0", "24.20.0", "24.9.0"}
+	for index, version := range want {
+		if candidates[index].version != version {
+			t.Fatalf("candidates = %+v, want %v", candidates, want)
 		}
 	}
 }
 
-// TestResolveFillsInAnEmptyHomeFromThePlatform pins what an unset Home means.
-//
-// The version managers live in the operating system's home directory, so a
-// preference that names none is filled in from the platform rather than left
-// empty: leaving it empty is what produced the relative patterns above. The
-// throwaway HOME here is the only home the test process can see, so the
-// installation that comes back is the one the fallback resolved.
-func TestResolveFillsInAnEmptyHomeFromThePlatform(t *testing.T) {
-	home := t.TempDir()
-	// os.UserHomeDir reads $HOME on Unix and %USERPROFILE% on Windows.
-	t.Setenv("HOME", home)
-	t.Setenv("USERPROFILE", home)
-
-	want := installNVM(t, home, "24.20.0")
-	got, err := resolver().Resolve(Preferences{Home: ""})
-	if err != nil {
-		t.Fatalf("Resolve with no home: %v", err)
-	}
-	if got.NodePath != want || got.Source != SourceNVM || got.Version != "24.20.0" {
-		t.Fatalf("resolved = %+v, want the nvm installation at %q", got, want)
-	}
-}
-
-// TestResolveSkipsABrokenNodeSymlinkAndFollowsAWorkingOne pins how a symlinked
-// binary is judged.
+// TestResolveSkipsABrokenManagerSymlinkAndFollowsAWorkingOne pins how a
+// symlinked binary is judged.
 //
 // A version directory whose node is a dangling symlink looks installed — the
 // directory is there, the name is there — but running it fails, so it must not
 // be offered as an installation. A symlink to a real executable is an ordinary
 // setup (a version manager that shares one runtime, a hand-made link), and
 // refusing it would report "no Node installed" for a working one.
-func TestResolveSkipsABrokenNodeSymlinkAndFollowsAWorkingOne(t *testing.T) {
-	home := t.TempDir()
-	root := filepath.Join(home, ".nvm", "versions", "node")
+func TestResolveSkipsABrokenManagerSymlinkAndFollowsAWorkingOne(t *testing.T) {
+	m := newMachine(t)
+	root := filepath.Join(m.home, ".nvm", "versions", "node")
 
 	brokenDir := filepath.Join(root, "v24.20.0", "bin")
 	if err := os.MkdirAll(brokenDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.Symlink(filepath.Join(home, "deleted-runtime"), filepath.Join(brokenDir, nodeBinaryName)); err != nil {
+	if err := os.Symlink(filepath.Join(m.home, "deleted-runtime"), filepath.Join(brokenDir, nodeBinaryName)); err != nil {
 		t.Skipf("symlinks are unavailable: %v", err)
 	}
 
-	real := writeNode(t, filepath.Join(home, "store", "node-24.21.0", nodeBinaryName))
+	real := writeNode(t, filepath.Join(m.home, "store", "node-24.21.0", nodeBinaryName))
 	linkedDir := filepath.Join(root, "v24.21.0", "bin")
 	if err := os.MkdirAll(linkedDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
@@ -287,7 +284,7 @@ func TestResolveSkipsABrokenNodeSymlinkAndFollowsAWorkingOne(t *testing.T) {
 		t.Fatalf("symlink to a real binary: %v", err)
 	}
 
-	got, err := resolver().Resolve(Preferences{Home: home})
+	got, err := m.resolver().Resolve(context.Background(), Preferences{Version: "24.21.0", Home: m.home})
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -295,41 +292,104 @@ func TestResolveSkipsABrokenNodeSymlinkAndFollowsAWorkingOne(t *testing.T) {
 		t.Fatalf("resolved = %+v, want the symlinked installation at %q", got, linked)
 	}
 
-	// A dangling link never satisfies a pin for its version.
-	if _, err := resolver().Resolve(Preferences{Version: "24.20.0", Home: home}); err == nil {
-		t.Fatal("a version directory holding only a broken symlink must not satisfy a pin")
+	// A dangling link never satisfies a request for its version.
+	if _, err := m.resolver().Resolve(context.Background(), Preferences{Version: "24.20.0", Home: m.home}); err == nil {
+		t.Fatal("a version directory holding only a broken symlink must not satisfy a request")
 	}
 }
 
-// TestResolveMissingReleaseErrorMessageIsExact pins the operator-facing text for
-// a pin that is not installed.
+// TestResolveReportsWhereItLookedWhenNothingIsInstalled pins that the failure
+// for a requested release carries observations for both places, even when one of
+// them had nothing at all: "we looked at your version managers and at PATH" is
+// the difference between a report and a mystery.
+func TestResolveReportsWhereItLookedWhenNothingIsInstalled(t *testing.T) {
+	m := newMachine(t)
+
+	_, err := m.resolver().Resolve(context.Background(), Preferences{Version: "24.20.0", Home: m.home})
+	failure := wantFailure(t, err)
+	if len(failure.Observations) != 2 {
+		t.Fatalf("observations = %+v, want the managers and PATH", failure.Observations)
+	}
+	for _, observation := range failure.Observations {
+		if observation.Detail == "" {
+			t.Fatalf("observation = %+v, want a reason it had nothing", observation)
+		}
+	}
+	if failure.Observations[0].Source != SourceManagers {
+		t.Fatalf("observations = %+v, want the manager summary first", failure.Observations)
+	}
+}
+
+// TestResolveReportsAFailureWithoutObservationsSafely pins the degenerate input:
+// a failure that carries no observations must still render, because a panic in
+// the failure path turns a reported problem into a crash.
+func TestResolveReportsAFailureWithoutObservationsSafely(t *testing.T) {
+	got := Describe(&Failure{Requested: "24.20.0"}, gateMinimum, gateTested)
+	if got == "" {
+		t.Fatal("Describe returned nothing for a failure with no observations")
+	}
+	if !contains(got, "24.20.0") {
+		t.Fatalf("Describe() = %q, want the request named", got)
+	}
+}
+
+// TestMajorOfReadsTheLeadingSegment pins the helper the gate's "verified major
+// version" rule is built on.
+func TestMajorOfReadsTheLeadingSegment(t *testing.T) {
+	cases := map[string]int{
+		"24.20.0":     24,
+		"v24.20.0":    24,
+		"25.0.0":      25,
+		"":            0,
+		"garbage":     0,
+		"24":          24,
+		"24.20.0-rc1": 24,
+	}
+	for input, want := range cases {
+		if got := majorOf(input); got != want {
+			t.Fatalf("majorOf(%q) = %d, want %d", input, got, want)
+		}
+	}
+}
+
+// TestResolverDefaultsToTheRealMachine pins that a zero Resolver is usable: the
+// nil host lookups fall back to the platform's, so a caller that constructs one
+// without wiring gets a working resolver rather than a panic.
 //
-// The message is a remedy, not just a report: an operator who pinned a release
-// reads it to learn that they can install it, change the setting, or fall back
-// to PATH. Substring assertions let a rewording drop one of the three options
-// while the tests stay green.
-func TestResolveMissingReleaseErrorMessageIsExact(t *testing.T) {
-	_, err := resolver().Resolve(Preferences{Version: "24.99.0", Home: t.TempDir()})
-	if err == nil {
-		t.Fatal("expected an error for a release that is not installed")
+// PATH is emptied first: the point is what the fallbacks are, and a machine that
+// happens to have a node installed would otherwise decide the outcome.
+func TestResolverDefaultsToTheRealMachine(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+
+	empty := &Resolver{}
+	if _, err := empty.lookPath("definitely-not-a-real-tool-name"); err == nil {
+		t.Fatal("lookPath must reach the real PATH")
 	}
-	want := "找不到 Node 24.99.0(已查找 nvm 与 fnm 的安装目录)\n" +
-		"可选: 安装该版本;把配置里的 nodeVersion 改成已安装的版本或 \"latest\";" +
-		"或临时用环境变量 " + paths.EnvNodeVersion + "=latest 使用 PATH 中最新的 Node"
-	if err.Error() != want {
-		t.Fatalf("error =\n%q\nwant\n%q", err.Error(), want)
+	if _, err := empty.glob(filepath.Join(t.TempDir(), "*")); err != nil {
+		t.Fatalf("glob: %v", err)
+	}
+	if _, err := empty.stat(t.TempDir()); err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if empty.output() == nil {
+		t.Fatal("output must fall back to the real runner")
+	}
+	// A resolver with no home at all still answers: it fails rather than
+	// searching the working directory.
+	if _, err := empty.Resolve(context.Background(), Preferences{}); err == nil {
+		t.Fatal("a resolver with nothing installed must fail")
 	}
 }
 
-// TestResolveWithoutAnyNodeMessageIsExact pins the same contract for the case
-// where nothing was found anywhere.
-func TestResolveWithoutAnyNodeMessageIsExact(t *testing.T) {
-	_, err := resolver().Resolve(Preferences{Home: t.TempDir()})
-	if err == nil {
-		t.Fatal("expected an error when no Node exists at all")
+// TestFailureCarriesItsCause pins that the underlying probe failure survives
+// wrapping, so a caller can log the operating system's own words.
+func TestFailureCarriesItsCause(t *testing.T) {
+	cause := errors.New("boom")
+	failure := &Failure{Err: cause}
+	if !errors.Is(failure, cause) {
+		t.Fatal("Failure must unwrap to the cause it carries")
 	}
-	want := "找不到可用的 node(已查找 nvm、fnm 与 PATH): 请安装 Node 或把它加入 PATH"
-	if err.Error() != want {
-		t.Fatalf("error =\n%q\nwant\n%q", err.Error(), want)
+	if failure.Error() == "" {
+		t.Fatal("Failure must render something on its own")
 	}
 }

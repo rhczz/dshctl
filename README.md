@@ -4,6 +4,9 @@
 
 macOS、Linux、Windows（amd64 / arm64）都支持。除 `pnpm`、`git` 与 Node 本身外，不需要安装其他工具。
 
+Node 用 PATH 上的那个（nvm、fnm、Homebrew、n、Volta、asdf、mise、官方安装包都一样），
+首次成功启动后会把它写进配置文件，之后固定使用该版本；低于 24.12.0 一律拒绝启动。
+
 ## 编译
 
 ```sh
@@ -57,20 +60,25 @@ dshctl stop                   # 停止
 | --- | --- | --- |
 | `--repo <路径>` | `DSH_REPO_DIR` | 仓库位置，默认 `~/deepseek-harness` |
 | `--port <端口>` | `DSH_PORT` | 监听端口，默认 `3080` |
-| `--node <版本>` | `DSH_NODE_VERSION` | Node 版本，可写 `latest` |
+| `--node <版本>` | `DSH_NODE_VERSION` | 指定 Node 版本，仅本次生效（不写配置） |
 | `--config <文件>` | `DSHCTL_CONFIG` | 配置文件路径 |
 | `-v` | — | 打印生效配置及每一项的来源 |
 | `-h` / `-V` | — | 帮助 / 版本 |
 
 其余环境变量：`DSHCTL_STATE_DIR`（状态目录）、`DSH_HOME`（DSH 主目录，默认 `~/.dsh`）、`DSH_LOG_FILE`（日志路径）。
 
+Node 版本的来源优先级是 `--node` > 配置文件 `nodeVersion` > `DSH_NODE_VERSION` > PATH
+（这是唯一一处配置文件优先于环境变量的设置：写进配置的版本是这台机器上验证过能跑的那个）。
+配置里没有 `nodeVersion` 时按 PATH 解析，启动成功后写入；`--node` 只在配置里还没有版本时才写入。
+`doctor` 会显示当前会使用哪个 node，`status` 的运行记录里带着正在跑的服务所用的版本。
+
 ## 状态目录
 
 dshctl 自己的文件都在一个目录里，默认 `~/.dsh/dshctl`：
 
 ```
-config.json                 配置（首次执行可变命令时按默认值生成）
-dsh-web-<端口>.state.json   运行记录：监听进程 pid、启动时间、端口、访问地址
+config.json                 配置（首次执行可变命令时按默认值生成；首次成功启动后写入 nodeVersion）
+dsh-web-<端口>.state.json   运行记录：监听进程 pid、启动时间、端口、访问地址、所用 Node 版本
 dshctl.lock                 操作互斥锁
 dsh-web.log                 服务与 build/update 输出（超过 4 MiB 轮转为 .old）
 ```

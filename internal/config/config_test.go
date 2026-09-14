@@ -57,8 +57,9 @@ func TestDefaultsAreUsableWithoutAnyConfiguration(t *testing.T) {
 	if settings.Port != DefaultPort {
 		t.Fatalf("port = %d, want %d", settings.Port, DefaultPort)
 	}
-	if settings.NodeVersion != DefaultNodeVersion {
-		t.Fatalf("nodeVersion = %q, want %q", settings.NodeVersion, DefaultNodeVersion)
+	if settings.NodeVersion != "" || settings.ConfiguredNodeVersion != "" {
+		t.Fatalf("nodeVersion = %q/%q, want it undetermined until a start resolves one",
+			settings.NodeVersion, settings.ConfiguredNodeVersion)
 	}
 	if settings.StartTimeout != DefaultStartTimeout || settings.StopTimeout != DefaultStopTimeout {
 		t.Fatalf("timeouts = %s/%s, want the defaults", settings.StartTimeout, settings.StopTimeout)
@@ -117,8 +118,14 @@ func TestPrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if fromEnv.Port != 2222 || fromEnv.RepoDir != filepath.Join(fixtureHome(), "from", "env") || fromEnv.NodeVersion != "21.0.0" {
+	if fromEnv.Port != 2222 || fromEnv.RepoDir != filepath.Join(fixtureHome(), "from", "env") {
 		t.Fatalf("environment must win over the file: %+v", fromEnv)
+	}
+	// The Node release is the one setting whose layers are ordered differently,
+	// and its own order is pinned by the P rows in config_nodeversion_test.go.
+	if fromEnv.NodeVersion != "20.0.0" || fromEnv.Sources.NodeVersion != "file" {
+		t.Fatalf("nodeVersion = %q from %q, want the file's value: the document outranks the environment",
+			fromEnv.NodeVersion, fromEnv.Sources.NodeVersion)
 	}
 	if fromEnv.Sources.Port != "env" || fromEnv.Sources.RepoDir != "env" {
 		t.Fatalf("sources = %+v, want env", fromEnv.Sources)
@@ -295,7 +302,6 @@ func TestLoadRejectsBadInput(t *testing.T) {
 		{"port above range", `{"port": 70000}`, nil, "port 必须在"},
 		{"port zero", `{"port": 0}`, nil, "port 必须在"},
 		{"negative port", `{"port": -1}`, nil, "port 必须在"},
-		{"empty node version", `{"nodeVersion": " "}`, nil, "nodeVersion 不能为空"},
 		{"zero start timeout", `{"startTimeoutSeconds": 0}`, nil, "startTimeoutSeconds 必须至少为 1 秒"},
 		{"negative stop timeout", `{"stopTimeoutSeconds": -5}`, nil, "stopTimeoutSeconds 必须至少为 1 秒"},
 		{"lock timeout above max", `{"lockTimeoutSeconds": 90000}`, nil, "lockTimeoutSeconds 不能超过"},
@@ -406,7 +412,7 @@ func TestNullFieldKeepsTheDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if settings.Port != DefaultPort || settings.NodeVersion != DefaultNodeVersion {
+	if settings.Port != DefaultPort || settings.NodeVersion != "" {
 		t.Fatalf("settings = %+v, want the defaults", settings)
 	}
 }

@@ -30,11 +30,16 @@ import (
 const (
 	// DefaultPort is the loopback port the Web server binds.
 	DefaultPort = 3080
-	// DefaultNodeVersion is the Node release deepseek-harness is developed
-	// against. The Web client scan needs the ModuleLoader.resolveSync v2
-	// signature that stabilized in 24.12.
-	DefaultNodeVersion = "24.20.0"
-	// MinNodeVersion is the oldest Node dshctl treats as supported.
+	// TestedNodeVersion is the Node release deepseek-harness is developed and
+	// verified against. It is the release the remedy text recommends and the
+	// major version the gate treats as known: the Web client scan needs the
+	// ModuleLoader.resolveSync v2 signature that stabilized in 24.12, and nothing
+	// newer has been exercised.
+	TestedNodeVersion = "24.20.0"
+	// MinNodeVersion is the oldest Node dshctl treats as supported. It is a
+	// constant on purpose: no setting, flag or environment variable can lower the
+	// floor, so a machine cannot be talked into a runtime the Web client cannot
+	// work with.
 	MinNodeVersion = "24.12.0"
 	// DefaultStartTimeout bounds how long start waits for the server to answer.
 	DefaultStartTimeout = 90 * time.Second
@@ -91,8 +96,16 @@ type Settings struct {
 	RepoDir string
 	// Port is the loopback port the Web server binds.
 	Port int
-	// NodeVersion is the Node release to prefer, or "latest".
+	// NodeVersion is the Node release this installation runs, or empty when it
+	// has not been determined yet. An empty value means "use the node the
+	// environment provides": the resolution reads it from PATH, and a successful
+	// start writes what it used back into the settings document.
 	NodeVersion string
+	// ConfiguredNodeVersion is the release the settings document names, or empty
+	// when the document names none. It is what decides whether a successful start
+	// writes the release back: an installation whose file already names one is
+	// never rewritten.
+	ConfiguredNodeVersion string
 	// StartTimeout bounds the wait for the server to answer.
 	StartTimeout time.Duration
 	// StopTimeout bounds the wait for the server to stop.
@@ -168,7 +181,6 @@ func Default(home string) Settings {
 	return Settings{
 		RepoDir:        filepath.Join(home, DefaultRepoDirName),
 		Port:           DefaultPort,
-		NodeVersion:    DefaultNodeVersion,
 		StartTimeout:   DefaultStartTimeout,
 		StopTimeout:    DefaultStopTimeout,
 		LockTimeout:    DefaultLockTimeout,
@@ -234,9 +246,9 @@ func Load(getenv paths.Getenv, overrides Overrides) (Settings, error) {
 	if overrides.Port != nil {
 		sources.Port = "flag"
 	}
-	if overrides.NodeVersion != nil {
-		sources.NodeVersion = "flag"
-	}
+	// The Node release is layered on its own, and last: it is the one setting
+	// where the document outranks the environment (see applyNodeVersion).
+	applyNodeVersion(&settings, &sources, document, found, getenv, overrides)
 
 	logPath, logSource, err := resolveLogPath(getenv, stateDir)
 	if err != nil {
@@ -308,9 +320,11 @@ func (s Settings) Validate() error {
 	if s.Port < MinPort || s.Port > MaxPort {
 		return usagef("port 必须在 %d-%d 之间: %d", MinPort, MaxPort, s.Port)
 	}
-	if strings.TrimSpace(s.NodeVersion) == "" {
-		return usagef("nodeVersion 不能为空(可用 latest)")
-	}
+	// NodeVersion is deliberately not validated here. An empty value is legal and
+	// means "not determined yet"; a value that names no installed release is a
+	// resolution failure, not a typo in a document, and it is reported where the
+	// runtime is resolved — which keeps `status` and `logs` working on a machine
+	// whose runtime has been uninstalled.
 	if err := validateTimeout("startTimeoutSeconds", s.StartTimeout); err != nil {
 		return err
 	}
@@ -400,6 +414,16 @@ func (s Settings) BuildRecordPath() string {
 	return filepath.Join(s.RepoDir, ".dsh-build", "client-build-environment.json")
 }
 
+// nodeVersionDisplay renders the release for verbose output. An undetermined
+// release is said to be undetermined rather than shown as an empty value, so the
+// line stays readable and says what the next start will do about it.
+func nodeVersionDisplay(version string) string {
+	if strings.TrimSpace(version) == "" {
+		return "(未确定，启动时按 PATH 解析)"
+	}
+	return version
+}
+
 // Describe renders the effective settings and where each value came from.
 func (s Settings) Describe() []string {
 	seconds := func(d time.Duration) string { return strconv.Itoa(int(d/time.Second)) + "s" }
@@ -408,7 +432,7 @@ func (s Settings) Describe() []string {
 		"状态目录: " + s.StateDir + " (" + s.Sources.StateDir + ")",
 		"仓库目录: " + s.RepoDir + " (" + s.Sources.RepoDir + ")",
 		"监听端口: " + strconv.Itoa(s.Port) + " (" + s.Sources.Port + ")",
-		"Node 版本: " + s.NodeVersion + " (" + s.Sources.NodeVersion + ")",
+		"Node 版本: " + nodeVersionDisplay(s.NodeVersion) + " (" + s.Sources.NodeVersion + ")",
 		"日志文件: " + s.LogPath + " (" + s.Sources.LogPath + ")",
 		"启动超时: " + seconds(s.StartTimeout),
 		"停止超时: " + seconds(s.StopTimeout),
@@ -421,8 +445,14 @@ func (s Settings) Describe() []string {
 //
 // The document is deliberately small: only values an operator may want to
 // change appear, and every one of them may be deleted without breaking
-// anything.
+// anything. The Node release is left out while it is undetermined, so a fresh
+// document says nothing about a runtime it has not chosen yet.
 func Encode(settings Settings) ([]byte, error) {
+	return encode(provisionedDocument(settings))
+}
+
+// provisionedDocument renders the document a first run writes.
+func provisionedDocument(settings Settings) File {
 	document := File{}
 	if settings.RepoDir != "" {
 		repoDir := settings.RepoDir
@@ -430,8 +460,9 @@ func Encode(settings Settings) ([]byte, error) {
 	}
 	port := settings.Port
 	document.Port = &port
-	nodeVersion := settings.NodeVersion
-	document.NodeVersion = &nodeVersion
+	if version := strings.TrimSpace(settings.NodeVersion); version != "" {
+		document.NodeVersion = &version
+	}
 	start := int(settings.StartTimeout / time.Second)
 	document.StartTimeoutSeconds = &start
 	stop := int(settings.StopTimeout / time.Second)
@@ -440,12 +471,52 @@ func Encode(settings Settings) ([]byte, error) {
 	document.LockTimeoutSeconds = &lock
 	rotate := settings.LogRotateBytes
 	document.LogRotateBytes = &rotate
+	return document
+}
 
+// encode marshals a settings document.
+func encode(document File) ([]byte, error) {
 	data, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("无法序列化配置: %w", err)
 	}
 	return append(data, '\n'), nil
+}
+
+// RecordNodeVersion writes the release this installation runs into the settings
+// document, preserving everything else the operator wrote and creating the
+// document when there is none.
+//
+// This is the only place dshctl writes a setting on its own initiative, and it
+// writes exactly one key: the document belongs to the operator, and a write that
+// re-rendered it from the values in effect would freeze flags and environment
+// variables into the next run.
+func (s Settings) RecordNodeVersion(version string) error {
+	release := strings.TrimSpace(version)
+	if release == "" {
+		return errors.New("拒绝把空的 Node 版本写入配置")
+	}
+	document, found, err := readFile(s.ConfigPath)
+	if err != nil {
+		return err
+	}
+	if !found {
+		home, err := paths.Home()
+		if err != nil {
+			return err
+		}
+		document = provisionedDocument(Default(home))
+	}
+	document.NodeVersion = &release
+
+	data, err := encode(document)
+	if err != nil {
+		return err
+	}
+	if err := paths.EnsureDir(s.StateDir); err != nil {
+		return err
+	}
+	return atomically.WriteFile(s.ConfigPath, data, 0o600)
 }
 
 // maxConfigBytes bounds the settings document. It holds a handful of fields; a
@@ -524,9 +595,6 @@ func applyFile(settings *Settings, document File) error {
 	if document.Port != nil {
 		settings.Port = *document.Port
 	}
-	if document.NodeVersion != nil {
-		settings.NodeVersion = *document.NodeVersion
-	}
 	if document.StartTimeoutSeconds != nil {
 		settings.StartTimeout = time.Duration(*document.StartTimeoutSeconds) * time.Second
 	}
@@ -551,9 +619,6 @@ func markFileSources(sources *Sources, document File) {
 	if document.Port != nil {
 		sources.Port = "file"
 	}
-	if document.NodeVersion != nil {
-		sources.NodeVersion = "file"
-	}
 	if document.StartTimeoutSeconds != nil || document.StopTimeoutSeconds != nil ||
 		document.LockTimeoutSeconds != nil || document.LogRotateBytes != nil {
 		sources.Timeouts = "file"
@@ -576,9 +641,6 @@ func applyEnv(settings *Settings, getenv paths.Getenv) error {
 		}
 		settings.Port = port
 	}
-	if raw := getenv(paths.EnvNodeVersion); strings.TrimSpace(raw) != "" {
-		settings.NodeVersion = raw
-	}
 	return nil
 }
 
@@ -589,9 +651,6 @@ func markEnvSources(sources *Sources, getenv paths.Getenv) {
 	}
 	if strings.TrimSpace(getenv(paths.EnvPort)) != "" {
 		sources.Port = "env"
-	}
-	if strings.TrimSpace(getenv(paths.EnvNodeVersion)) != "" {
-		sources.NodeVersion = "env"
 	}
 }
 
@@ -607,10 +666,41 @@ func applyOverrides(settings *Settings, overrides Overrides) error {
 	if overrides.Port != nil {
 		settings.Port = *overrides.Port
 	}
-	if overrides.NodeVersion != nil {
-		settings.NodeVersion = *overrides.NodeVersion
-	}
 	return nil
+}
+
+// applyNodeVersion layers the Node release this installation runs.
+//
+// The order is flag, then the settings document, then the environment — the one
+// place this setting differs from every other one. The reason is what the value
+// means: once a start has succeeded, the document holds the release that
+// demonstrably works on this machine, and an environment variable left over in a
+// shell must not silently move a long-running service onto another runtime. The
+// value the document names is recorded separately because it decides whether a
+// successful start writes the release back.
+func applyNodeVersion(settings *Settings, sources *Sources, document File, found bool, getenv paths.Getenv, overrides Overrides) {
+	configured := ""
+	if found && document.NodeVersion != nil {
+		configured = strings.TrimSpace(*document.NodeVersion)
+	}
+	settings.ConfiguredNodeVersion = configured
+
+	switch {
+	case overrides.NodeVersion != nil && strings.TrimSpace(*overrides.NodeVersion) != "":
+		settings.NodeVersion = strings.TrimSpace(*overrides.NodeVersion)
+		sources.NodeVersion = "flag"
+	case configured != "":
+		settings.NodeVersion = configured
+		sources.NodeVersion = "file"
+	case strings.TrimSpace(getenv(paths.EnvNodeVersion)) != "":
+		settings.NodeVersion = strings.TrimSpace(getenv(paths.EnvNodeVersion))
+		sources.NodeVersion = "env"
+	default:
+		// Nothing names a release: the resolution reads it from PATH and a
+		// successful start writes it down.
+		settings.NodeVersion = ""
+		sources.NodeVersion = "default"
+	}
 }
 
 // resolveStateDir resolves the state directory and names its source.

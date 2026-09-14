@@ -138,12 +138,14 @@ func (s *Service) adoptSurvivor(ctx context.Context, observed observed) (state.R
 		return state.Record{}, false
 	}
 	adopted := state.Record{
-		PID:        observed.status.ListenerPID,
-		SpawnedPID: record.SpawnedPID,
-		StartedAt:  facts.StartedAt,
-		Port:       record.Port,
-		Phase:      state.PhaseRunning,
-		URL:        s.urlFromLog(ctx),
+		PID:         observed.status.ListenerPID,
+		SpawnedPID:  record.SpawnedPID,
+		StartedAt:   facts.StartedAt,
+		Port:        record.Port,
+		Phase:       state.PhaseRunning,
+		URL:         s.urlFromLog(ctx),
+		NodeVersion: record.NodeVersion,
+		NodePath:    record.NodePath,
 	}
 	if adopted.URL == "" {
 		adopted.URL = record.URL
@@ -171,6 +173,8 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
 	}
 
+	s.reportNodeOverride(installation)
+
 	handle, err := s.Log.OpenAppend()
 	if err != nil {
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
@@ -195,11 +199,13 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	// lives in — and is replaced with the listener once the port answers.
 	spawnedAt := s.processStartTime(ctx, pid, exited)
 	if err := s.Record.Save(state.Record{
-		PID:        pid,
-		SpawnedPID: pid,
-		StartedAt:  spawnedAt,
-		Port:       s.Settings.Port,
-		Phase:      state.PhaseRunning,
+		PID:         pid,
+		SpawnedPID:  pid,
+		StartedAt:   spawnedAt,
+		Port:        s.Settings.Port,
+		Phase:       state.PhaseRunning,
+		NodeVersion: installation.Version,
+		NodePath:    installation.NodePath,
 	}); err != nil {
 		s.warn("无法记录启动的进程 (pid=%d): %v", pid, err)
 	}
@@ -224,16 +230,19 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 			"若系统复用了该 pid，dshctl 可能拒绝结束它(检查是否有安全策略限制读取进程信息)", listenerPID)
 	}
 	record := state.Record{
-		PID:        listenerPID,
-		SpawnedPID: pid,
-		StartedAt:  startedAt,
-		Port:       s.Settings.Port,
-		Phase:      state.PhaseRunning,
-		URL:        s.urlFromLog(ctx),
+		PID:         listenerPID,
+		SpawnedPID:  pid,
+		StartedAt:   startedAt,
+		Port:        s.Settings.Port,
+		Phase:       state.PhaseRunning,
+		URL:         s.urlFromLog(ctx),
+		NodeVersion: installation.Version,
+		NodePath:    installation.NodePath,
 	}
 	if err := s.Record.Save(record); err != nil {
 		s.warn("无法更新运行记录: %v", err)
 	}
+	s.recordNodeVersion(installation)
 	final, observeErr := s.observe(ctx)
 	if observeErr != nil {
 		return StartResult{}, observeErr
@@ -244,6 +253,48 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		fmt.Fprintf(s.Out, "访问地址: %s\n", record.URL)
 	}
 	return StartResult{Status: status, SpawnedPID: pid}, nil
+}
+
+// recordNodeVersion writes the release this start used into the settings
+// document, but only when the document names none.
+//
+// The rule is what makes the first successful start decide the runtime for every
+// later one: what demonstrably served on this machine is what gets written down.
+// A document that already names a release belongs to the operator and is never
+// rewritten from underneath them, and a failed start never reaches this point —
+// so the document can only ever hold a release that ran.
+//
+// The server is already serving by the time this runs, so a document that cannot
+// be written is a warning: stopping a working server because its configuration
+// could not be updated would be worse than the missing line.
+func (s *Service) recordNodeVersion(installation nodejs.Installation) {
+	if s.Settings.ConfiguredNodeVersion != "" || installation.Version == "" {
+		return
+	}
+	if err := s.Settings.RecordNodeVersion(installation.Version); err != nil {
+		s.warn("无法把 Node %s 写入配置 %s: %v(以后仍会按 PATH 重新解析)",
+			installation.Version, s.Settings.ConfigPath, err)
+		return
+	}
+	message := fmt.Sprintf("已将 Node %s 写入配置: %s", installation.Version, s.Settings.ConfigPath)
+	fmt.Fprintln(s.Out, message)
+	s.note(message)
+}
+
+// reportNodeOverride tells the operator when this run uses a release other than
+// the one the settings document names.
+//
+// --node is deliberately a change to one run: it must not rewrite the document,
+// so the only thing that makes it safe to use is saying out loud which run it
+// applied to and how to make it permanent. Without that line the flag looks like
+// it did nothing at all once the command ends.
+func (s *Service) reportNodeOverride(installation nodejs.Installation) {
+	configured := s.Settings.ConfiguredNodeVersion
+	if configured == "" || nodejs.Matches(installation.Version, configured) {
+		return
+	}
+	fmt.Fprintf(s.Out, "本次使用 Node %s(配置中为 %s；如需固定请修改 %s)\n",
+		installation.Version, configured, s.Settings.ConfigPath)
 }
 
 // spawn starts the detached server with the log as its output.
@@ -392,34 +443,58 @@ func (s *Service) preflight(ctx context.Context) (nodejs.Installation, string, e
 	return installation, pnpm, nil
 }
 
-// resolveNode finds the Node runtime and reports problems that would otherwise
-// surface as a broken Web client.
+// resolveNode finds the runtime this call must use and reports what the operator
+// needs to know about it.
+//
+// The order of the two judgments matters. A release below the minimum is refused
+// whatever named it — the configuration, --node, the environment or PATH —
+// because dshctl cannot serve the Web client with it. A release in a major
+// version dshctl has not been verified against is used, and said out loud: the
+// failure it can cause is visible only in the browser.
 func (s *Service) resolveNode(ctx context.Context) (nodejs.Installation, error) {
 	// Version managers live in the operating-system home directory — ~/.nvm,
 	// ~/.local/share/fnm — not under $DSH_HOME. Searching the harness home found
-	// nothing on any machine that keeps its runtimes in the usual place, so the
-	// default pin never resolved.
+	// nothing on any machine that keeps its runtimes in the usual place.
 	home, err := paths.Home()
 	if err != nil {
 		return nodejs.Installation{}, exitcode.Wrap(exitcode.Preflight, err)
 	}
-	installation, err := s.Node.Resolve(nodejs.Preferences{
+	installation, failure := s.Node.Resolve(ctx, nodejs.Preferences{
 		Version: s.Settings.NodeVersion,
 		Home:    home,
 	})
-	if err != nil {
-		return nodejs.Installation{}, exitcode.New(exitcode.Preflight, "%v", err)
+	if failure != nil {
+		return nodejs.Installation{}, exitcode.New(exitcode.Preflight, "%s",
+			nodejs.Describe(failure, config.MinNodeVersion, config.TestedNodeVersion))
 	}
-	installation = s.Node.Info(ctx, installation, s.Settings.NodeVersion)
-	if installation.Requested != "" {
-		s.warn("未找到 Node %s，改用 %s 的 node %s (%s)",
-			installation.Requested, installation.Source, fallback(installation.Version, "版本未知"), installation.NodePath)
+
+	switch verdict := nodejs.Assess(installation, config.MinNodeVersion, config.TestedNodeVersion); verdict.Status {
+	case nodejs.TooOld:
+		return nodejs.Installation{}, exitcode.New(exitcode.Preflight, "%s\n%s", verdict.Reason, verdict.Remedy)
+	case nodejs.Untested:
+		s.warn("%s", verdict.Reason)
 	}
-	if !installation.AtLeast(config.MinNodeVersion) {
-		s.warn("Node %s 低于 %s，Web 端可能出现 \"Failed to load plugins\"",
-			fallback(installation.Version, "版本未知"), config.MinNodeVersion)
-	}
+	s.warnShadowedNodeVersion(installation)
 	return installation, nil
+}
+
+// warnShadowedNodeVersion reports an environment variable that lost to the
+// settings document.
+//
+// The Node release is the one setting where the document outranks the
+// environment, so a variable that is set and ignored is exactly the kind of
+// silent surprise this warns about: the operator sees why the value they
+// exported is not the value in use.
+func (s *Service) warnShadowedNodeVersion(installation nodejs.Installation) {
+	if s.Settings.Sources.NodeVersion != "file" {
+		return
+	}
+	raw := strings.TrimSpace(s.environment()(paths.EnvNodeVersion))
+	if raw == "" || nodejs.Matches(installation.Version, raw) {
+		return
+	}
+	s.warn("环境变量 %s=%s 被配置里的 nodeVersion=%s 覆盖(优先级: --node > 配置文件 > %s > PATH)",
+		paths.EnvNodeVersion, raw, installation.Version, paths.EnvNodeVersion)
 }
 
 // pnpmPath resolves the pnpm executable.

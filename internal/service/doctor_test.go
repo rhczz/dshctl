@@ -203,28 +203,38 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 			},
 		},
 		{
-			name: "node below the supported minimum",
+			name: "a release below the supported minimum",
 			setup: func(f *fixture, t *testing.T) {
-				f.seedNodeInstallation(t, "18.20.4")
+				// The machine serves a release dshctl refuses, which is a
+				// failure rather than a warning: nothing can start on it.
+				f.servePATHNode(t, "18.20.4")
 			},
 			change: func(f *fixture, checks *[]Check) {
-				replaceCheck(*checks, "Node", CheckWarn, filepath.Join(f.root, ".nvm", "versions", "node",
-					"v18.20.4", "bin", fixtureNodeName())+" (18.20.4, nvm)，低于 "+
-					config.MinNodeVersion+"，Web 端可能出现 \"Failed to load plugins\"")
+				replaceCheck(*checks, "Node", CheckFail, nodeBelowMinimumDetail(t, f, "18.20.4"))
 			},
 			// The Node row's detail is exempt from the byte-for-byte comparison
-			// in general, so the version and the remedy this branch must carry
-			// are pinned here explicitly instead of being silently skipped.
+			// in general, so the release, the floor and the remedy this branch
+			// must carry are pinned here explicitly instead of being skipped.
 			exact: []string{"Node"},
 		},
 		{
-			name: "the pinned node release is not installed",
-			setup: func(f *fixture, _ *testing.T) {
-				// A different release is installed and the settings pin the
-				// default one, so the resolver has to refuse rather than
+			name: "a release outside the verified major version",
+			setup: func(f *fixture, t *testing.T) {
+				f.servePATHNode(t, "26.1.0")
+			},
+			change: func(f *fixture, checks *[]Check) {
+				replaceCheck(*checks, "Node", CheckWarn, nodeUntestedDetail(t, f, "26.1.0"))
+			},
+			exact: []string{"Node"},
+		},
+		{
+			name: "the configured node release is not installed",
+			setup: func(f *fixture, t *testing.T) {
+				// A different release is installed and the document names the
+				// verified one, so the resolver has to refuse rather than
 				// silently use a runtime the operator did not ask for.
 				f.seedNodeInstallation(t, "25.1.1")
-				f.Settings.NodeVersion = config.DefaultNodeVersion
+				f.Settings.NodeVersion = config.TestedNodeVersion
 			},
 			change: func(_ *fixture, checks *[]Check) {
 				replaceCheck(*checks, "Node", CheckFail, nodeNotInstalledDetail)
@@ -295,7 +305,45 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 
 // nodeNotInstalledDetail is the first line of the resolver's refusal. The rest
 // of the message lists the ways out, which the Node package's own tests pin.
-const nodeNotInstalledDetail = "找不到 Node " + config.DefaultNodeVersion + "(已查找 nvm 与 fnm 的安装目录)"
+const nodeNotInstalledDetail = "找不到 Node " + config.TestedNodeVersion + "(已查找 nvm/fnm 的安装目录与 PATH)"
+
+// nodeBelowMinimumDetail is the whole refusal an operator sees when the machine
+// serves a release under the floor: the release, the floor, where it came from,
+// and every way to install a usable one.
+//
+// The remedy block is spelled out rather than borrowed from nodejs.Remedies: an
+// expectation computed by the code under test would agree with it even after the
+// block lost a line. The Node package pins the same text for its own callers, so
+// the two would have to drift together to pass.
+func nodeBelowMinimumDetail(t *testing.T, f *fixture, version string) string {
+	t.Helper()
+	resolved := f.resolvedNode(t)
+	return "Node " + version + " 低于最低要求 " + config.MinNodeVersion +
+		"(" + resolved.NodePath + "，来源 PATH)\n" + nodeRemedyBlock
+}
+
+// nodeRemedyBlock is the fix block a refusal carries, as an operator reads it.
+const nodeRemedyBlock = `修复(任选一种):
+  nvm:      nvm install 24 && nvm alias default 24
+  fnm:      fnm install 24 && fnm default 24
+  Homebrew: brew install node@24
+  n:        n 24
+  Volta:    volta install node@24
+  asdf:     asdf install nodejs ` + config.TestedNodeVersion + ` && asdf global nodejs ` + config.TestedNodeVersion + `
+  mise:     mise use -g node@24
+  nodenv:   nodenv install ` + config.TestedNodeVersion + ` && nodenv global ` + config.TestedNodeVersion + `
+  官方安装包: https://nodejs.org/en/download
+也可以只指定一次: --node <版本> 或 DSH_NODE_VERSION=<版本>(成功后写入配置)`
+
+// nodeUntestedDetail is the warning for a release dshctl has not been verified
+// against: used, and said out loud.
+func nodeUntestedDetail(t *testing.T, f *fixture, version string) string {
+	t.Helper()
+	resolved := f.resolvedNode(t)
+	return resolved.NodePath + " (" + version + ", path)；Node " + version +
+		" 不在 dshctl 的验证范围内(已验证 " + config.TestedNodeVersion + "；" +
+		resolved.NodePath + "，来源 PATH)；若 Web 端出现 \"Failed to load plugins\" 请改用 Node 24.x"
+}
 
 // TestDoctorReportsEveryRowOfAFreshStateDirectory pins the two warnings that
 // only appear before dshctl has ever written its settings: the settings document
@@ -398,7 +446,7 @@ func baselineChecks(t *testing.T, f *fixture) []Check {
 	if err := f.Settings.Provision(); err != nil {
 		t.Fatalf("provision the state directory: %v", err)
 	}
-	node := nodeInstallationFor(t, f)
+	node := f.servedNodePath(t)
 	return []Check{
 		{Name: "状态目录", Status: CheckOK, Detail: f.state},
 		{Name: "配置文件", Status: CheckOK, Detail: f.Settings.ConfigPath},
@@ -407,7 +455,7 @@ func baselineChecks(t *testing.T, f *fixture) []Check {
 		{Name: "仓库版本", Status: CheckOK, Detail: "main@abc1234"},
 		{Name: "依赖", Status: CheckOK, Detail: filepath.Join(f.repo, "node_modules") + " 已安装"},
 		{Name: "构建产物", Status: CheckOK, Detail: f.Repo.BuildRecordPath()},
-		{Name: "Node", Status: CheckOK, Detail: node + " (" + config.DefaultNodeVersion + ", nvm)"},
+		{Name: "Node", Status: CheckOK, Detail: node + " (" + config.TestedNodeVersion + ", path)"},
 		{Name: "pnpm", Status: CheckOK, Detail: "/fake/bin/pnpm 11.0.0"},
 		{Name: "端口", Status: CheckOK, Detail: strconv.Itoa(f.Settings.Port) + " 空闲"},
 		{Name: "运行记录", Status: CheckOK, Detail: "不存在(尚未启动过服务)"},
