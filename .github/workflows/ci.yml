@@ -265,9 +265,12 @@ jobs:
       - name: govulncheck
         # The tool is pinned: `@latest` makes an unchanged commit fail the day a
         # scanner is released, which turns a security gate into noise. Bump the
-        # version deliberately. The advisory it guards against — GO-2026-4602 —
-        # is fixed in Go 1.25.8, so a failure here means the pinned toolchain is
-        # older than the fix.
+        # version deliberately — and check that it still builds with the pinned
+        # toolchain, because setup-go keeps GOTOOLCHAIN=local: v1.8.0 already
+        # requires Go 1.26, while v1.7.0 asks for 1.25.
+        #
+        # The advisory it guards against — GO-2026-4602 — is fixed in Go 1.25.8,
+        # so a failure here means the pinned toolchain is older than the fix.
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@v1.8.0
+          go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
           "$(go env GOPATH)/bin/govulncheck" ./...
