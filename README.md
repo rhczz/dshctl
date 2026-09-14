@@ -97,15 +97,3 @@ dshctl --port 3081 stop       # 只停 3081
 | 4 | 前置检查失败（缺 node/pnpm、不是 checkout、未构建、端口被占用或无法探测） |
 | 5 | 锁超时（另一个 dshctl 操作正在进行） |
 | 130 | 命令被 Ctrl-C 取消 |
-
-## 开发
-
-```sh
-make check          # gofmt -s 校验 + go vet + 测试
-make test-race      # 竞态检测
-make hermetic       # 验证测试不在临时目录之外写任何东西
-make ci             # 与 CI 一致：工作流校验 + 格式 + vet + 密闭性 + 竞态测试
-```
-
-CI 在 ubuntu / macos / windows 三个平台编译并测试，全部通过后才交叉编译 6 个平台。
-打 `v*` 标签会触发 Release 工作流，把各平台产物发布到对应的 release。
