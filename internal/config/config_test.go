@@ -109,7 +109,7 @@ func TestPrecedence(t *testing.T) {
 		paths.EnvHarnessHome: filepath.Join(root, "harness"),
 		paths.EnvStateDir:    stateDir,
 		paths.EnvPort:        "2222",
-		paths.EnvRepoDir:     "/from/env",
+		paths.EnvRepoDir:     filepath.Join(fixtureHome(), "from", "env"),
 		paths.EnvNodeVersion: "21.0.0",
 	}
 
@@ -117,7 +117,7 @@ func TestPrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if fromEnv.Port != 2222 || fromEnv.RepoDir != "/from/env" || fromEnv.NodeVersion != "21.0.0" {
+	if fromEnv.Port != 2222 || fromEnv.RepoDir != filepath.Join(fixtureHome(), "from", "env") || fromEnv.NodeVersion != "21.0.0" {
 		t.Fatalf("environment must win over the file: %+v", fromEnv)
 	}
 	if fromEnv.Sources.Port != "env" || fromEnv.Sources.RepoDir != "env" {

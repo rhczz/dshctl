@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -360,8 +361,15 @@ func TestDoctorReportsAMissingRepository(t *testing.T) {
 	}
 }
 
-// TestDoctorReportsALockHeldByALiveProcess pins the third lock row: a pid is
-// readable, so the report can name the operation that is in the way.
+// TestDoctorReportsALockHeldByALiveProcess pins the third lock row: the lock is
+// held by a live operation, and the report says so.
+//
+// Whether it can also name the pid is the platform's answer, not this package's:
+// Unix locks are advisory and the record inside the file stays readable, while
+// Windows byte-range locks are mandatory and the locked region cannot be read
+// through another handle. Both reports are pinned here, because "held, holder
+// unknown" is a different statement from "free" and the row must not degrade
+// into the latter.
 func TestDoctorReportsALockHeldByALiveProcess(t *testing.T) {
 	f := newFixture(t)
 	held, err := lock.Acquire(context.Background(), f.Settings.LockFile(), 2*time.Second)
@@ -371,8 +379,11 @@ func TestDoctorReportsALockHeldByALiveProcess(t *testing.T) {
 	defer held.Release()
 
 	want := baselineChecks(t, f)
-	replaceCheck(want, "操作锁", CheckWarn,
-		"被 pid="+strconv.Itoa(os.Getpid())+" 持有，另一个 dshctl 操作正在进行")
+	detail := "被 pid=" + strconv.Itoa(os.Getpid()) + " 持有，另一个 dshctl 操作正在进行"
+	if runtime.GOOS == "windows" {
+		detail = "已被持有，但锁文件里没有可读的 pid 记录"
+	}
+	replaceCheck(want, "操作锁", CheckWarn, detail)
 	wantChecks(t, f.Doctor(context.Background()), want)
 }
 

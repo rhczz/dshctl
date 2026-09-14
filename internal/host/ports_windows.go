@@ -49,6 +49,12 @@ const (
 	windowsEpochOffset = 116444736000000000
 )
 
+// tcpRow is one listening endpoint, whichever table it came from.
+type tcpRow struct {
+	localPort uint32
+	owningPID uint32
+}
+
 // mibTCPRow mirrors MIB_TCPROW_OWNER_PID.
 type mibTCPRow struct {
 	State      uint32
@@ -65,6 +71,29 @@ type mibTCPTable struct {
 	Table      [1]mibTCPRow
 }
 
+// mibTCP6Row mirrors MIB_TCP6ROW_OWNER_PID.
+//
+// The IPv6 row is not the IPv4 row with wider addresses: the two 16-byte
+// addresses come first and the state follows them, with the scope id after the
+// local address. Reading an IPv6 table through the IPv4 layout therefore takes a
+// port out of the middle of an address, which reported every IPv6 listener as a
+// free port — the one answer a start must never be given.
+type mibTCP6Row struct {
+	LocalAddr    [16]byte
+	LocalScopeID uint32
+	LocalPort    uint32
+	RemoteAddr   [16]byte
+	RemotePort   uint32
+	State        uint32
+	OwningPID    uint32
+}
+
+// mibTCP6Table mirrors MIB_TCP6TABLE_OWNER_PID.
+type mibTCP6Table struct {
+	NumEntries uint32
+	Table      [1]mibTCP6Row
+}
+
 // Listening reports which process is listening on a loopback port.
 //
 // The table is read from iphlpapi rather than by parsing netstat output, so the
@@ -78,8 +107,8 @@ func (h *Host) Listening(_ context.Context, port int) (PortResult, error) {
 		return PortResult{}, fmt.Errorf("无法判断端口 %d 的占用情况: %w", port, err)
 	}
 	for _, row := range rows {
-		if portOf(row.LocalPort) == port {
-			return PortResult{Listening: true, PID: int(row.OwningPID)}, nil
+		if portOf(row.localPort) == port {
+			return PortResult{Listening: true, PID: int(row.owningPID)}, nil
 		}
 	}
 	return PortResult{}, nil
@@ -87,8 +116,8 @@ func (h *Host) Listening(_ context.Context, port int) (PortResult, error) {
 
 // listenTable reads the listening TCP table for both address families, so an
 // IPv6-only listener cannot hide from the port probe.
-func listenTable() ([]mibTCPRow, error) {
-	var rows []mibTCPRow
+func listenTable() ([]tcpRow, error) {
+	var rows []tcpRow
 	for _, family := range []uint32{addressFamilyINET, addressFamilyINET6} {
 		familyRows, err := listenTableForFamily(family)
 		if err != nil {
@@ -100,7 +129,7 @@ func listenTable() ([]mibTCPRow, error) {
 }
 
 // listenTableForFamily reads the listening TCP table for one address family.
-func listenTableForFamily(family uint32) ([]mibTCPRow, error) {
+func listenTableForFamily(family uint32) ([]tcpRow, error) {
 	var size uint32
 	// The argument order is the API's, not the obvious one:
 	// GetExtendedTcpTable(table, size, order, addressFamily, tableClass, reserved).
@@ -135,12 +164,26 @@ func listenTableForFamily(family uint32) ([]mibTCPRow, error) {
 	if status != 0 {
 		return nil, fmt.Errorf("GetExtendedTcpTable 失败: %d", status)
 	}
+	rows := make([]tcpRow, 0, 8)
+	if family == addressFamilyINET6 {
+		table := (*mibTCP6Table)(unsafe.Pointer(&buffer[0]))
+		count := int(table.NumEntries)
+		if count <= 0 {
+			return nil, nil
+		}
+		for _, row := range unsafe.Slice(&table.Table[0], count) {
+			rows = append(rows, tcpRow{localPort: row.LocalPort, owningPID: row.OwningPID})
+		}
+		return rows, nil
+	}
 	table := (*mibTCPTable)(unsafe.Pointer(&buffer[0]))
 	count := int(table.NumEntries)
 	if count <= 0 {
 		return nil, nil
 	}
-	rows := unsafe.Slice(&table.Table[0], count)
+	for _, row := range unsafe.Slice(&table.Table[0], count) {
+		rows = append(rows, tcpRow{localPort: row.LocalPort, owningPID: row.OwningPID})
+	}
 	return rows, nil
 }
 
