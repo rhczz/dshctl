@@ -170,7 +170,14 @@ func TestListeningFindsAnIPv6OnlyListener(t *testing.T) {
 		t.Fatalf("Listening: %v", err)
 	}
 	if !result.Listening {
-		t.Fatalf("port %d is listening on ::1 but was reported free", port)
+		// The table is dumped on failure: an IPv6 row read through the wrong
+		// layout is a mistake that cannot be seen by looking at the code, and
+		// the rows are what says which offset the port is really at.
+		rows, tableErr := listenTable()
+		for _, row := range rows {
+			t.Logf("table row: port=%d pid=%d", portOf(row.localPort), row.owningPID)
+		}
+		t.Fatalf("port %d is listening on ::1 but was reported free (%d rows, err=%v)", port, len(rows), tableErr)
 	}
 	if result.PID != os.Getpid() {
 		t.Fatalf("pid = %d, want this process %d", result.PID, os.Getpid())

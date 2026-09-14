@@ -24,11 +24,11 @@ func TestTCPTableRowSizes(t *testing.T) {
 	if got := unsafe.Sizeof(mibTCP6Row{}); got != 52 {
 		t.Fatalf("mibTCP6Row is %d bytes, want the 52 of MIB_TCP6ROW_OWNER_PID", got)
 	}
-	// The port and the owning pid have to be where the structure claims: the
-	// offsets are asserted through a filled row rather than by reading the
-	// constants again.
-	row := mibTCP6Row{LocalPort: 0x1234, OwningPID: 4321}
-	if portOf(row.LocalPort) != 0x1234 {
-		t.Fatalf("portOf(LocalPort) = %d, want 4660", portOf(row.LocalPort))
+	// The port field is where the structure claims it is: the kernel stores it
+	// in network byte order in the low half of the word, so 0x1234 is written
+	// as 0x3412 and read back by portOf.
+	row := mibTCP6Row{LocalPort: 0x3412, OwningPID: 4321}
+	if got := portOf(row.LocalPort); got != 0x1234 {
+		t.Fatalf("portOf(LocalPort) = %#x, want 0x1234: the port is not where this structure says it is", got)
 	}
 }

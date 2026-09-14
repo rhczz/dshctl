@@ -125,13 +125,13 @@ func TestPrecedence(t *testing.T) {
 	}
 
 	port := 3333
-	repoDir := "/from/flag"
+	repoDir := filepath.Join(fixtureHome(), "from", "flag")
 	nodeVersion := "22.0.0"
 	fromFlag, err := Load(environment.Getenv, Overrides{Port: &port, RepoDir: &repoDir, NodeVersion: &nodeVersion})
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if fromFlag.Port != 3333 || fromFlag.RepoDir != "/from/flag" || fromFlag.NodeVersion != "22.0.0" {
+	if fromFlag.Port != 3333 || fromFlag.RepoDir != filepath.Join(fixtureHome(), "from", "flag") || fromFlag.NodeVersion != "22.0.0" {
 		t.Fatalf("flags must win over the environment: %+v", fromFlag)
 	}
 	if fromFlag.Sources.Port != "flag" || fromFlag.Sources.RepoDir != "flag" || fromFlag.Sources.NodeVersion != "flag" {
