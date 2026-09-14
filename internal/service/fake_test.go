@@ -283,6 +283,15 @@ func (h *fakeHost) Signal(pid int, request host.Request) error {
 	if h.listener == pid {
 		h.listener = 0
 	}
+	// An opaque listener is one the platform will not attribute, so it is
+	// recorded as "something listens, owner unknown" rather than against a pid.
+	// Ending the process that bound it frees the port, and the port probe has to
+	// say so: leaving the port looking occupied made every cleanup after an
+	// opaque listener wait out the whole stop timeout, which is a property of the
+	// fixture rather than of the code under test.
+	if h.listener == -1 && pid == h.servedByWrapper {
+		h.listener = 0
+	}
 	if h.strangerAfterSignal > 0 {
 		stranger := h.strangerAfterSignal
 		h.processes[stranger] = &fakeProcess{
