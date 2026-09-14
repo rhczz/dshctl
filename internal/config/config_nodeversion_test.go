@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -340,14 +341,14 @@ func testWriteBackV2AddsTheKeyToAnEmptyDocument(t *testing.T) {
 // one key, not a rewrite of the file: everything the operator edited survives,
 // byte for byte.
 func testWriteBackV3PreservesEveryOtherField(t *testing.T) {
-	document := `{
-  "repoDir": "/tmp/custom-checkout",
+	document := fmt.Sprintf(`{
+  "repoDir": %q,
   "port": 3999,
   "startTimeoutSeconds": 12,
   "stopTimeoutSeconds": 13,
   "lockTimeoutSeconds": 14,
   "logRotateBytes": 131072
-}`
+}`, filepath.Join(fixtureHome(), "custom-checkout"))
 	w := newNodeWorld(t).writeDocument(document)
 	before := w.fields()
 
@@ -475,7 +476,7 @@ func testWriteBackV10SurvivesALoad(t *testing.T) {
 	documents := []string{
 		`{}`,
 		`{"port": 3999}`,
-		`{"repoDir": "/tmp/checkout", "port": 3999, "logRotateBytes": 131072}`,
+		fmt.Sprintf(`{"repoDir": %q, "port": 3999, "logRotateBytes": 131072}`, filepath.Join(fixtureHome(), "checkout")),
 		`{"startTimeoutSeconds": 12, "stopTimeoutSeconds": 13, "lockTimeoutSeconds": 14}`,
 	}
 	for _, document := range documents {

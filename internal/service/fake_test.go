@@ -381,7 +381,7 @@ func (h *fakeHost) Run(_ context.Context, cmd run.Command) error {
 			return err
 		}
 	}
-	switch filepath.Base(cmd.Name) {
+	switch programName(cmd.Name) {
 	case "git":
 		return h.answerGit(cmd)
 	case "pnpm":
@@ -431,7 +431,7 @@ func (h *fakeHost) Capture(_ context.Context, cmd run.Command) run.Result {
 			return run.Result{Err: err}
 		}
 	}
-	switch filepath.Base(cmd.Name) {
+	switch programName(cmd.Name) {
 	case "git":
 		switch {
 		case hasArgument(cmd, "rev-parse", "--short"):
@@ -451,6 +451,21 @@ func (h *fakeHost) Capture(_ context.Context, cmd run.Command) run.Result {
 		return run.Result{Stdout: "11.0.0"}
 	}
 	return run.Result{}
+}
+
+// programName reports the program a command names, in the spelling the
+// switches below match on.
+//
+// The fixture's node stub is spelled node.exe on Windows, and matching the base
+// name against "node" therefore missed it: every resolution on that platform
+// reported "no usable node", which is a fact about the fixture rather than about
+// the code.
+func programName(path string) string {
+	name := filepath.Base(path)
+	if name == fixtureNodeName() {
+		return "node"
+	}
+	return name
 }
 
 // answerNode plays the two questions the resolver puts to a node binary.
