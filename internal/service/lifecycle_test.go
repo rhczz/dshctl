@@ -542,9 +542,14 @@ func TestFailedStartCleansUpWhenTheLeaderDiesFirst(t *testing.T) {
 
 // TestStartRefusesWhenTheListenerCannotBeNamed is the regression test for
 // "cannot look" being read as "not ready": when the server binds the port but
-// the platform will not attribute it, the start must refuse promptly instead
-// of waiting out the timeout and killing a possibly healthy server on a false
+// the platform will not attribute it, the start must refuse instead of waiting
+// out the whole timeout and killing a possibly healthy server on a false
 // premise.
+//
+// The refusal is bounded rather than instantaneous — the other half of the rule
+// is TestStartSurvivesAListenerThatIsUnnameableForAMoment — so what this pins is
+// that a port that stays unnameable is refused long before the start timeout,
+// with the exit code of a precondition that could not be verified.
 func TestStartRefusesWhenTheListenerCannotBeNamed(t *testing.T) {
 	f := newFixture(t)
 	f.host.spontaneouslyServed = true
@@ -563,6 +568,40 @@ func TestStartRefusesWhenTheListenerCannotBeNamed(t *testing.T) {
 	}
 	if _, ok := f.stateRecord(t); ok {
 		t.Fatal("a failed start left its runtime record behind")
+	}
+}
+
+// TestStartSurvivesAListenerThatIsUnnameableForAMoment pins the other half of
+// the same rule: one sample is not a verdict.
+//
+// The port probe chain asks a per-process probe first and a whole-table probe
+// after it, and the two read the kernel through different interfaces: a socket
+// the server created a moment ago can be in the table and not yet in the process
+// scan. Treating that first sample as final failed a start for a server dshctl
+// had just spawned itself, which is what a busy machine produced. The state is
+// therefore re-examined for a moment — nothing is concluded from it — and the
+// start succeeds once the owner can be named.
+func TestStartSurvivesAListenerThatIsUnnameableForAMoment(t *testing.T) {
+	f := newFixture(t)
+	f.host.spontaneouslyServed = true
+	spawn := f.Spawn
+	f.Spawn = func(path string, args []string, dir string, env []string, log *os.File) (int, func(context.Context) bool, error) {
+		// The listener exists from here on, but the first probes cannot name it.
+		f.host.mu.Lock()
+		f.host.unnameablePolls = 2
+		f.host.mu.Unlock()
+		return spawn(path, args, dir, env, log)
+	}
+
+	result, err := f.Start(context.Background())
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	if !result.Status.Owning() {
+		t.Fatalf("status = %+v, want the started server", result.Status)
+	}
+	if _, ok := f.stateRecord(t); !ok {
+		t.Fatal("a successful start must leave its runtime record behind")
 	}
 }
 

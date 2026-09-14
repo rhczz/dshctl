@@ -92,6 +92,14 @@ type invocation struct {
 // with every stream redirected so a detached child cannot hold a pipe open.
 func runBinary(t *testing.T, args ...string) (invocation, string) {
 	t.Helper()
+	return runBinaryWith(t, nil, args...)
+}
+
+// runBinaryWith runs the built binary with the hermetic environment plus
+// per-test overrides, replacing a variable rather than adding a second copy of
+// it (the comparison is case-insensitive because Windows spells PATH as "Path").
+func runBinaryWith(t *testing.T, overrides map[string]string, args ...string) (invocation, string) {
+	t.Helper()
 	path := binary(t)
 	root := t.TempDir()
 	stateDir := filepath.Join(root, "state")
@@ -100,9 +108,14 @@ func runBinary(t *testing.T, args ...string) (invocation, string) {
 		t.Fatalf("mkdir home: %v", err)
 	}
 
+	environment := binaryEnvironment(t, root, home, stateDir)
+	for key, value := range overrides {
+		environment = setEnvironment(environment, key, value)
+	}
+
 	cmd := exec.Command(path, args...)
 	cmd.Dir = root
-	cmd.Env = binaryEnvironment(t, root, home, stateDir)
+	cmd.Env = environment
 	cmd.Stdin = nil
 	var stdout, stderr strings.Builder
 	cmd.Stdout = &stdout
@@ -119,6 +132,47 @@ func runBinary(t *testing.T, args ...string) (invocation, string) {
 		}
 	}
 	return invocation{code: code, stdout: stdout.String(), stderr: stderr.String()}, stateDir
+}
+
+// setEnvironment replaces one variable in a KEY=VALUE list, or appends it when
+// it is not there yet.
+func setEnvironment(environment []string, key, value string) []string {
+	kept := make([]string, 0, len(environment)+1)
+	for _, entry := range environment {
+		name, _, found := strings.Cut(entry, "=")
+		if found && strings.EqualFold(name, key) {
+			continue
+		}
+		kept = append(kept, entry)
+	}
+	return append(kept, key+"="+value)
+}
+
+// stubToolPath writes do-nothing executables for the programs a command's
+// preflight resolves, and returns a PATH that finds them ahead of the operating
+// system's own directories.
+//
+// A test that asserts what happens *after* a preflight has to make the
+// preflight pass on every machine, or it measures the runner instead of the
+// code: with pnpm installed the run reached the step under test, while on a
+// clean CI runner the very same run stopped earlier with "pnpm not found" — a
+// green test on one machine and a red one on another, for reasons that have
+// nothing to do with the assertion. Nothing here executes the stubs (the run
+// stops at the step being pinned); they only have to be resolvable.
+func stubToolPath(t *testing.T, programs ...string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, program := range programs {
+		name := program
+		if runtime.GOOS == "windows" {
+			// Windows resolves through PATHEXT, so a bare name is not a program.
+			name += ".cmd"
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+			t.Fatalf("write the %s stub: %v", program, err)
+		}
+	}
+	return dir + string(os.PathListSeparator) + minimalToolPath()
 }
 
 // binaryEnvironment builds the environment the binary runs with.

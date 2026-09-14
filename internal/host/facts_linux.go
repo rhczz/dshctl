@@ -6,20 +6,25 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // procSysUptime is the kernel's own uptime, in seconds.
 const procSysUptime = "/proc/uptime"
 
-// procStatHz is the kernel's clock tick rate.
-const procStatHz = 100
+// procStatHz is the clock tick rate /proc reports the start time in.
+const procStatHz = defaultTickRate
 
 // startTimeFromProc reads a process start time from /proc without running any
 // tool.
 //
-// /proc reports the start time as clock ticks since boot, so it is combined with
-// the kernel's uptime. This is the most reliable fingerprint available on Linux:
-// it needs no external binary and works in containers that ship no ps.
+// /proc reports the start time as clock ticks since boot, which is only half of
+// the answer: the ticks say how long after boot the process started, and that
+// age has to be subtracted from the current time to become the absolute
+// timestamp every ownership decision compares. startTimeFromBootTicks owns that
+// conversion — and the portable test beside it — because getting the direction
+// wrong makes the fingerprint drift, which is what happens when the age is
+// returned as if it were a start time.
 //
 // Returns:
 //   - the start time in Unix seconds, and whether it could be read.
@@ -32,11 +37,7 @@ func startTimeFromProc(pid int) (int64, bool) {
 	if !ok {
 		return 0, false
 	}
-	seconds := uptime - float64(ticks)/procStatHz
-	if seconds < 0 {
-		seconds = 0
-	}
-	return int64(seconds), true
+	return startTimeFromBootTicks(ticks, uptime, time.Now().Unix(), procStatHz), true
 }
 
 // startTicks reads the 22nd field of /proc/<pid>/stat, which is the process

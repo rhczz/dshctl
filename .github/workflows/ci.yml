@@ -19,9 +19,13 @@ permissions:
   contents: read
 
 env:
-  # Keep the toolchain honest about what it is building.
+  # Keep the toolchain honest about what it is building. CGO is deliberately
+  # *not* disabled here: the race detector the test jobs rely on needs cgo, and a
+  # global CGO_ENABLED=0 made `go test -race` fail on every platform before it
+  # compiled a single package. The one job that needs cgo off — the cross-compile
+  # job, which targets platforms whose C toolchain is not installed here — sets it
+  # on its own step.
   GOFLAGS: -trimpath
-  CGO_ENABLED: "0"
 
 jobs:
   test:
@@ -158,6 +162,11 @@ jobs:
           check-latest: true
 
       - name: Build
+        # cgo is off for this step only: the binary is cross-compiled for
+        # platforms whose C toolchain is not installed on the runner, and the
+        # tool has no cgo dependencies to lose.
+        env:
+          CGO_ENABLED: "0"
         run: |
           set -euo pipefail
           suffix=""

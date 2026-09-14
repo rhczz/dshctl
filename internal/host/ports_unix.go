@@ -43,9 +43,23 @@ func (h *Host) Listening(ctx context.Context, port int) (PortResult, error) {
 			failures = append(failures, err.Error())
 			continue
 		}
-		if handled {
-			return result, nil
+		if !handled {
+			continue
 		}
+		if result.Listening && result.PID == 0 {
+			// "Something listens, but the probe that reads the whole table
+			// cannot say who." The two kinds of probe read the kernel through
+			// different interfaces, and a socket created a moment ago can be in
+			// the table and not yet in the per-process scan — which is exactly
+			// the moment a start is in, waiting for the server it has just
+			// spawned. Ask the probe that *can* name owners once more before
+			// reporting the owner as unknown: the alternative is refusing a
+			// start over a server that is plainly its own.
+			if named, ok, err := h.listenViaLsof(ctx, port); err == nil && ok && named.PID > 0 {
+				return named, nil
+			}
+		}
+		return result, nil
 	}
 	if len(failures) > 0 {
 		// A probe that exists but could not answer: the port state is unknown.

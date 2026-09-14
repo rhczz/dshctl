@@ -102,6 +102,11 @@ type fakeHost struct {
 	// platform cannot attribute: Listening reports "something listens" with
 	// no pid, which is what netstat answers on a host without lsof or ss.
 	opaqueServed bool
+	// unnameablePolls makes the next Listening calls report a listener whose
+	// owner the platform will not name, and then answer normally again. It is
+	// the transient shape a probe chain produces while a socket is being
+	// created: the table probe sees it before the per-process probe does.
+	unnameablePolls int
 	// listenerIgnoresGrace makes the spontaneously served listener survive a
 	// graceful request while the wrapper answers it, the shape of a cleanup
 	// whose leader dies first.
@@ -187,6 +192,10 @@ func (h *fakeHost) Listening(_ context.Context, port int) (host.PortResult, erro
 	defer h.mu.Unlock()
 	if h.listenErr != nil {
 		return host.PortResult{}, h.listenErr
+	}
+	if h.unnameablePolls > 0 {
+		h.unnameablePolls--
+		return host.PortResult{Listening: true}, nil
 	}
 	if pid, ok := h.listenersByPort[port]; ok {
 		if entry, alive := h.processes[pid]; !alive || !entry.alive {

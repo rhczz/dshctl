@@ -74,10 +74,12 @@ func TestReportingCommandsLeaveNoTrace(t *testing.T) {
 // TestMutatingCommandsDoProvision pins the other side of the boundary, so the
 // read-only assertion above cannot pass by accident because nothing ever writes.
 //
-// The fixture needs no shell and no git: a directory that carries the
-// checkout's markers is enough for the build to reach its prune step, and the
-// prune fails there because the directory is not a git repository — which is
-// the point. Nothing in this fixture is platform-specific.
+// The fixture is a directory that carries the checkout's markers but is not a
+// git repository, so the build gets as far as the residue prune — which asks git
+// about the tree — and fails there. Node and pnpm are stubbed onto the PATH so
+// the run reaches that step on every machine: without them the same command
+// stops earlier on a host that has no pnpm, which says something about the host
+// rather than about the code.
 func TestMutatingCommandsDoProvision(t *testing.T) {
 	root := t.TempDir()
 	checkout := filepath.Join(root, "checkout")
@@ -104,7 +106,9 @@ func TestMutatingCommandsDoProvision(t *testing.T) {
 	// build proceeds as far as the residue prune and then fails there. That is
 	// the status asserted: 1, a plain failure, because the tool could not do what
 	// it was asked — and the provisioning below happened before that.
-	result, stateDir := runBinary(t, "--repo", checkout, "build")
+	result, stateDir := runBinaryWith(t, map[string]string{
+		"PATH": stubToolPath(t, "pnpm", "node"),
+	}, "--repo", checkout, "build")
 	if result.code != 1 {
 		t.Fatalf("build exit = %d, want 1 (stderr = %s)", result.code, result.stderr)
 	}

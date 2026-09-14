@@ -406,6 +406,21 @@ func describeFacts(facts host.Facts) string {
 func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited func(context.Context) bool, timeout time.Duration) (int, error) {
 	deadline := time.Now().Add(timeout)
 	var lastErr error
+	// ownerlessSince is when the port first answered without a nameable owner.
+	// The probe chain is not atomic — it asks a per-process probe first and a
+	// whole-table probe after it — so a socket created by the server this call
+	// has just spawned can be in the table and not yet in the per-process scan.
+	// Deciding on that one sample fails a start for a server that is plainly its
+	// own, so the state is re-examined for a moment before it is reported as
+	// unverifiable. Nothing is concluded during the grace period: the port is
+	// simply looked at again, and a listener that stays unnameable is refused
+	// exactly as before, with the message naming what could not be verified.
+	//
+	// The grace is a couple of probe cycles, not a timeout: it exists to let the
+	// two probes agree, and a port that is genuinely held by a process the
+	// platform cannot describe is still refused long before the start deadline.
+	var ownerlessSince time.Time
+	const ownerlessListenGrace = time.Second
 	for {
 		if err := ctx.Err(); err != nil {
 			return 0, err
@@ -415,28 +430,30 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 			lastErr = err
 		} else if observation.pid == 0 {
 			if observation.listening {
-				// The port answers to the probe but the platform will not name
-				// its owner. The start cannot verify that this is the server
-				// it spawned, and "cannot look" must never be treated as "not
-				// there yet": waiting out the timeout and then killing the
-				// group would destroy a possibly healthy server on a false
-				// premise. Refuse now, honestly.
-				return 0, exitcode.New(exitcode.Preflight,
-					"端口 %d 已有监听，但平台探测工具未报告其归属进程，无法确认它是本次启动的服务", s.Settings.Port)
-			}
-			// A child that has ended is reported at once rather than after
-			// the whole start timeout. Both checks are needed: the direct
-			// one is exact, and the host check covers a child that somehow
-			// outlived its reaper.
-			if exited != nil && exited(ctx) {
-				return 0, exitcode.New(exitcode.Failure,
-					"DSH Web 进程 (pid=%d) 已退出，端口 %d 始终没有就绪(详见日志)", expectedPID, s.Settings.Port)
-			}
-			if !s.Host.Alive(ctx, expectedPID) {
-				return 0, exitcode.New(exitcode.Failure,
-					"DSH Web 进程 (pid=%d) 已退出，端口 %d 始终没有就绪", expectedPID, s.Settings.Port)
+				if ownerlessSince.IsZero() {
+					ownerlessSince = time.Now()
+				}
+				if time.Since(ownerlessSince) >= ownerlessListenGrace {
+					return 0, exitcode.New(exitcode.Preflight,
+						"端口 %d 已有监听，但平台探测工具未报告其归属进程，无法确认它是本次启动的服务", s.Settings.Port)
+				}
+			} else {
+				ownerlessSince = time.Time{}
+				// A child that has ended is reported at once rather than after
+				// the whole start timeout. Both checks are needed: the direct
+				// one is exact, and the host check covers a child that somehow
+				// outlived its reaper.
+				if exited != nil && exited(ctx) {
+					return 0, exitcode.New(exitcode.Failure,
+						"DSH Web 进程 (pid=%d) 已退出，端口 %d 始终没有就绪(详见日志)", expectedPID, s.Settings.Port)
+				}
+				if !s.Host.Alive(ctx, expectedPID) {
+					return 0, exitcode.New(exitcode.Failure,
+						"DSH Web 进程 (pid=%d) 已退出，端口 %d 始终没有就绪", expectedPID, s.Settings.Port)
+				}
 			}
 		} else if observation.pid == expectedPID || s.descendsFromSpawned(expectedPID, observation.pid) {
+			ownerlessSince = time.Time{}
 			// Something holds the port and it belongs to the group this start
 			// created. It is the server when it answers; until then the shared
 			// deadline check and poll sleep below pace the retry — the check
@@ -453,6 +470,12 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 				s.Settings.Port, observation.pid, describeFacts(observation.facts))
 		}
 		if time.Now().After(deadline) {
+			// A port that kept answering without a nameable owner is reported as
+			// what it is, rather than as a bare timeout.
+			if !ownerlessSince.IsZero() {
+				return 0, exitcode.New(exitcode.Preflight,
+					"端口 %d 已有监听，但平台探测工具未报告其归属进程，无法确认它是本次启动的服务", s.Settings.Port)
+			}
 			if lastErr != nil {
 				return 0, exitcode.Wrap(exitcode.Failure, lastErr)
 			}
