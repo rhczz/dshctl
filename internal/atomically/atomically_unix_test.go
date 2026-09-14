@@ -43,3 +43,8 @@ func TestWriteFileHonoursTheRequestedPermissions(t *testing.T) {
 		})
 	}
 }
+
+// transientRead reports whether a failed read only means "the file was being
+// replaced just then". POSIX guarantees a reader sees either the old or the new
+// document, so a failure is never transient and never excused.
+func transientRead(error) bool { return false }

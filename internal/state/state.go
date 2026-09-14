@@ -101,7 +101,7 @@ func (s Store) Load() (Record, bool, error) {
 		return Record{}, false, fmt.Errorf("%w: %s 过大 (%d 字节)", ErrCorrupt, s.Path, info.Size())
 	}
 
-	data, err := os.ReadFile(s.Path)
+	data, err := readRecordFile(s.Path)
 	if err != nil {
 		return Record{}, false, fmt.Errorf("无法读取运行记录 %s: %w", s.Path, err)
 	}
@@ -128,6 +128,33 @@ func (s Store) Load() (Record, bool, error) {
 		return Record{}, false, fmt.Errorf("%w: %s 记录的 pid 无效: %d", ErrCorrupt, s.Path, record.PID)
 	}
 	return record, true, nil
+}
+
+// recordReadRetryWindow bounds how long a read keeps trying while the operating
+// system reports that the file is being replaced.
+const recordReadRetryWindow = 250 * time.Millisecond
+
+// recordReadRetryDelay is the pause between two attempts.
+const recordReadRetryDelay = 10 * time.Millisecond
+
+// readRecordFile reads the record, retrying briefly while the platform says the
+// file is being replaced.
+//
+// A record is written by replacing it, and Windows refuses a read of a file that
+// another handle is replacing ("being used by another process"). A `status` that
+// ran at that instant would report that it could not read a record that is
+// perfectly readable a millisecond later, which turns a routine race into a
+// failure. Only that answer is retried: a missing file, a corrupt document or a
+// permission problem is reported as it is, on the first attempt.
+func readRecordFile(path string) ([]byte, error) {
+	deadline := time.Now().Add(recordReadRetryWindow)
+	for {
+		data, err := os.ReadFile(path)
+		if err == nil || !recordBeingReplaced(err) || time.Now().After(deadline) {
+			return data, err
+		}
+		time.Sleep(recordReadRetryDelay)
+	}
 }
 
 // Save writes the record atomically, stamping UpdatedAt.

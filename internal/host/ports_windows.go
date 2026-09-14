@@ -102,12 +102,19 @@ func listenTable() ([]mibTCPRow, error) {
 // listenTableForFamily reads the listening TCP table for one address family.
 func listenTableForFamily(family uint32) ([]mibTCPRow, error) {
 	var size uint32
+	// The argument order is the API's, not the obvious one:
+	// GetExtendedTcpTable(table, size, order, addressFamily, tableClass, reserved).
+	// The family and the table class are both small integers and were passed the
+	// other way round, which makes the call fail with ERROR_INVALID_PARAMETER
+	// (87) for every port: the probe reported "unknown" instead of ever
+	// answering, so on Windows `start` refused everything and `stop` refused to
+	// end a server it had started.
 	status, _, _ := procExtendedTCP.Call(
 		0,
 		uintptr(unsafe.Pointer(&size)),
 		1, // bOrder: sort by address
-		uintptr(tcpTableOwnerPIDListener),
 		uintptr(family),
+		uintptr(tcpTableOwnerPIDListener),
 		0, // reserved
 	)
 	if status != errorInsufficientBuffer && status != 0 {
@@ -121,8 +128,8 @@ func listenTableForFamily(family uint32) ([]mibTCPRow, error) {
 		uintptr(unsafe.Pointer(&buffer[0])),
 		uintptr(unsafe.Pointer(&size)),
 		1,
-		uintptr(tcpTableOwnerPIDListener),
 		uintptr(family),
+		uintptr(tcpTableOwnerPIDListener),
 		0,
 	)
 	if status != 0 {

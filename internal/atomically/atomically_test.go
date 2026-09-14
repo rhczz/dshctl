@@ -78,6 +78,15 @@ func TestWriteFileReplacesInOneStep(t *testing.T) {
 			default:
 			}
 			data, err := os.ReadFile(path)
+			if err != nil && transientRead(err) {
+				// Windows refuses a read while the file is being replaced
+				// ("being used by another process"): the reader was not shown a
+				// partial document, it was told to try again. Both platforms
+				// then agree on what this test asserts — every document the
+				// reader does see is complete — so the retry is part of reading
+				// here rather than a way around the assertion.
+				continue
+			}
 			mu.Lock()
 			if err != nil {
 				if readErr == nil {

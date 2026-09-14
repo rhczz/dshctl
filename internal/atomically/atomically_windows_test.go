@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -36,4 +37,13 @@ func TestWriteFileOverAFileInTheWayIsReportedAsMissing(t *testing.T) {
 	if !strings.Contains(err.Error(), parent) {
 		t.Fatalf("error = %v, want it to name %s", err, parent)
 	}
+}
+
+// transientRead reports whether a failed read only means "the file was being
+// replaced just then". Windows refuses a read of a file that another handle is
+// replacing, which is a "try again" rather than a torn document — and the test
+// that uses it asserts exactly that: every document a reader does see is whole.
+func transientRead(err error) bool {
+	return errors.Is(err, syscall.ERROR_ACCESS_DENIED) ||
+		errors.Is(err, syscall.Errno(32))
 }

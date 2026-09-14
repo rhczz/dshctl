@@ -63,7 +63,10 @@ func freshEnvironment(t *testing.T, overrides map[string]string) (map[string]str
 		// The home directory is redirected too: `doctor` resolves Node against
 		// paths.Home(), and reading the operator's ~/.nvm or ~/.local/share/fnm
 		// would make the answer a function of the machine the test runs on.
-		"HOME": filepath.Join(root, "home"),
+		// Both names are set because os.UserHomeDir reads $HOME on Unix and
+		// %USERPROFILE% on Windows.
+		"HOME":        filepath.Join(root, "home"),
+		"USERPROFILE": filepath.Join(root, "home"),
 		// The PATH is narrowed to the operating system's own directories: the
 		// port probes need lsof/ss/netstat, and nothing else may be reachable
 		// from the tests — in particular not the operator's pnpm. A pnpm

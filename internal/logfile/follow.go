@@ -59,14 +59,19 @@ func follow(ctx context.Context, path string, w io.Writer, interval time.Duratio
 
 // followFrom implements the tail -F loop.
 //
-// Two sizes matter and they are not interchangeable: the size the file had when
-// it was opened decides where a follow *starts*, and the size reported by the
-// current stat decides whether there is anything new to read. Using the open-time
-// size for the second decision loses every line that arrives afterwards.
+// The handle lives for one read and is closed again before the poll sleeps. A
+// follower that kept the log open would pin it: Windows refuses to rename or
+// delete a file that another handle has open, so `dshctl logs -f` running in one
+// terminal would stop the operator (or a rotation script) from replacing the log
+// in another. The file's identity is what carries the follow across ticks, and
+// the position is what decides where the next read starts.
 func followFrom(ctx context.Context, path string, w io.Writer, interval time.Duration, position int64) error {
 	var (
-		file   *os.File
-		opened os.FileInfo
+		file *os.File
+		// read is the file the last read came from. It outlives the handle on
+		// purpose: FileInfo compares by identity, which is what tells a rotation
+		// (a different file at the same path) from an ordinary append.
+		read   os.FileInfo
 		offset int64
 		// A file that exists when the follow starts is followed from its end; a
 		// file created afterwards is streamed from its beginning. A caller that
@@ -79,7 +84,6 @@ func followFrom(ctx context.Context, path string, w io.Writer, interval time.Dur
 		if file != nil {
 			_ = file.Close()
 			file = nil
-			opened = nil
 		}
 	}
 	defer closeFile()
@@ -92,51 +96,48 @@ func followFrom(ctx context.Context, path string, w io.Writer, interval time.Dur
 			return err
 		}
 
-		info, err := os.Stat(path)
-		if errors.Is(err, fs.ErrNotExist) {
+		if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
 			// Rotated away or not created yet; wait for it to appear. A
 			// caller's position applied to the file that existed when the tail
 			// ran; once that file is gone the position is void, and whatever
 			// appears next is a new generation read from its beginning.
 			closeFile()
+			read = nil
 			offset = 0
 			startAt = 0
 			if err := wait(ctx, ticker); err != nil {
 				return err
 			}
 			continue
-		}
-		if err != nil {
+		} else if err != nil {
 			return fmt.Errorf("无法读取 %s: %w", path, err)
 		}
 
-		// Attach, or re-attach, when any of three things is true: there is no
-		// open file yet; the path now names a different file (rotation by
+		reopened, openErr := openForFollow(path)
+		if openErr != nil {
+			// The path changed again between the stat and the open; the next
+			// tick starts over rather than guessing.
+			if err := wait(ctx, ticker); err != nil {
+				return err
+			}
+			continue
+		}
+		descriptor, statErr := reopened.Stat()
+		if statErr != nil {
+			_ = reopened.Close()
+			if err := wait(ctx, ticker); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// Attach, or re-attach, when any of three things is true: nothing has
+		// been read yet; the path now names a different file (rotation by
 		// rename); or the file is shorter than what was already read (truncated
 		// in place). The third case also covers an inode that was unlinked and
 		// then reused for the replacement — same identity, different content —
 		// which identity alone cannot see.
-		if file == nil || !os.SameFile(opened, info) || info.Size() < offset {
-			closeFile()
-			reopened, openErr := openForFollow(path)
-			if openErr != nil {
-				// The path changed again between the stat and the open; the next
-				// tick starts over rather than guessing.
-				if err := wait(ctx, ticker); err != nil {
-					return err
-				}
-				continue
-			}
-			descriptor, statErr := reopened.Stat()
-			if statErr != nil {
-				_ = reopened.Close()
-				if err := wait(ctx, ticker); err != nil {
-					return err
-				}
-				continue
-			}
-			file = reopened
-			opened = descriptor
+		if read == nil || !os.SameFile(read, descriptor) || descriptor.Size() < offset {
 			switch {
 			case startAt > 0 && startAt <= descriptor.Size():
 				// Continue where the caller stopped reading. A position past the
@@ -155,17 +156,22 @@ func followFrom(ctx context.Context, path string, w io.Writer, interval time.Dur
 			startAt = 0
 			skipExisting = false
 		}
+		read = descriptor
+		file = reopened
 
-		if info.Size() > offset {
+		if descriptor.Size() > offset {
 			if _, err := file.Seek(offset, io.SeekStart); err != nil {
+				closeFile()
 				return fmt.Errorf("无法定位 %s: %w", path, err)
 			}
 			written, err := io.Copy(w, file)
 			if err != nil {
+				closeFile()
 				return err
 			}
 			offset += written
 		}
+		closeFile()
 
 		if err := wait(ctx, ticker); err != nil {
 			return err

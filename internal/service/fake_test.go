@@ -538,8 +538,12 @@ func newFixture(t *testing.T) *fixture {
 	t.Helper()
 	root := t.TempDir()
 	// Even a mistake cannot reach the operator's home from here: os.UserHomeDir
-	// answers with a throwaway directory for the duration of the test.
+	// answers with a throwaway directory for the duration of the test. It reads
+	// $HOME on Unix and %USERPROFILE% on Windows, so both are redirected — with
+	// only HOME set, the resolver searched the runner's real profile on Windows
+	// and every start, build and update test failed with "Node not found".
 	t.Setenv("HOME", root)
+	t.Setenv("USERPROFILE", root)
 	repoDir := filepath.Join(root, "repo")
 	stateDir := filepath.Join(root, "state")
 	logPath := filepath.Join(stateDir, "dsh-web.log")
