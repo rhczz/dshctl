@@ -19,7 +19,7 @@ TEST_TIMEOUT ?= 600s
 
 PLATFORMS := darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64
 
-.PHONY: build vet test test-race hermetic workflow-check fmt fmt-check check ci cross mutation install uninstall clean help
+.PHONY: build vet test test-race hermetic coverage workflow-check fmt fmt-check check ci cross mutation install uninstall clean help
 
 ## build: compile the binary into bin/dshctl
 build:
@@ -40,6 +40,14 @@ test-race:
 ## hermetic: prove the tests create no state outside their temp directories
 hermetic:
 	@./scripts/hermetic-check.sh
+
+## coverage: the hermetic run plus the coverage gate, as the pipeline runs them
+coverage:
+	@./scripts/hermetic-check.sh -coverprofile=/tmp/dshctl-coverage.out
+	@python3 scripts/check-coverage.py /tmp/dshctl-coverage.out \
+		--require internal/nodejs=100 \
+		--report internal/config \
+		--report internal/service
 
 ## workflow-check: validate the CI workflow's shape
 workflow-check:
@@ -73,8 +81,8 @@ cross:
 check: fmt-check vet test
 
 ## ci: what the pipeline runs on every commit
-ci: workflow-check fmt-check vet hermetic
-	go test -race ./...
+ci: workflow-check fmt-check vet coverage
+	go test -race -count=1 -timeout $(TEST_TIMEOUT) ./...
 
 ## mutation: break each Node decision and require the suite to notice
 mutation:

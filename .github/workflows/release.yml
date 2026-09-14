@@ -19,12 +19,15 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.25.x"
           check-latest: true
+          # No dependencies means no go.sum, so there is nothing to key a
+          # dependency cache on; the cache step could only fail.
+          cache: false
 
       - name: Compile
         run: go build ./...
@@ -40,16 +43,19 @@ jobs:
     needs: [verify]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # The build stamps the commit and the tag into the binary, and the
           # release notes are generated from the history behind the tag.
           fetch-depth: 0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.25.x"
           check-latest: true
+          # No dependencies means no go.sum, so there is nothing to key a
+          # dependency cache on; the cache step could only fail.
+          cache: false
 
       - name: Build every platform
         # cgo is off: the binaries are cross-compiled for platforms whose C

@@ -168,7 +168,7 @@ def check_expression_literals(text: str, path: Path) -> None:
 
 
 def check_platform_matrix(text: str) -> None:
-    """Every trigger of the test pipeline must cover all three platforms."""
+    """Every platform the tool ships for must be compiled and tested on itself."""
     block = job_block(text, "test")
     if not block:
         fail("the test job is missing")
@@ -181,8 +181,34 @@ def check_platform_matrix(text: str) -> None:
         if platform not in systems:
             fail(f"the test matrix no longer runs {platform!r} (os: {systems})")
 
-    if not re.search(r"^\s*run:\s*go build\b", block, re.MULTILINE):
-        fail("the test job no longer compiles the module (no `go build` step)")
+    # `go vet` is the compile gate on each platform: it type-checks every package
+    # *and* its test files, which `go build` does not. Dropping it would leave the
+    # matrix compiling nothing per platform, so it is asserted here.
+    if not re.search(r"^\s*run:\s*go vet\b", block, re.MULTILINE):
+        fail("the test job no longer runs `go vet`, which is what compiles every package and its tests on this platform")
+
+    # The race build is the strict test run. A plain run on its own would let a
+    # data race through, so the pipeline must ask for the detector explicitly.
+    if not re.search(r"^\s*run:\s*go test -race\b", block, re.MULTILINE):
+        fail("the test job no longer runs `go test -race`, which is the strict test run")
+
+
+def check_hermetic_gates(text: str) -> None:
+    """The three properties the hermetic job exists for must survive a refactor."""
+    block = job_block(text, "hermetic")
+    if not block:
+        fail("the hermetic job is missing")
+    for needle, description in (
+        ("check-workflow.py", "the workflow-shape check"),
+        ("hermetic-check.sh", "the throwaway-HOME run"),
+        ("-coverprofile=", "the coverage profile of that run"),
+        ("check-coverage.py", "the coverage gate"),
+        ("--require internal/nodejs=100", "the coverage requirement on the Node resolution"),
+        (r"grep -E '^[[:space:]]*--- SKIP'", "the unexpected-skip scan"),
+        ("TestLsofNamesTheSocketThisProcessHolds", "the documented skip allow-list"),
+    ):
+        if needle not in block:
+            fail(f"the hermetic job no longer runs {description} ({needle!r})")
 
 
 def check_ci(text: str) -> None:
@@ -223,6 +249,7 @@ def check_ci(text: str) -> None:
         if platform not in text:
             fail(f"{CI}: the workflow no longer mentions {platform!r}")
     check_platform_matrix(text)
+    check_hermetic_gates(text)
 
     return jobs
 
