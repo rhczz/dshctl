@@ -87,11 +87,8 @@ func TestStartFailsFastWhenTheRealChildExitsImmediately(t *testing.T) {
 // TestStartReportsASuccessfulRealChild pins the happy path through the real
 // launcher: a child that takes the port is detected and recorded.
 func TestStartReportsASuccessfulRealChild(t *testing.T) {
-	nodePath, err := lookPath("node")
-	if err != nil {
-		t.Skip("node is unavailable for the real server fixture")
-	}
 	f := newFixture(t)
+	nodePath := realNodeShim(t, filepath.Join(f.root, "node-bin"))
 
 	server := filepath.Join(f.root, "server.js")
 	writeFile(t, server, `

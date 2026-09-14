@@ -27,11 +27,8 @@ import (
 // another process", complaining about the server dshctl had just started.
 func TestStartAcrossAWrapperThatSpawns(t *testing.T) {
 	requirePosix(t)
-	nodePath, err := run.LookPath("node")
-	if err != nil {
-		t.Skip("node is unavailable")
-	}
 	f := newFixture(t)
+	nodePath := realNodeShim(t, filepath.Join(f.root, "node-bin"))
 	server := filepath.Join(f.root, "server.js")
 	writeFile(t, server, `
 const net = require('net');

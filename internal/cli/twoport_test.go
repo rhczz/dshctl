@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/rhczz/dshctl/internal/config"
 )
 
 // TestTwoPortsShareOneStateDirectoryWithoutOrphaningEachOther is the regression
@@ -20,7 +22,7 @@ import (
 // longer recognize it — `status` called it unmanaged and `stop` refused to touch
 // it, leaving a server nobody could stop through the tool.
 func TestTwoPortsShareOneStateDirectoryWithoutOrphaningEachOther(t *testing.T) {
-	node, err := exec.LookPath("node")
+	realNode, err := exec.LookPath("node")
 	if err != nil {
 		t.Skip("node is unavailable")
 	}
@@ -58,11 +60,28 @@ console.log('dsh web: http://127.0.0.1:' + port + '/?token=PORT-' + port);
 net.createServer(() => {}).listen(port, '127.0.0.1', () => console.log('listening'));
 setInterval(() => {}, 1000);
 `)
-	// pnpm resolves through PATH for the child; the real binary is used.
 	binDir := filepath.Join(root, "bin")
 	if err := os.MkdirAll(binDir, 0o700); err != nil {
 		t.Fatalf("mkdir bin: %v", err)
 	}
+	// The node the child runs: a forwarding entry that reports the release
+	// dshctl is verified against and executes the real interpreter.
+	//
+	// This test runs a real server, but it must not depend on the machine's own
+	// node being new enough — the ubuntu runner ships Node 22, which the version
+	// floor refuses for reasons that have nothing to do with two ports sharing a
+	// state directory.
+	node := filepath.Join(binDir, "node")
+	write(node, "#!/bin/sh\n"+
+		"case \"$1\" in\n"+
+		"  -v) echo v"+config.TestedNodeVersion+"; exit 0;;\n"+
+		"  -p) echo \""+node+"\"; exit 0;;\n"+
+		"esac\n"+
+		"exec \""+realNode+"\" \"$@\"\n")
+	if err := os.Chmod(node, 0o755); err != nil {
+		t.Fatalf("chmod the node stub: %v", err)
+	}
+	// pnpm resolves through PATH for the child; the stub above is what runs.
 	write(filepath.Join(binDir, "pnpm"), "#!/bin/sh\nexec "+node+" "+server+" \"$@\"\n")
 	if err := os.Chmod(filepath.Join(binDir, "pnpm"), 0o755); err != nil {
 		t.Fatalf("chmod: %v", err)

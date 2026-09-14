@@ -1137,6 +1137,37 @@ func (f *fixture) serveNodeThroughShim(t *testing.T, version string) (string, st
 	return shim, real
 }
 
+// realNodeShim writes a node that reports the release dshctl is verified against
+// and forwards everything else to the real interpreter, and returns its path.
+//
+// Tests that run real processes need a real node, but they must not depend on
+// the machine's own node being new enough: an ubuntu runner that ships Node 22
+// would otherwise fail a test about process handling because of the version
+// floor, which is a fact about the runner rather than about the code. The
+// reported release is the fixture's, exactly as it is everywhere else in this
+// package; the interpreter that runs the server is the real one.
+func realNodeShim(t *testing.T, dir string) string {
+	t.Helper()
+	real, err := run.LookPath("node")
+	if err != nil {
+		t.Skip("node is unavailable")
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", dir, err)
+	}
+	shim := filepath.Join(dir, fixtureNodeName())
+	writeFile(t, shim, "#!/bin/sh\n"+
+		"case \"$1\" in\n"+
+		"  -v) echo v"+config.TestedNodeVersion+"; exit 0;;\n"+
+		"  -p) echo \""+shim+"\"; exit 0;;\n"+
+		"esac\n"+
+		"exec \""+real+"\" \"$@\"\n")
+	if err := os.Chmod(shim, 0o755); err != nil {
+		t.Fatalf("chmod the node shim: %v", err)
+	}
+	return shim
+}
+
 // servedNodePath reports the binary the fixture's PATH serves, whatever the
 // settings say.
 //
