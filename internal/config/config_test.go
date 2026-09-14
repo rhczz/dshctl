@@ -16,6 +16,19 @@ import (
 	"github.com/rhczz/dshctl/internal/paths"
 )
 
+// fixtureHome is an absolute directory spelled the way this platform does.
+//
+// A Windows path cannot begin with "/", and every path in the settings is
+// required to be absolute, so a fixture that hardcodes a Unix path fails there
+// for reasons that have nothing to do with what the test measures. The value is
+// only ever used as a string: nothing here creates it.
+func fixtureHome() string {
+	if runtime.GOOS == "windows" {
+		return `C:\dshctl-fixture`
+	}
+	return "/dshctl-fixture"
+}
+
 // env is a map-backed environment lookup.
 type env map[string]string
 
@@ -84,7 +97,7 @@ func TestPrecedence(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 	file := filepath.Join(stateDir, "config.json")
-	fromFile := map[string]any{"port": 1111, "repoDir": "/from/file", "nodeVersion": "20.0.0"}
+	fromFile := map[string]any{"port": 1111, "repoDir": filepath.Join(fixtureHome(), "from", "file"), "nodeVersion": "20.0.0"}
 	data, err := json.Marshal(fromFile)
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
@@ -133,7 +146,7 @@ func TestPrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if plain.Port != 1111 || plain.RepoDir != "/from/file" || plain.NodeVersion != "20.0.0" {
+	if plain.Port != 1111 || plain.RepoDir != filepath.Join(fixtureHome(), "from", "file") || plain.NodeVersion != "20.0.0" {
 		t.Fatalf("file values must survive: %+v", plain)
 	}
 	if plain.Sources.Port != "file" || plain.Sources.RepoDir != "file" {
@@ -479,7 +492,7 @@ func TestProvisionDoesNotFollowADanglingSymlink(t *testing.T) {
 // TestEncodeRoundTrips pins that the document this package writes is one it can
 // read back.
 func TestEncodeRoundTrips(t *testing.T) {
-	settings := Default("/home/example")
+	settings := Default(fixtureHome())
 	settings.Port = 4123
 	settings.LogRotateBytes = 1 << 20
 	settings.StartTimeout = 45 * time.Second
@@ -514,7 +527,7 @@ func TestEncodeRoundTrips(t *testing.T) {
 
 // TestDescribeNamesEverySource pins the -v output.
 func TestDescribeNamesEverySource(t *testing.T) {
-	settings := Default("/home/example")
+	settings := Default(fixtureHome())
 	settings.StateDir = "/state"
 	settings.ConfigPath = "/state/config.json"
 	settings.LogPath = "/state/dsh-web.log"
@@ -586,7 +599,7 @@ func TestQuoteGlobMatchesTheLiteralName(t *testing.T) {
 
 // TestHelpersDerivePathsFromSettings pins the accessors the lifecycle uses.
 func TestHelpersDerivePathsFromSettings(t *testing.T) {
-	settings := Default("/home/example")
+	settings := Default(fixtureHome())
 	settings.RepoDir = "/repo"
 	settings.StateDir = "/state"
 	if settings.URL() != "http://127.0.0.1:3080" {

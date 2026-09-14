@@ -34,6 +34,14 @@ const (
 	tcpTableOwnerPIDListener = 3
 	// errorInsufficientBuffer tells us the required size.
 	errorInsufficientBuffer = 122
+	// addressFamilyINET is Winsock's AF_INET, the IPv4 table selector.
+	//
+	// The table API rejects AF_UNSPEC (0) with ERROR_INVALID_PARAMETER — asking
+	// for "both families at once" is not a thing this call does; the two tables
+	// have to be requested by name. Passing 0 made every port probe fail on
+	// Windows with "GetExtendedTcpTable 失败: 87", so `status`, `start` and
+	// `stop` all reported that the port state was unknown instead of answering.
+	addressFamilyINET = 2
 	// addressFamilyINET6 is Winsock's AF_INET6, the IPv6 table selector.
 	addressFamilyINET6 = 23
 	// windowsEpochOffset is the number of 100ns ticks between 1601-01-01 and
@@ -81,7 +89,7 @@ func (h *Host) Listening(_ context.Context, port int) (PortResult, error) {
 // IPv6-only listener cannot hide from the port probe.
 func listenTable() ([]mibTCPRow, error) {
 	var rows []mibTCPRow
-	for _, family := range []uint32{0, addressFamilyINET6} {
+	for _, family := range []uint32{addressFamilyINET, addressFamilyINET6} {
 		familyRows, err := listenTableForFamily(family)
 		if err != nil {
 			return nil, err

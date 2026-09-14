@@ -208,7 +208,7 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 			},
 			change: func(f *fixture, checks *[]Check) {
 				replaceCheck(*checks, "Node", CheckWarn, filepath.Join(f.root, ".nvm", "versions", "node",
-					"v18.20.4", "bin", "node")+" (18.20.4, nvm)，低于 "+
+					"v18.20.4", "bin", fixtureNodeName())+" (18.20.4, nvm)，低于 "+
 					config.MinNodeVersion+"，Web 端可能出现 \"Failed to load plugins\"")
 			},
 			// The Node row's detail is exempt from the byte-for-byte comparison

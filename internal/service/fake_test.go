@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -793,12 +794,39 @@ func reserveFreePort(t *testing.T) int {
 // nodeSignature creates a fake node installation and returns its binary path.
 func nodeSignature(t *testing.T, root string) string {
 	t.Helper()
-	path := filepath.Join(root, ".nvm", "versions", "node", "v"+config.DefaultNodeVersion, "bin", "node")
+	path := filepath.Join(root, ".nvm", "versions", "node", "v"+config.DefaultNodeVersion, "bin", fixtureNodeName())
 	writeFile(t, path, "#!/bin/sh\necho v"+config.DefaultNodeVersion+"\n")
 	if err := os.Chmod(path, 0o755); err != nil {
 		t.Fatalf("chmod fake node: %v", err)
 	}
 	return path
+}
+
+// lockHolderThroughLock is the pid a status report can name for a lock this
+// process holds.
+//
+// Unix locks are advisory, so the record inside the file stays readable and
+// names the holder. Windows byte-range locks are mandatory: the locked region
+// cannot be read through another handle, so the honest answer is "unknown",
+// which is what zero means in the status field.
+func lockHolderThroughLock(pid int) int {
+	if runtime.GOOS == "windows" {
+		return 0
+	}
+	return pid
+}
+
+// fixtureNodeName is the file name the platform resolves a Node runtime by.
+//
+// Windows looks for node.exe, so a fixture that writes "node" leaves every
+// start, build and update test failing there with "Node not found": the same
+// code passes on Unix and fails on Windows for a reason that has nothing to do
+// with what the test measures.
+func fixtureNodeName() string {
+	if runtime.GOOS == "windows" {
+		return "node.exe"
+	}
+	return "node"
 }
 
 // writeFile creates a file together with its parent directories.
@@ -995,7 +1023,7 @@ func (f *fixture) seedNodeInstallation(t *testing.T, version string) {
 	if err := os.RemoveAll(filepath.Join(f.root, ".nvm")); err != nil {
 		t.Fatalf("remove the previous node installation: %v", err)
 	}
-	path := filepath.Join(f.root, ".nvm", "versions", "node", "v"+version, "bin", "node")
+	path := filepath.Join(f.root, ".nvm", "versions", "node", "v"+version, "bin", fixtureNodeName())
 	writeFile(t, path, "#!/bin/sh\necho v"+version+"\n")
 	if err := os.Chmod(path, 0o755); err != nil {
 		t.Fatalf("chmod fake node: %v", err)

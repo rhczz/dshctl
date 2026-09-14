@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -120,9 +121,9 @@ func TestTopLevelNullMeansDefaults(t *testing.T) {
 // layer does — gets the same checks, and each message must name the field.
 func TestValidateNamesEveryFieldItRejects(t *testing.T) {
 	valid := func() Settings {
-		settings := Default("/home/example")
-		settings.StateDir = "/state"
-		settings.LogPath = "/state/dsh-web.log"
+		settings := Default(fixtureHome())
+		settings.StateDir = filepath.Join(fixtureHome(), "state")
+		settings.LogPath = filepath.Join(fixtureHome(), "state", "dsh-web.log")
 		return settings
 	}
 	cases := []struct {
@@ -323,7 +324,7 @@ func TestProvisionCreatesTheConfigDirectory(t *testing.T) {
 // document that carries an empty path would fail validation on the next load
 // even though the value it replaced was perfectly usable.
 func TestEncodeOmitsAnEmptyRepoDir(t *testing.T) {
-	settings := Default("/home/example")
+	settings := Default(fixtureHome())
 	settings.RepoDir = ""
 	data, err := Encode(settings)
 	if err != nil {
@@ -396,7 +397,10 @@ func TestLoadRejectsARelativeConfigPath(t *testing.T) {
 	if code := exitcode.Of(err); code != exitcode.Usage {
 		t.Fatalf("exit code = %d (%v), want %d", code, err, exitcode.Usage)
 	}
-	if !strings.Contains(err.Error(), filepath.Join("relative", "config.json")) {
+	// The message quotes the value with %q, so the platform's separator is
+	// escaped there; comparing against the same rendering keeps the assertion
+	// about "the offending value is named" on every platform.
+	if !strings.Contains(err.Error(), fmt.Sprintf("%q", filepath.Join("relative", "config.json"))) {
 		t.Fatalf("error = %q, want it to quote the offending value", err)
 	}
 }

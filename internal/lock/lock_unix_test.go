@@ -143,3 +143,58 @@ func TestTimeoutErrorReportsNoHolderForAMalformedRecord(t *testing.T) {
 		})
 	}
 }
+
+// The test below is Unix-only because its premise cannot be staged on Windows:
+// removing a lock file that a holder still has open is refused by the operating
+// system there ("being used by another process"), so the shape it pins — a
+// holder left on an unlinked inode with a waiter behind it — does not exist.
+// What Windows does instead is pinned in lock_windows_test.go.
+
+// TestDeletingTheLockFileDoesNotDeadlockTheWaiter is the regression test for
+// removing the state directory while an operation runs: the waiting operation
+// must still end up holding the lock at the fresh path after the first holder
+// releases, instead of waiting forever on an unlinked inode.
+//
+// What this test cannot observe without a seam is whether the two holders ever
+// overlapped: the waiter is expected to acquire the recreated file only after
+// the first holder releases, and the assertion that pins that sequencing is the
+// fresh acquire succeeding promptly once the release happened.
+func TestDeletingTheLockFileDoesNotDeadlockTheWaiter(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "dshctl.lock")
+
+	first, err := Acquire(context.Background(), path, time.Second)
+	if err != nil {
+		t.Fatalf("first Acquire: %v", err)
+	}
+	defer first.Release()
+
+	// A second operation is waiting while the state directory is removed.
+	secondResult := make(chan error, 1)
+	go func() {
+		second, err := Acquire(context.Background(), path, 3*time.Second)
+		if err != nil {
+			secondResult <- err
+			return
+		}
+		second.Release()
+		secondResult <- nil
+	}()
+
+	time.Sleep(100 * time.Millisecond)
+	if err := os.RemoveAll(dir); err != nil {
+		t.Fatalf("remove state dir: %v", err)
+	}
+	// The first holder now holds a lock on an unlinked inode; releasing it must
+	// let the waiter through rather than deadlocking.
+	first.Release()
+
+	select {
+	case err := <-secondResult:
+		if err != nil {
+			t.Fatalf("the waiting operation failed: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the waiting operation never acquired the lock")
+	}
+}

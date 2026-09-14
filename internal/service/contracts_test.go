@@ -3,6 +3,7 @@ package service
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/rhczz/dshctl/internal/config"
@@ -72,7 +73,16 @@ func TestTheCheckoutMarkersAreTheFilesTheRepositoryShips(t *testing.T) {
 // another port. A pattern that matches nothing makes it silently blind, which is
 // how a per-port record was overwritten once already.
 func TestTheRecordGlobFindsRecordsInAnAwkwardDirectory(t *testing.T) {
-	for _, name := range []string{"state", "state[1]", "state*all", "state?x", "state%dx"} {
+	names := []string{"state", "state[1]", "state%dx"}
+	if runtime.GOOS != "windows" {
+		// A Windows file name cannot contain "*" or "?", so a directory that
+		// exercises them cannot be created there. The escaping of those two
+		// characters is still pinned on Windows by
+		// config.TestQuoteGlobMatchesTheLiteralName, which builds the pattern
+		// directly instead of going through the filesystem.
+		names = append(names, "state*all", "state?x")
+	}
+	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
 			root := filepath.Join(t.TempDir(), name)
 			if err := os.MkdirAll(root, 0o700); err != nil {

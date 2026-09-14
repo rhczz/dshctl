@@ -397,6 +397,12 @@ func readTailLines(path string, count int, limit int64) ([]byte, int64, error) {
 	if err != nil {
 		return nil, 0, fmt.Errorf("无法读取 %s 的大小: %w", path, err)
 	}
+	if !info.Mode().IsRegular() {
+		// A directory or a device where the log belongs is a mistake, not an
+		// empty log: on Unix the read below fails by itself, while on Windows a
+		// directory is opened happily and answers with no bytes at all.
+		return nil, 0, fmt.Errorf("日志路径 %s 不是普通文件，无法读取", path)
+	}
 	size := info.Size()
 	if size == 0 {
 		return nil, 0, nil
@@ -561,6 +567,9 @@ func readTailBytes(path string, limit int64) ([]byte, bool, error) {
 	info, err := file.Stat()
 	if err != nil {
 		return nil, false, fmt.Errorf("无法读取 %s 的大小: %w", path, err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, false, fmt.Errorf("日志路径 %s 不是普通文件，无法读取", path)
 	}
 	offset := int64(0)
 	truncated := false

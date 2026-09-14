@@ -324,18 +324,24 @@ func TestPruneKeepsTrackedPathsWithNonASCIICharacters(t *testing.T) {
 }
 
 // TestPruneKeepsPathsWithSpacesAndQuotes pins the same quoting class for the
-// other characters git escapes.
+// other characters git escapes: a path with spaces and shell metacharacters must
+// be compared literally instead of as its escaped form.
+//
+// The name carries a single quote rather than a double one because a Windows
+// file name cannot contain a double quote at all: the platform cannot represent
+// the path, so no test can stage it there.
 func TestPruneKeepsPathsWithSpacesAndQuotes(t *testing.T) {
+	const weird = `vendor/weird 'na&me'`
 	box := newCheckout(t)
-	box.write(`vendor/weird "name"/lib/index.js`, "committed source")
-	box.write(`vendor/weird "name"/package.json`, "{}")
+	box.write(weird+"/lib/index.js", "committed source")
+	box.write(weird+"/package.json", "{}")
 	box.commit()
-	box.write(`vendor/weird "name"/node_modules/dep/index.js`, "x")
+	box.write(weird+"/node_modules/dep/index.js", "x")
 
 	if _, err := box.repo.Prune(context.Background(), nil); err != nil {
 		t.Fatalf("Prune: %v", err)
 	}
-	if !box.exists(`vendor/weird "name"/lib/index.js`) {
+	if !box.exists(weird + "/lib/index.js") {
 		t.Fatal("a tracked file with an escaped path was deleted")
 	}
 }

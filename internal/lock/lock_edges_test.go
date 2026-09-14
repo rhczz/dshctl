@@ -66,7 +66,7 @@ func TestHeldDoesNotFollowASymlinkAtTheLockPath(t *testing.T) {
 	}
 	// The target really is held: the short-circuit is about the link, not about
 	// a lock that was never there in the first place.
-	if holder, locked, err := Held(target); err != nil || !locked || holder != os.Getpid() {
+	if holder, locked, err := Held(target); err != nil || !locked || holder != holderThroughLock(os.Getpid()) {
 		t.Fatalf("Held(target) = (%d, %v, %v), want this process as the holder", holder, locked, err)
 	}
 }
@@ -107,8 +107,8 @@ func TestAcquireWithANonPositiveTimeoutRefusesImmediately(t *testing.T) {
 			if strings.Contains(timeoutErr.Error(), "-") {
 				t.Fatalf("the message claims a wait that never happened: %q", timeoutErr.Error())
 			}
-			if timeoutErr.Holder != os.Getpid() {
-				t.Fatalf("holder = %d, want %d", timeoutErr.Holder, os.Getpid())
+			if timeoutErr.Holder != holderThroughLock(os.Getpid()) {
+				t.Fatalf("holder = %d, want %d", timeoutErr.Holder, holderThroughLock(os.Getpid()))
 			}
 		})
 	}

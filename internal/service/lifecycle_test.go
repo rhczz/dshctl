@@ -996,7 +996,7 @@ func TestStatusDoesNotTakeTheLock(t *testing.T) {
 	if elapsed := time.Since(start); elapsed > time.Second {
 		t.Fatalf("status waited %s for the lock", elapsed)
 	}
-	if !status.LockHeld || status.LockHolder != os.Getpid() {
+	if !status.LockHeld || status.LockHolder != lockHolderThroughLock(os.Getpid()) {
 		t.Fatalf("status = %+v, want it to report the holder without waiting", status)
 	}
 }

@@ -34,6 +34,22 @@ func lockChildEnv(extra ...string) []string {
 	return append(environment, extra...)
 }
 
+// holderThroughLock is the pid this platform can report for a lock it did not
+// take.
+//
+// Unix locks are advisory, so the record inside the file stays readable and
+// names the holder. Windows byte-range locks are mandatory: the locked region
+// cannot be read through another handle, so the honest answer is "unknown",
+// which is what zero means — and the message then renders without a pid claim
+// at all. The difference is pinned here rather than papered over, because a test
+// that expects a pid on Windows is a test that will fail there forever.
+func holderThroughLock(pid int) int {
+	if runtime.GOOS == "windows" {
+		return 0
+	}
+	return pid
+}
+
 // TestAcquireAndRelease pins the basic protocol, including the idempotent
 // release that defer-heavy call sites rely on.
 func TestAcquireAndRelease(t *testing.T) {
@@ -46,8 +62,9 @@ func TestAcquireAndRelease(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Held: %v", err)
 	}
-	if !locked || holder != os.Getpid() {
-		t.Fatalf("Held = (%d, %v), want this process", holder, locked)
+	if !locked || holder != holderThroughLock(os.Getpid()) {
+		t.Fatalf("Held = (%d, %v), want this process as the holder (a platform that cannot read a locked record reports 0)",
+			holder, locked)
 	}
 	held.Release()
 	_, locked, err = Held(path)
@@ -74,8 +91,8 @@ func TestSecondAcquireTimesOut(t *testing.T) {
 	if !errors.As(err, &timeout) {
 		t.Fatalf("expected a TimeoutError, got %v", err)
 	}
-	if timeout.Holder != os.Getpid() {
-		t.Fatalf("holder = %d, want %d", timeout.Holder, os.Getpid())
+	if timeout.Holder != holderThroughLock(os.Getpid()) {
+		t.Fatalf("holder = %d, want %d", timeout.Holder, holderThroughLock(os.Getpid()))
 	}
 	if timeout.Waited != 250*time.Millisecond {
 		t.Fatalf("waited = %s, want the timeout", timeout.Waited)
@@ -124,55 +141,6 @@ func TestALeftoverRecordDoesNotHoldTheLock(t *testing.T) {
 		t.Fatalf("a leftover record must not block Acquire: %v", err)
 	}
 	defer held.Release()
-}
-
-// TestDeletingTheLockFileDoesNotDeadlockTheWaiter is the regression test for
-// removing the state directory while an operation runs: the waiting operation
-// must still end up holding the lock at the fresh path after the first holder
-// releases, instead of waiting forever on an unlinked inode.
-//
-// What this test cannot observe without a seam is whether the two holders ever
-// overlapped: the waiter is expected to acquire the recreated file only after
-// the first holder releases, and the assertion that pins that sequencing is the
-// fresh acquire succeeding promptly once the release happened.
-func TestDeletingTheLockFileDoesNotDeadlockTheWaiter(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "dshctl.lock")
-
-	first, err := Acquire(context.Background(), path, time.Second)
-	if err != nil {
-		t.Fatalf("first Acquire: %v", err)
-	}
-	defer first.Release()
-
-	// A second operation is waiting while the state directory is removed.
-	secondResult := make(chan error, 1)
-	go func() {
-		second, err := Acquire(context.Background(), path, 3*time.Second)
-		if err != nil {
-			secondResult <- err
-			return
-		}
-		second.Release()
-		secondResult <- nil
-	}()
-
-	time.Sleep(100 * time.Millisecond)
-	if err := os.RemoveAll(dir); err != nil {
-		t.Fatalf("remove state dir: %v", err)
-	}
-	// The first holder now holds a lock on an unlinked inode; releasing it must
-	// let the waiter through rather than deadlocking.
-	first.Release()
-
-	select {
-	case err := <-secondResult:
-		if err != nil {
-			t.Fatalf("the waiting operation failed: %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("the waiting operation never acquired the lock")
-	}
 }
 
 // TestHeldReportsAnUnreadableLock pins that a lock that cannot be inspected is

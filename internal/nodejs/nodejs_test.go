@@ -14,20 +14,20 @@ import (
 // installNVM creates an nvm-style release under home and returns the node path.
 func installNVM(t *testing.T, home, version string) string {
 	t.Helper()
-	return writeNode(t, filepath.Join(home, ".nvm", "versions", "node", "v"+version, "bin", "node"))
+	return writeNode(t, filepath.Join(home, ".nvm", "versions", "node", "v"+version, "bin", nodeBinaryName))
 }
 
 // installFNM creates an fnm-style release, which nests the runtime one level
 // deeper than nvm does.
 func installFNM(t *testing.T, home, version string) string {
 	t.Helper()
-	return writeNode(t, filepath.Join(home, ".local", "share", "fnm", "node-versions", "v"+version, "installation", "bin", "node"))
+	return writeNode(t, filepath.Join(home, ".local", "share", "fnm", "node-versions", "v"+version, "installation", "bin", nodeBinaryName))
 }
 
 // installFNMLegacy creates the older fnm layout.
 func installFNMLegacy(t *testing.T, home, version string) string {
 	t.Helper()
-	return writeNode(t, filepath.Join(home, ".local", "share", "fnm", "node-versions", "v"+version, "bin", "node"))
+	return writeNode(t, filepath.Join(home, ".local", "share", "fnm", "node-versions", "v"+version, "bin", nodeBinaryName))
 }
 
 // writeNode creates an executable file and returns its path.
@@ -178,7 +178,7 @@ func TestResolveIgnoresUnusableInstallations(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 	// A release directory whose node is a directory.
-	if err := os.MkdirAll(filepath.Join(root, "v24.21.0", "bin", "node"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "v24.21.0", "bin", nodeBinaryName), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 	// A directory whose name is not a version.

@@ -11,6 +11,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/rhczz/dshctl/internal/config"
 )
 
 // buildOnce compiles the real command once per test run.
@@ -164,11 +166,24 @@ func stubToolPath(t *testing.T, programs ...string) string {
 	dir := t.TempDir()
 	for _, program := range programs {
 		name := program
+		body := "#!/bin/sh\nexit 0\n"
 		if runtime.GOOS == "windows" {
 			// Windows resolves through PATHEXT, so a bare name is not a program.
 			name += ".cmd"
+			body = "@exit /b 0\r\n"
 		}
-		if err := os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+		if program == "node" {
+			// node is the one stub a command may actually run: resolving a
+			// runtime on PATH is followed by `node -v` to learn its version, and
+			// a stub that answers with noise would make the command under test
+			// decide it is running an ancient Node.
+			if runtime.GOOS == "windows" {
+				body = "@echo v" + config.DefaultNodeVersion + "\r\n"
+			} else {
+				body = "#!/bin/sh\necho v" + config.DefaultNodeVersion + "\n"
+			}
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o755); err != nil {
 			t.Fatalf("write the %s stub: %v", program, err)
 		}
 	}

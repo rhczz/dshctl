@@ -27,7 +27,14 @@ mkdir -p "$home"
 # of them from the surrounding environment instead of from its own fixture
 # therefore writes inside $home, where the check below sees it — which turns
 # "the suite is hermetic" into "the suite leaves no trace anywhere else".
+#
+# GOCACHE is pointed outside the home as well. The toolchain keeps its build
+# cache under the home directory by default — ~/.cache on Linux, ~/Library/Caches
+# on macOS — and that bookkeeping belongs to the compiler rather than to the
+# tests. A home the suite never writes to is a stronger claim than one carrying a
+# list of tolerated exceptions, so the cache is moved rather than excused.
 env HOME="$home" \
+    GOCACHE="$scratch/gocache" \
     DSH_HOME="$home/.dsh" \
     DSHCTL_STATE_DIR="$home/.dsh/dshctl" \
     DSHCTL_CONFIG="$home/.dsh/dshctl/config.json" \

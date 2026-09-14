@@ -118,7 +118,7 @@ func followFrom(ctx context.Context, path string, w io.Writer, interval time.Dur
 		// which identity alone cannot see.
 		if file == nil || !os.SameFile(opened, info) || info.Size() < offset {
 			closeFile()
-			reopened, openErr := os.Open(path)
+			reopened, openErr := openForFollow(path)
 			if openErr != nil {
 				// The path changed again between the stat and the open; the next
 				// tick starts over rather than guessing.

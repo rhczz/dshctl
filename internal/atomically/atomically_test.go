@@ -222,9 +222,11 @@ func TestWriteFileRefusesAFileInPlaceOfItsDirectory(t *testing.T) {
 	}
 	// Nothing was created and the occupying file was not modified: this is a
 	// reported failure, not a repair that deletes the operator's file.
-	if errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("error = %v, want it not to claim the path is missing", err)
-	}
+	//
+	// The classification of the failure is platform-specific and is pinned where
+	// the platform can express it: Unix says "not a directory", while Windows
+	// reports the same condition as "the path was not found", which Go maps to
+	// fs.ErrNotExist (see atomically_windows_test.go).
 	if data, readErr := os.ReadFile(parent); readErr != nil || string(data) != "not a directory" {
 		t.Fatalf("the occupying file changed: %q (%v)", data, readErr)
 	}

@@ -80,6 +80,19 @@ var tempNamePattern = regexp.MustCompile(`^\..+\.tmp[0-9]+$`)
 // Returns:
 //   - an error only when the directory cannot be read.
 func Sweep(dir string) error {
+	info, err := os.Stat(dir)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("无法读取目录 %s: %w", dir, err)
+	}
+	if !info.IsDir() {
+		// A file where a directory belongs is a mistake worth reporting: on Unix
+		// the read below fails on its own, while on Windows it quietly answers
+		// "no entries", which would turn a wrong path into a silent success.
+		return fmt.Errorf("无法清理 %s: 不是目录", dir)
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
