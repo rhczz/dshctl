@@ -1,0 +1,100 @@
+name: Release
+
+# A tag is a release. The tagged commit is verified on all three platforms first,
+# then the six build targets are published to the release of that tag — so a
+# binary is never published from a commit whose tests did not run.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    name: verify (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          check-latest: true
+
+      - name: Compile
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -timeout 600s ./...
+
+  release:
+    name: publish
+    needs: [verify]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The build stamps the commit and the tag into the binary, and the
+          # release notes are generated from the history behind the tag.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.x"
+          check-latest: true
+
+      - name: Build every platform
+        # cgo is off: the binaries are cross-compiled for platforms whose C
+        # toolchain is not installed here, and the tool has no cgo dependencies.
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          commit="$(git rev-parse --short HEAD)"
+          date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          pkg=github.com/rhczz/dshctl/internal/version
+          mkdir -p dist
+          for platform in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            goos="${platform%/*}"
+            goarch="${platform#*/}"
+            suffix=""
+            [ "$goos" = "windows" ] && suffix=".exe"
+            out="dist/dshctl_${goos}_${goarch}${suffix}"
+            GOOS="$goos" GOARCH="$goarch" go build \
+              -ldflags "-s -w -X ${pkg}.Version=${tag} -X ${pkg}.Commit=${commit} -X ${pkg}.BuildDate=${date}" \
+              -o "$out" ./cmd/dshctl
+          done
+          (cd dist && sha256sum dshctl_* > SHA256SUMS)
+
+      - name: Smoke test the linux binary
+        # The published binary has to carry the tag it was released under; a
+        # broken ldflags path would otherwise only be noticed by a user.
+        run: |
+          set -euo pipefail
+          chmod +x dist/dshctl_linux_amd64
+          ./dist/dshctl_linux_amd64 version | tee /tmp/version.txt
+          grep -q "${GITHUB_REF_NAME}" /tmp/version.txt
+          ./dist/dshctl_linux_amd64 --help > /dev/null
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            # Re-running the workflow for a tag replaces the artifacts instead of
+            # failing on the release that is already there.
+            gh release upload "$tag" dist/* --clobber
+          else
+            gh release create "$tag" --title "$tag" --generate-notes dist/*
+          fi

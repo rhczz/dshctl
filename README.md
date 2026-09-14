@@ -1,335 +1,111 @@
 # dshctl
 
-管理本机运行的 DeepSeek Harness（DSH）Web 服务：后台启动、停止、重启、构建、
-更新与体检。
+管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止、重启、构建、更新与体检。
 
-支持 macOS、Linux、Windows（amd64 / arm64）。除 `pnpm`、`git` 与 Node 本身外
-不依赖任何外部工具：端口探测与进程探测都直接用操作系统接口实现。
+macOS、Linux、Windows（amd64 / arm64）都支持。除 `pnpm`、`git` 与 Node 本身外，不需要安装其他工具。
 
-## 快速开始
+## 编译
 
 ```sh
-make build      # 编译到 bin/dshctl
-make test       # 单元测试
-make check      # 格式检查 + go vet + 测试
-make cross      # 交叉编译到 dist/（6 个平台）
-make install    # 安装到 ~/.local/bin/dshctl
+make build          # → bin/dshctl
+make install        # → ~/.local/bin/dshctl
+make cross          # 交叉编译 6 个平台 → dist/
 ```
 
-第一次使用只需要指定仓库位置，其余全部有可用的默认值：
+没有 make 时：
 
 ```sh
+go build -o bin/dshctl ./cmd/dshctl      # 需要 Go 1.24+
+```
+
+## 快速上手
+
+```sh
+# 第一次：指定仓库路径，构建，然后启动
+# （路径会写进配置文件，之后执行命令不用再带 --repo）
 dshctl --repo ~/projects/deepseek-harness build
 dshctl --repo ~/projects/deepseek-harness start
-dshctl status
-dshctl url            # 打印带 token 的访问地址
-dshctl logs -f        # 跟随日志
-dshctl stop
+
+# 以后
+dshctl status                 # 运行状态
+dshctl url                    # 打印带 token 的访问地址
+dshctl logs -f                # 跟随日志（Ctrl-C 退出）
+dshctl restart                # 重启
+dshctl stop                   # 停止
 ```
+
+`start` 只检查构建产物，不会自动 install/build；缺依赖或没构建过时会提示先执行 `dshctl build`。
 
 ## 命令
 
-| 命令              | 说明                                                                           |
-| ----------------- | ------------------------------------------------------------------------------ |
-| `start`（默认） | 后台启动并等待端口就绪；只检查构建产物，不自动 install/build                   |
-| `stop`          | 停止服务：结束记录中确认属于自己的服务（含它所在的整棵进程树）                 |
-| `restart`       | 在同一把锁内先停后启                                                           |
-| `status`        | 运行状态；`--json` 输出结构化结果                                            |
-| `url`           | 打印当前运行服务的访问地址（含 token）；未运行时以退出码 3 报告                |
-| `logs`          | 日志；`-n <行数>`、`-f/--follow`、`--build`（只看最近一次 build/update） |
-| `build`         | 清理已删除包的残留目录后执行`pnpm run build`；仓库正被服务使用时拒绝         |
-| `update`        | 停服 →`git pull --ff-only` → 清理 → `pnpm install` → 构建 → 恢复启动  |
-| `doctor`        | 只读体检；`--json` 输出结构化结果                                            |
-| `version`       | 版本、提交、构建时间与目标平台；`--json` 输出结构化结果                      |
+| 命令 | 说明 |
+| --- | --- |
+| `start` | 后台启动并等待端口就绪（不加命令名时的默认命令） |
+| `stop` | 停止服务，并结束它所在的整棵进程树 |
+| `restart` | 在同一把锁内先停后启 |
+| `status` | 运行状态；`--json` 输出结构化结果 |
+| `url` | 打印带 token 的访问地址；未运行时退出码 3 |
+| `logs` | 日志；`-n <行数>`、`-f/--follow` 跟随、`--build` 只看最近一次构建记录 |
+| `build` | 清理已删除包的残留目录后执行 `pnpm run build` |
+| `update` | 停服 → `git pull --ff-only` → 清理 → `pnpm install` → 构建 → 恢复启动 |
+| `doctor` | 只读体检；`--json` 输出结构化结果 |
+| `version` | 版本、提交、构建时间与目标平台；`--json` 输出结构化结果 |
 
-全局参数（写在命令名之前）：
+全局参数写在命令名之前：
 
-| 参数                | 说明                      | 等价环境变量         |
-| ------------------- | ------------------------- | -------------------- |
-| `--repo <路径>`   | 仓库目录                  | `DSH_REPO_DIR`     |
-| `--port <端口>`   | 监听端口                  | `DSH_PORT`         |
-| `--node <版本>`   | Node 版本，可用`latest` | `DSH_NODE_VERSION` |
-| `--config <文件>` | 配置文件路径              | `DSHCTL_CONFIG`    |
-| `-v, --verbose`   | 打印生效配置及其来源      |                      |
-| `-h, --help`      | 帮助                      |                      |
-| `-V, --version`   | 版本                      |                      |
+| 参数 | 等价环境变量 | 说明 |
+| --- | --- | --- |
+| `--repo <路径>` | `DSH_REPO_DIR` | 仓库位置，默认 `~/deepseek-harness` |
+| `--port <端口>` | `DSH_PORT` | 监听端口，默认 `3080` |
+| `--node <版本>` | `DSH_NODE_VERSION` | Node 版本，可写 `latest` |
+| `--config <文件>` | `DSHCTL_CONFIG` | 配置文件路径 |
+| `-v` | — | 打印生效配置及每一项的来源 |
+| `-h` / `-V` | — | 帮助 / 版本 |
 
-## 运行状态放在哪里
+其余环境变量：`DSHCTL_STATE_DIR`（状态目录）、`DSH_HOME`（DSH 主目录，默认 `~/.dsh`）、`DSH_LOG_FILE`（日志路径）。
 
-所有 dshctl 自己的文件都在一个目2录里（默认 `$DSH_HOME/dshctl`，即
-`~/.dsh/dshctl`，可用 `DSHCTL_STATE_DIR` 覆盖）：
+## 状态目录
+
+dshctl 自己的文件都在一个目录里，默认 `~/.dsh/dshctl`：
 
 ```
-~/.dsh/dshctl/
-  config.json                 可调配置，首次执行可变命令时按默认值生成
-  dsh-web.log                 服务输出 + build/update 记录（超过阈值轮转为 .old）
-  dsh-web-<端口>.state.json   运行记录：监听进程 pid、启动它的包装进程 pid、
-                              进程启动时间、端口、访问地址
-                              （只描述"已消失/被复用"的进程才会被下一次 start/stop 清理；
-                               status 只报告不动它，命名活进程的记录永不删除）
-  dshctl.lock                 操作互斥锁（内核锁，进程退出即释放）
+config.json                 配置（首次执行可变命令时按默认值生成）
+dsh-web-<端口>.state.json   运行记录：监听进程 pid、启动时间、端口、访问地址
+dshctl.lock                 操作互斥锁
+dsh-web.log                 服务与 build/update 输出（超过 4 MiB 轮转为 .old）
 ```
 
-**运行记录是按端口分开的**，日志与锁是共用的。因此同一个状态目录可以同时管理
-多个端口，`stop --port A` 不会碰到端口 B 的服务：
+这个目录可以随时删掉，不影响 DSH 的会话、附件、设置与凭据（它们由 DSH 自己放在 `~/.dsh` 下）。
+`status`、`url`、`logs`、`doctor`、`version` 不写盘。
+
+同一个状态目录可以管理多个端口，运行记录按端口分开：
 
 ```sh
 dshctl --port 3080 start
-dshctl --port 3081 start      # 两个服务并存，各自有自己的运行记录
+dshctl --port 3081 start      # 两个服务并存
 dshctl --port 3081 stop       # 只停 3081
 ```
 
-日志共用意味着一份日志里能看到所有实例的输出（每段标记都会写明是哪次操作）。
-如果要让不同实例连日志也完全隔离，用 `DSHCTL_STATE_DIR` 给它们各自一个状态目录：
-
-```sh
-DSHCTL_STATE_DIR=~/.dsh/dshctl-alt dshctl --port 3081 start
-```
-
-这个目录是可丢弃的：删掉它不影响任何 DSH 数据（会话、附件、设置、凭据都由
-DSH 自己管理在 `~/.dsh/` 下）。唯一需要注意的是不要在操作进行中删除它——
-dshctl 检测到锁文件被替换会重新获取锁，不会出现两个操作同时进行。
-
-### 哪些命令会写盘
-
-| 命令                           | 是否写盘       | 说明                                                       |
-| ------------------------------ | -------------- | ---------------------------------------------------------- |
-| `status`                     | **不写** | 不取锁、不建目录；运行记录是原子读取的                     |
-| `url`                        | **不写** | 只读运行记录与日志                                         |
-| `logs`                       | **不写** | 只读日志                                                   |
-| `doctor`                     | **不写** | 只探测，不改动任何东西                                     |
-| `version`                    | **不写** | 连配置文件都不读                                           |
-| `start`/`stop`/`restart` | 写             | 首次运行会创建状态目录、生成默认配置文件、维护运行记录与锁 |
-| `build`/`update`           | 写             | 同上，另外会清理残留目录、写日志                           |
-
-也就是说：只想看看状态不会留下任何痕迹；只有真正要改变运行状态时才落盘。
-这条性质由测试守着（`internal/cli/binary_test.go` 直接运行编译出的二进制并断言
-状态目录不存在）。
-
-## 配置
-
-配置文件是可选的：**什么都不配置即可使用**，所有值都有可用默认值。
-
-```json
-{
-  "repoDir": "/Users/you/projects/deepseek-harness",
-  "port": 3080,
-  "nodeVersion": "24.20.0",
-  "startTimeoutSeconds": 90,
-  "stopTimeoutSeconds": 15,
-  "lockTimeoutSeconds": 10,
-  "logRotateBytes": 4194304
-}
-```
-
-- 每个字段都可以省略；省略即沿用下一层（默认值）的值。空文件等同于"全部默认"。
-- 未知字段、类型错误、越界值都会**直接报错并指出字段名**，而不是被静默忽略。
-- 生成的配置里记录的是**内置默认值**，不是当时的覆盖值，因此用
-  `--port 4000` 跑过一次不会把 4000 冻结进配置文件。
-- 配置文件出现 `null` 等同于"未设置"。
-- 路径必须是绝对路径或 `~/` 开头；相对路径会被拒绝，因为那会让状态目录
-  （连同互斥锁）跟着当前目录漂移。
-
-优先级：**命令行参数 > 环境变量 > 配置文件 > 内置默认值**。`-v` 会打印每一项
-的来源（`flag` / `env` / `file` / `default`）。
-
-### 环境变量
-
-| 变量                                                   | 作用                                           |
-| ------------------------------------------------------ | ---------------------------------------------- |
-| `DSHCTL_STATE_DIR`                                   | 覆盖状态目录                                   |
-| `DSHCTL_CONFIG`                                      | 覆盖配置文件路径                               |
-| `DSH_HOME`                                           | 覆盖 DeepSeek Harness 主目录（默认`~/.dsh`） |
-| `DSH_REPO_DIR` / `DSH_PORT` / `DSH_NODE_VERSION` | 覆盖对应配置项                                 |
-| `DSH_LOG_FILE`                                       | 覆盖日志文件路径（必须是绝对路径）             |
-
-## 也支持 Windows
-
-Windows 上的行为差异：
-
-- 端口归属用 `GetExtendedTcpTable` 读取（IPv4 与 IPv6 两张表），进程启动时间与
-  可执行文件路径用 `GetProcessTimes` / `QueryFullProcessImageNameW` 读取，都不
-  需要额外安装工具。它是单一来源：该 API 失败时端口状态报"未知"，不会报"空闲"。
-- Windows 没有 POSIX 意义上的 SIGTERM，`stop` 用 `TerminateProcess` 结束进程，
-  再用 `taskkill /T /F` 结束整棵树；"优雅"在 Windows 上就是"直接结束"。
-- 识别"监听者是不是本次启动的"用父进程链（`CreateToolhelp32Snapshot`）：Unix 靠
-  进程组，Windows 没有可寻址的进程组，但包装进程（pnpm 的 cmd/exe）与它派生的
-  服务之间的父子关系是同一份证据。结束整棵树同样走 `taskkill /T`。
-- 权限不足（`ERROR_ACCESS_DENIED`）按"进程存在但看不到"处理，与 Unix 的 EPERM
-  一致：不会被误判成"已退出"而清掉运行记录。
-- 后台进程用"新进程组 + 不继承控制台"创建，因此关掉运行 dshctl 的终端不会
-  影响服务。
-
-```powershell
-go build -o dshctl.exe ./cmd/dshctl
-.\dshctl.exe --repo C:\src\deepseek-harness build
-.\dshctl.exe start
-```
-
-## 设计要点
-
-- **端口是"有没有服务"的判据，运行记录是"是不是我们的"的判据。** 运行记录里存
-  了进程启动时间作为指纹：pid 被系统复用给别的进程时，启动时间对不上，dshctl
-  就把它当作陌生进程，绝不发信号。
-- **记录的是监听者，不只是启动者。** `pnpm <script>` 会在**子进程**里运行脚本，
-  所以真正绑定端口的是 dshctl 启动的那个进程的子进程（不是它本身）。运行记录以
-  监听者为准，同时保留包装进程的 pid：结束服务时按**进程组**一起结束，不会只杀掉
-  包装进程而把服务留在端口上。启动失败时同样如此——只有确认端口已释放，才会打印
-  "已清理"。
-- **"查不到"绝不等于"空闲"。** 端口探测失败按前置检查失败处理（退出码 4），
-  不会当成端口空闲。这包括工具被信号杀死（退出状态为负）、以及"有监听但平台报不出
-  归属进程"这两种情况——后者按"无法确认归属"处理，绝不报成"未运行"。
-- **绝不误杀。** 只结束运行记录中确认归属、且启动时间仍吻合的进程。端口上出现
-  无法确认归属的进程时，只报告并拒绝操作（`start`/`update` 直接失败，`stop`
-  只提示），由操作者自己判断。
-- **构建清理有边界。** 清理残留目录时要求：目录是真实目录（不是符号链接）、
-  符号链接解析后仍严格位于 checkout 之内、git 未跟踪（用
-  `core.quotePath=false` + NUL 分隔读取，非 ASCII 路径不会被转义误判）、
-  目录内只有 `node_modules`/`lib`/`.typecheck`/`*.tsbuildinfo`，且父目录没有
-  自己的 `package.json`。目录遍历用 `io/fs` 而不把仓库路径交给 glob，
-  因此路径里的 `[`、`*` 不会把清理指向别的目录树。
-- **只清理 checkout 里的东西。** `build`/`update`/`start` 都会先确认目标目录
-  确实带着 `package.json` 与 `pnpm-workspace.yaml`，`--repo` 写错时不会对
-  别的 git 仓库执行任何破坏性操作。
-- **日志轮转不换 inode。** 轮转是"先复制到 `.old`，再原地截断"：后台服务
-  持有一个长期打开的追加句柄，用 rename 轮转会把服务后续输出全部写进
-  `.old`，并在下一次轮转时连同 `.old` 一起销毁。段标记（`===== ... dshctl build =====`）在轮转之后才写，所以标记与正文永远在同一个文件里。
-- **一个判断，所有命令共用。** "我们的服务在运行吗"只有一个判据：运行记录里
-  的进程活着且启动时间吻合，**或者**记录所指向的那次启动留下的进程树仍在监听
-  它记录的端口。`stop`/`update`/`build`/跨端口守卫/`status`/`doctor` 全部读同一
-  个判据，因此不会出现"status 说在运行、stop 说没运行"这类互相矛盾的回答。
-- **信号只发给验证过的身份。** 可以被结束的只有两种情形：记录中的进程正持有该
-  端口（端口就是身份），或记录的启动时间与活进程读到的启动时间**双方都已知**且
-  吻合（指纹就是身份）。平台读不到启动时间时，`status` 仍会照实报告进程存活，
-  但 `stop` 不会凭"未知即匹配"去发信号——降级宿主的证据只有端口。
-- **结束的是整棵树。** `stop` 先结束记录中的服务，再确认它所在的那棵树已经消失
-  （包装进程、子进程一并收尾），与启动失败清理用的是同一条规则；进程组/进程树
-  已不存在时不会向可能被复用的组 id 发信号。
-- **地址记在运行记录里。** `dsh web` 只在启动时公布一次带 token 的地址；
-  启动成功后 dshctl 把它写进运行记录，因此日志轮转后 `dshctl url` 依然可用。
-  `url` 只在服务确实运行时给地址：打印一个已经死掉的地址（连同它的 token）是
-  操作者要到浏览器里才会发现的假消息，未运行时以退出码 3 报告并说明状态。
-- **失败即清理，取消立即生效。** 启动失败或超时会结束本次启动的进程、删除运行
-  记录并打印日志尾部；Ctrl-C 会立刻中止等待并清理，不会空转到超时。
-- **被强杀的启动可恢复。** 若 dshctl 在启动等待期间被 SIGKILL，服务可能已经带着
-  端口存活，而运行记录还写着包装进程。后续的 `start`/`stop` 会依据进程组证据
-  认出这是自己启动的服务，收养它并恢复管理（重写记录指向真正的监听进程），
-  而不是当成陌生进程拒绝操作。
-- **日志轮转对并发写入稳定。** 轮转的复制会重复到文件大小不再变化为止，复制
-  期间服务新写入的行同样进入 `.old`；只有最终截断那一瞬间写入的行无法保证
-  归属——这是"绝不换 inode"前提下的最小损失窗口，远小于 rename 方案会丢失的
-  全部后续输出。
-- **互斥锁交给内核。** `flock`（Windows 用 `LockFileEx`）独占锁文件，进程退出
-  （含崩溃）即释放，没有陈旧锁。获取锁后会核对锁路径是否仍指向自己锁住的那个
-  inode，被删掉就重新来，因此 `rm -rf` 状态目录不会产生两个持有者。
-- **更新语义。** `git pull` 失败则恢复启动旧版本，并报告 pull 本身的错误；
-  `pnpm install` 或构建失败则保持停止，报告的是那一步的失败原因（不会被
-  "仓库尚未构建"掩盖）。
-- **同一 checkout 的写操作共用一条守卫。** `update` 会停掉并重启**本端口**的服务，
-  但只要有**其他端口**（含崩溃遗留的幸存者）仍在从同一个 checkout 服务，就拒绝更新；
-  `build` 无法替操作者重启服务，因此只要**任何**端口正在服务就拒绝。两者用的是
-  同一条"仓库正在被使用"的判据与同一条提示。
-
 ## 退出码
 
-| 码  | 含义                                                                          |
-| --- | ----------------------------------------------------------------------------- |
-| 0   | 成功；`status` 表示运行中或启动中                                           |
-| 1   | 失败；`doctor` 表示存在失败项                                               |
-| 2   | 用法或配置错误（未知命令、参数非法、配置值非法）                              |
-| 3   | 服务未运行（`status`/`url`），或端口被其他进程占用                        |
-| 4   | 前置检查失败（缺 node/pnpm、不是 checkout、未构建、端口被占用、端口无法探测） |
-| 5   | 锁超时（另一个 dshctl 操作正在进行）                                          |
-| 130 | 命令被 Ctrl-C 取消                                                            |
-
-## 目录结构
-
-```
-cmd/dshctl/            入口
-internal/cli/          命令注册表、全局参数解析、帮助与退出码
-internal/service/      生命周期：观测、start/stop/restart、build/update、logs/url/doctor
-internal/host/         平台层：端口归属、进程事实、信号、进程结束
-internal/detach/       后台进程的创建方式（按平台）
-internal/run/          外部命令执行、输出采集、进程组取消
-internal/logfile/      日志分段、原地轮转、tail/follow、段落提取
-internal/repo/         git 查询与有边界的残留清理
-internal/nodejs/       Node 版本发现与比较（nvm / fnm / PATH）
-internal/config/       配置默认值、文件、环境变量、校验
-internal/paths/        状态目录与路径解析（拒绝相对路径）
-internal/state/        运行记录（pid + 启动时间指纹）
-internal/lock/         跨平台操作锁
-internal/atomically/   状态文件的原子写入
-internal/exitcode/     退出码与带码错误
-internal/version/      构建元数据（ldflags 注入）
-internal/buildinfo/    目标平台
-```
-
-扩展方式：新增子命令只需在 `internal/cli/commands.go` 的 `Commands()` 里追加
-一项并实现 `Run`；新增体检项在 `internal/service/doctor.go` 中追加一个 `add(...)`
-调用。外部命令、平台探测、进程启动全部经由结构体字段注入，因此整条生命周期
-都可以用假实现做单元测试。
+| 码 | 含义 |
+| --- | --- |
+| 0 | 成功；`status` 表示运行中或启动中 |
+| 1 | 失败 |
+| 2 | 用法或配置错误 |
+| 3 | 服务未运行（`status`/`url`），或端口被其他进程占用 |
+| 4 | 前置检查失败（缺 node/pnpm、不是 checkout、未构建、端口被占用或无法探测） |
+| 5 | 锁超时（另一个 dshctl 操作正在进行） |
+| 130 | 命令被 Ctrl-C 取消 |
 
 ## 开发
 
 ```sh
-make check       # gofmt 校验 + go vet + go test（不改写文件）
-make test-race   # 竞态检测
-make hermetic    # 验证"测试不写任何真实状态"
-make workflow-check  # 校验 CI 工作流本身的结构（门禁是否还在）
-make ci          # 与流水线完全一致：工作流校验 + 格式 + vet + 密闭性 + 竞态测试
-make cross       # 6 个平台交叉编译
+make check          # gofmt -s 校验 + go vet + 测试
+make test-race      # 竞态检测
+make hermetic       # 验证测试不在临时目录之外写任何东西
+make ci             # 与 CI 一致：工作流校验 + 格式 + vet + 密闭性 + 竞态测试
 ```
 
-### 测试的两条硬性约束
-
-1. **测试只能测代码，不能改动环境与状态。** 每个测试用 `t.TempDir()` 与假宿主
-   （虚构进程表、端口占用、命令输出）；`make hermetic` 会把 `HOME`／`DSH_HOME`／
-   状态目录指向一次性目录跑完整套测试，然后检查任何真实位置都没有被写入——
-   写进去就失败并打印路径。`internal/cli` 另有 `TestMain` 守卫：任何测试若在
-   真实 home 下创建 `.dsh`，直接 panic。负向验证：故意加一个往 `$HOME` 写目录
-   的测试，检查会点名报错。
-2. **测试失败不能靠"机器上恰好有这个东西"蒙过去。** service 的假宿主把
-   `PATH` 设为空、`DSH_HOME` 指向 fixture 自己的假 nvm，所以任何"偷偷用真实
-   工具/真实 Node"的代码路径会立刻失败，而不是在开发机上通过、在 CI 上挂掉。
-   允许跳过的只有一类：宿主平台缺少可选外部工具（如沙箱里 `ps` 被拒），CI 会
-   校验**只出现这一类跳过**，多出任何跳过都算失败。
-3. **假的宿主只适用于假的世界。** 涉及真实进程、真实端口、真实信号的测试必须
-   换成真实平台层（`host.ProbeHost`），否则假宿主会把它不认识的进程一律判成
-   "已退出"。这一条是被一个真实 bug 逼出来的：`start` 在子进程立即退出时不
-   快速失败，正因为子进程没被回收而变成僵尸、永远"存在"；而假宿主恰恰不会
-   有僵尸这个概念，所以只有真实进程的测试才能抓住它。
-
-平台相关的行为按平台测试：Linux 的 `/proc` 指纹读取、Windows 的原生端口表与
-进程查询、Unix 的进程组取消与 `ps` 回退解析。CI 在 ubuntu / macos / windows
-三个 runner 上分别跑竞态测试。
-
-### CI
-
-`.github/workflows/ci.yml`：测试（ubuntu / macos / windows 三平台 + 竞态）→
-工作流自检 → 密闭性检查 → 期望跳过检查 → 6 平台交叉编译（**build 依赖 test 与
-hermetic 通过**，测试不过则不产出任何二进制）→ govulncheck。
-
-工作流本身也被校验（`scripts/check-workflow.py`）：语法、任务是否存在、
-`build` 是否仍然依赖测试、平台矩阵是否还覆盖三平台。一个"测试门禁被悄悄摘掉"
-的改动会在这里失败，而不是等到某天发现 CI 早就不拦了。
-
-## 已知限制
-
-- `dshctl logs -f` 使用轮询（默认 250ms）而不是 kqueue/inotify。
-- 未实现 shell 补全与多实例；不同端口/仓库各跑一份需要各自设置
-  `DSHCTL_STATE_DIR`。
-- Windows 没有优雅退出信号，`stop` 直接结束进程（`taskkill /T /F`）。
-- Windows 的"父子关系"来自进程快照，不是进程组：若中间某个进程在服务运行期间
-  退出，父子链可能断开；此时按"无法确认归属"报告（只报告、不结束），不会误判成
-  自家服务。
-- 运行记录里的启动时间指纹在极端情况下可能取不到（例如受限沙箱里 `ps` 被拒绝
-  且 Linux 的 `/proc` 不可读）；此时 `status` 仍照实报告进程存活，但 `stop` 只在
-  "记录中的 pid 正持有该端口"时才发信号——降级宿主的身份证据只有端口，绝不凭
-  "未知即匹配"结束进程。启动时会明确警告这种降级。
-- 端口探测分两档可信度：探测失败一律报"未知"（绝不报空闲）；而"没有监听"这一
-  否定结论只采信能读取完整端口表的工具（`ss`/`netstat`）。`lsof` 的"无匹配"
-  会被这两个工具复核，只有 lsof 可用时才采信它（并接受这一降级）。
-- 日志尾部扫描有窗口上限（地址查找 8 MiB、段落提取 32 MiB）：超出窗口时会明确
-  报告"日志过大，未能定位"，而不是把"看不到"说成"不存在"。
-- 运行记录容忍未知字段（升级/降级、或两台安装共用同一 home 时，记录由另一个
-  版本写入是正常的）；配置文件相反，未知字段会直接报错，因为那是操作者的笔误。
+CI 在 ubuntu / macos / windows 三个平台编译并测试，全部通过后才交叉编译 6 个平台。
+打 `v*` 标签会触发 Release 工作流，把各平台产物发布到对应的 release。
