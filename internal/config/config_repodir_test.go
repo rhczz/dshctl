@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -393,6 +394,7 @@ func testRepodirW1RecordsTheCheckoutWhenTheDocumentDecidesNone(t *testing.T) {
 func testRepodirW2KeepsADecidedCheckout(t *testing.T) {
 	w := newTestWorld(t)
 	w.writeDocument(`{"repoDir": ` + quote(w.checkout()) + `, "port": 3999}`)
+	before := w.document()
 	wrote, err := w.settings().RecordRuntime(filepath.Join(w.home, "elsewhere"), "")
 	if err != nil {
 		t.Fatalf("RecordRuntime: %v", err)
@@ -400,8 +402,15 @@ func testRepodirW2KeepsADecidedCheckout(t *testing.T) {
 	if wrote.RepoDir {
 		t.Fatalf("wrote = %+v, want nothing written", wrote)
 	}
-	if got := w.document(); !strings.Contains(got, w.checkout()) {
-		t.Fatalf("document = %s, want it untouched", got)
+	// The bytes are compared, not a substring: the document on Windows spells
+	// the path with escaped separators, so a search for the raw path would pass
+	// on Unix and fail on Windows for a reason that has nothing to do with the
+	// rule under test.
+	if after := w.document(); after != before {
+		t.Fatalf("document = %s, want it untouched (%s)", after, before)
+	}
+	if got := w.fields()["repoDir"]; got != w.checkout() {
+		t.Fatalf("document repoDir = %v, want the operator's %q", got, w.checkout())
 	}
 }
 
@@ -611,10 +620,15 @@ func testRepodirW10TheDocumentStaysValidAndPrivate(t *testing.T) {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if info, err := os.Stat(w.configPath); err != nil {
-		t.Fatalf("stat: %v", err)
-	} else if perm := info.Mode().Perm(); perm != 0o600 {
-		t.Fatalf("mode = %v, want 0600", perm)
+	// The owner-only bits are a Unix concept: Windows reports 0666 for a
+	// writable file whatever was asked for, and the exact modes are pinned in
+	// the unix-tagged file instead of here.
+	if runtime.GOOS != "windows" {
+		if info, err := os.Stat(w.configPath); err != nil {
+			t.Fatalf("stat: %v", err)
+		} else if perm := info.Mode().Perm(); perm != 0o600 {
+			t.Fatalf("mode = %v, want 0600", perm)
+		}
 	}
 	if w.load(Overrides{}).RepoDir != w.checkout() {
 		t.Fatal("the written document must load back")
