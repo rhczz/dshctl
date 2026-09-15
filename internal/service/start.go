@@ -57,6 +57,7 @@ func (s *Service) startLocked(ctx context.Context) (StartResult, error) {
 	switch observed.status.State {
 	case StateRunning:
 		fmt.Fprintf(s.Out, "DSH Web 已在运行: %s (pid=%d)\n", s.Settings.URL(), observed.status.ListenerPID)
+		s.reconcileRunningCheckout(observed)
 		return StartResult{Status: observed.status, AlreadyRunning: true}, nil
 	case StateStarting:
 		fmt.Fprintf(s.Out, "DSH Web 正在启动中: %s (pid=%d)\n", s.Settings.URL(), observed.status.ListenerPID)
@@ -146,6 +147,7 @@ func (s *Service) adoptSurvivor(ctx context.Context, observed observed) (state.R
 		URL:         s.urlFromLog(ctx),
 		NodeVersion: record.NodeVersion,
 		NodePath:    record.NodePath,
+		RepoDir:     record.RepoDir,
 	}
 	if adopted.URL == "" {
 		adopted.URL = record.URL
@@ -174,6 +176,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	}
 
 	s.reportNodeOverride(installation)
+	s.reportRepoOverride()
 
 	handle, err := s.Log.OpenAppend()
 	if err != nil {
@@ -206,6 +209,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		Phase:       state.PhaseRunning,
 		NodeVersion: installation.Version,
 		NodePath:    installation.NodePath,
+		RepoDir:     s.Settings.RepoDir,
 	}); err != nil {
 		s.warn("无法记录启动的进程 (pid=%d): %v", pid, err)
 	}
@@ -238,11 +242,12 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		URL:         s.urlFromLog(ctx),
 		NodeVersion: installation.Version,
 		NodePath:    installation.NodePath,
+		RepoDir:     s.Settings.RepoDir,
 	}
 	if err := s.Record.Save(record); err != nil {
 		s.warn("无法更新运行记录: %v", err)
 	}
-	s.recordNodeVersion(installation)
+	s.recordRuntime(installation)
 	final, observeErr := s.observe(ctx)
 	if observeErr != nil {
 		return StartResult{}, observeErr
@@ -255,30 +260,149 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	return StartResult{Status: status, SpawnedPID: pid}, nil
 }
 
-// recordNodeVersion writes the release this start used into the settings
-// document, but only when the document names none.
+// recordRuntime writes the facts this start established into the settings
+// document: the checkout the server was started from and the Node release it
+// started with. Each key is written only when the document decides nothing, so a
+// document that names a checkout or a release belongs to the operator and is
+// never rewritten from underneath them.
 //
-// The rule is what makes the first successful start decide the runtime for every
-// later one: what demonstrably served on this machine is what gets written down.
-// A document that already names a release belongs to the operator and is never
-// rewritten from underneath them, and a failed start never reaches this point —
-// so the document can only ever hold a release that ran.
+// The rule is what lets the first successful start decide the rest. Without it
+// the checkout would be honoured for one invocation only: every later command
+// resolves it from the configuration, so a service started with `--repo` would
+// keep serving while `doctor`, `update` and a plain `start` talked about a
+// directory nobody chose — the shape of a configuration that contradicts the
+// service it manages.
 //
 // The server is already serving by the time this runs, so a document that cannot
 // be written is a warning: stopping a working server because its configuration
 // could not be updated would be worse than the missing line.
-func (s *Service) recordNodeVersion(installation nodejs.Installation) {
-	if s.Settings.ConfiguredNodeVersion != "" || installation.Version == "" {
+func (s *Service) recordRuntime(installation nodejs.Installation) {
+	s.writeBack(s.Settings.RepoDir, installation.Version)
+}
+
+// writeBack records what a command established and reports each key it wrote.
+//
+// An empty value means "nothing to record for this key": the Node release is
+// only ever written by a start, so a build records the checkout alone.
+func (s *Service) writeBack(repoDir, nodeVersion string) {
+	if repoDir == "" && nodeVersion == "" {
 		return
 	}
-	if err := s.Settings.RecordNodeVersion(installation.Version); err != nil {
-		s.warn("无法把 Node %s 写入配置 %s: %v(以后仍会按 PATH 重新解析)",
-			installation.Version, s.Settings.ConfigPath, err)
+	wrote, err := s.Settings.RecordRuntime(repoDir, nodeVersion)
+	if err != nil {
+		s.warn("无法把本次运行的信息写入配置 %s: %v(以后仍会按既有设置重新解析)",
+			s.Settings.ConfigPath, err)
 		return
 	}
-	message := fmt.Sprintf("已将 Node %s 写入配置: %s", installation.Version, s.Settings.ConfigPath)
-	fmt.Fprintln(s.Out, message)
-	s.note(message)
+	if wrote.RepoDir {
+		message := fmt.Sprintf("已将仓库目录 %s 写入配置: %s", repoDir, s.Settings.ConfigPath)
+		fmt.Fprintln(s.Out, message)
+		s.note(message)
+	}
+	if wrote.NodeVersion {
+		message := fmt.Sprintf("已将 Node %s 写入配置: %s", nodeVersion, s.Settings.ConfigPath)
+		fmt.Fprintln(s.Out, message)
+		s.note(message)
+	}
+}
+
+// reconcileRunningCheckout closes the gap between the settings document and a
+// service that is already running.
+//
+// A start that finds the port already served does not touch the running process,
+// so the only useful thing it can do is make the configuration describe it. The
+// checkout recorded for the running instance is the fact every later command
+// needs — doctor, update and a plain start all resolve the checkout from the
+// document — so it is written when the document decides nothing. Without that,
+// a service started with `--repo` keeps serving while every later command
+// operates on a directory that may not even exist.
+//
+// When the document does decide a checkout, nothing is rewritten: an operator's
+// own value is not dshctl's to change. A running instance that disagrees with it
+// is reported instead, because that disagreement is how the next command ends up
+// acting on a different tree than the one being served.
+func (s *Service) reconcileRunningCheckout(observed observed) {
+	if s.Settings.ConfiguredRepoDir != "" {
+		s.warnRunningCheckoutMismatch(observed)
+		return
+	}
+	target := observed.record.RepoDir
+	if target == "" && s.namesCheckoutItself() {
+		// A record written before the checkout was recorded says nothing about
+		// where the running service came from. An explicitly named checkout is
+		// still worth recording — it is the one the next command should use —
+		// but only once the directory proves to be a DeepSeek Harness checkout,
+		// so a mistyped --repo cannot be written down as the operator's choice.
+		if s.Repo.IsServerCheckout() {
+			target = s.Settings.RepoDir
+		}
+	}
+	if target == "" {
+		return
+	}
+	s.writeBack(target, "")
+}
+
+// warnRunningCheckoutMismatch reports a running service that was started from a
+// different checkout than the settings document names.
+func (s *Service) warnRunningCheckoutMismatch(observed observed) {
+	running := observed.record.RepoDir
+	if running == "" || running == s.Settings.RepoDir {
+		return
+	}
+	s.warn("运行中的服务 (pid=%d) 来自 %s，配置中的 repoDir 是 %s；两者操作的不是同一份 checkout",
+		observed.status.ListenerPID, running, s.Settings.RepoDir)
+}
+
+// namesCheckoutItself reports whether this invocation names a checkout of its
+// own — with --repo or DSH_REPO_DIR — rather than inheriting one from the
+// configuration or the built-in default.
+func (s *Service) namesCheckoutItself() bool {
+	switch s.Settings.Sources.RepoDir {
+	case "flag", "env":
+		return true
+	default:
+		return false
+	}
+}
+
+// reportRepoOverride tells the operator when this run uses a checkout other than
+// the one the settings document names.
+//
+// --repo is deliberately a change to one run: it must not rewrite the document,
+// so the only thing that makes it safe to use is saying out loud which run it
+// applied to and how to make it permanent. Without that line the flag looks like
+// it did nothing at all once the command ends — and the next command, which
+// resolves the checkout from the document, silently operates on another tree.
+func (s *Service) reportRepoOverride() {
+	configured := s.Settings.ConfiguredRepoDir
+	if configured == "" || configured == s.Settings.RepoDir {
+		return
+	}
+	if s.Settings.Sources.RepoDir != "flag" {
+		return
+	}
+	fmt.Fprintf(s.Out, "本次使用仓库 %s(配置中为 %s；如需固定请修改 %s)\n",
+		s.Settings.RepoDir, configured, s.Settings.ConfigPath)
+}
+
+// warnOverriddenRepoDir reports a settings document whose checkout this run does
+// not use.
+//
+// An environment variable is invisible once it is exported, so a worker shell
+// that carries one must not silently move the service onto another checkout: the
+// checkout in effect, the one the document names, and the fact that the two
+// differ are all worth one line.
+func (s *Service) warnOverriddenRepoDir() {
+	if s.Settings.Sources.RepoDir != "env" {
+		return
+	}
+	configured := s.Settings.ConfiguredRepoDir
+	if configured == "" || configured == s.Settings.RepoDir {
+		return
+	}
+	s.warn("环境变量 %s=%s 覆盖了配置里的 repoDir=%s，本次运行使用 %s",
+		paths.EnvRepoDir, s.Settings.RepoDir, configured, s.Settings.RepoDir)
 }
 
 // reportNodeOverride tells the operator when this run uses a release other than
@@ -475,6 +599,7 @@ func (s *Service) resolveNode(ctx context.Context) (nodejs.Installation, error) 
 		s.warn("%s", verdict.Reason)
 	}
 	s.warnOverriddenNodeVersion(installation)
+	s.warnOverriddenRepoDir()
 	return installation, nil
 }
 

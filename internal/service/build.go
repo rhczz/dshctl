@@ -43,6 +43,7 @@ func (s *Service) buildLocked(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	s.reportRepoOverride()
 	// The checkout is shared: building replaces the artifacts every running
 	// server of ours is serving. update stops this port's server because it
 	// restarts it; build cannot do that on the operator's behalf, so it refuses
@@ -77,6 +78,11 @@ func (s *Service) buildLocked(ctx context.Context) error {
 	}
 	s.note("build 成功")
 	fmt.Fprintln(s.Out, "构建完成")
+	// A build proves the checkout is usable, which is exactly what a document
+	// that decides nothing is missing: recording it is what makes the next plain
+	// command operate on the tree that was just built instead of on a default
+	// path nobody chose.
+	s.writeBack(s.Settings.RepoDir, "")
 	return nil
 }
 
@@ -162,6 +168,7 @@ func (s *Service) updateLocked(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	s.reportRepoOverride()
 	env := run.WithPathPrefix(installation.BinDir)
 
 	if wasRunning {
@@ -242,6 +249,9 @@ func (s *Service) updateLocked(ctx context.Context) error {
 			return err
 		}
 	}
+	// The update ran against this checkout; when the document decides none, that
+	// is the checkout every later command has to resolve.
+	s.writeBack(s.Settings.RepoDir, "")
 	return nil
 }
 
@@ -280,12 +290,18 @@ func (s *Service) refuseWhileServing(ctx context.Context, action string) error {
 // decides which servers count.
 
 // otherPortsServing reports servers recorded for a different port in the same
-// state directory that are running now.
+// state directory that are running now and that use this checkout.
 //
 // Each port has its own record, so the only way to see the others is to read
 // them: they are files named after their port. The predicate is the shared one
 // (managed.go), so an interrupted start's survivor counts here exactly as it
 // counts for this port.
+//
+// A record that names another checkout is skipped: a server built from a
+// different tree cannot be disturbed by replacing this one's artifacts, and
+// refusing on its account would block a build for a reason that is not true. A
+// record that names no checkout — one written before the field existed — is
+// counted, because "cannot tell" has to leave the guard as strict as it was.
 func (s *Service) otherPortsServing(ctx context.Context) (servingPorts, error) {
 	matches, err := filepath.Glob(config.StateFileGlob(s.Settings.StateDir))
 	if err != nil {
@@ -296,6 +312,9 @@ func (s *Service) otherPortsServing(ctx context.Context) (servingPorts, error) {
 		stored := state.Store{Path: path}
 		record, ok, err := stored.Load()
 		if err != nil || !ok || record.Port == s.Settings.Port {
+			continue
+		}
+		if record.RepoDir != "" && record.RepoDir != s.Settings.RepoDir {
 			continue
 		}
 		if s.recordServes(ctx, record) {

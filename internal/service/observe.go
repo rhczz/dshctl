@@ -78,6 +78,11 @@ type Status struct {
 	RecordedNodeVersion string `json:"recordedNodeVersion,omitempty"`
 	// RecordedNodePath is the binary that server was started with.
 	RecordedNodePath string `json:"recordedNodePath,omitempty"`
+	// RecordedRepoDir is the checkout the recorded server was started from, or
+	// empty when the record predates the field. It is a fact about the running
+	// instance, which the configured checkout is not: `--repo` applies to one
+	// invocation, so the two can differ while the server keeps serving.
+	RecordedRepoDir string `json:"recordedRepoDir,omitempty"`
 	// RecordLive reports that the record names a process that is alive and
 	// whose start time still matches: a server this dshctl started and can
 	// still end, whether or not it holds the port.
@@ -200,6 +205,7 @@ func (s *Service) observe(ctx context.Context) (observed, error) {
 		status.RecordedPhase = string(record.Phase)
 		status.RecordedNodeVersion = record.NodeVersion
 		status.RecordedNodePath = record.NodePath
+		status.RecordedRepoDir = record.RepoDir
 		status.URLFromRecord = record.URL
 	}
 

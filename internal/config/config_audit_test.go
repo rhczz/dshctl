@@ -356,7 +356,8 @@ func TestEncodeOmitsAnEmptyRepoDir(t *testing.T) {
 // The lines are read by operators and by scripts, so the shape has to hold even
 // when the settings were never loaded — no missing label, no panic on a zero
 // duration, and an empty source rendered as an empty parenthesis rather than as
-// a missing one.
+// a missing one. Every line carries a source, the numeric ones included: a value
+// whose layer cannot be seen is a value the reader has to guess about.
 func TestDescribeOfAZeroSettingsIsStillWellFormed(t *testing.T) {
 	var settings Settings
 	want := []string{
@@ -366,10 +367,10 @@ func TestDescribeOfAZeroSettingsIsStillWellFormed(t *testing.T) {
 		"监听端口: 0 ()",
 		"Node 版本: (未确定，启动时按 PATH 解析) ()",
 		"日志文件:  ()",
-		"启动超时: 0s",
-		"停止超时: 0s",
-		"锁超时:   0s",
-		"日志轮转: 0 字节 (0 表示不轮转)",
+		"启动超时: 0s ()",
+		"停止超时: 0s ()",
+		"锁超时:   0s ()",
+		"日志轮转: 0 字节 (0 表示不轮转) ()",
 	}
 	got := settings.Describe()
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {

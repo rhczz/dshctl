@@ -73,7 +73,7 @@ func TestWritingBackIntoAReadOnlyStateDirectoryIsReported(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chmod(stateDir, 0o700) })
 
-	err := settings.RecordNodeVersion("24.20.0")
+	_, err := settings.RecordRuntime("", "24.20.0")
 	if err == nil {
 		t.Fatal("writing into a directory that cannot be written must be reported")
 	}

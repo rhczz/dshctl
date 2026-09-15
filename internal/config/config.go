@@ -51,7 +51,8 @@ const (
 	DefaultLogRotateBytes = 4 << 20
 	// DefaultRepoDirName is the checkout directory looked for in the home
 	// directory when nothing configures one. It is the only place the layout of
-	// a particular machine used to be hardcoded.
+	// a particular machine used to be hardcoded, and the name it spells is a
+	// guess about that machine rather than a setting; see DefaultRepoDir.
 	DefaultRepoDirName = "deepseek-harness"
 	// DefaultLogFileName is the log inside the state directory.
 	DefaultLogFileName = "dsh-web.log"
@@ -94,6 +95,15 @@ const (
 type Settings struct {
 	// RepoDir is the deepseek-harness checkout dshctl builds and runs.
 	RepoDir string
+	// ConfiguredRepoDir is the checkout the settings document decides, or empty
+	// when the document decides none. Like ConfiguredNodeVersion it is what
+	// decides whether a successful run writes the checkout back: a document that
+	// names one is never rewritten.
+	//
+	// A document that merely repeats the built-in guess is not a decision (see
+	// DefaultRepoDir), which is what lets a wrong guess written by an older build
+	// be corrected instead of pinning a path nobody chose.
+	ConfiguredRepoDir string
 	// Port is the loopback port the Web server binds.
 	Port int
 	// NodeVersion is the Node release this installation runs, or empty when it
@@ -181,13 +191,35 @@ type Overrides struct {
 // path that only makes sense on one machine.
 func Default(home string) Settings {
 	return Settings{
-		RepoDir:        filepath.Join(home, DefaultRepoDirName),
+		RepoDir:        DefaultRepoDir(home),
 		Port:           DefaultPort,
 		StartTimeout:   DefaultStartTimeout,
 		StopTimeout:    DefaultStopTimeout,
 		LockTimeout:    DefaultLockTimeout,
 		LogRotateBytes: DefaultLogRotateBytes,
 	}
+}
+
+// DefaultRepoDir is the checkout a machine is assumed to keep when nothing
+// configures one: <home>/deepseek-harness.
+//
+// It is a guess about one machine rather than a decision, and two rules keep a
+// guess from becoming permanent:
+//
+//   - the guess is never written into the settings document, because the file is
+//     the layer that beats the default: a guess written down can only be
+//     corrected by hand, and every later run would honour a path nobody chose;
+//   - a document that names exactly this path is not honoured as a decision
+//     either. It is a copy of the guess — that is what builds before this rule
+//     wrote — and treating the copy as the default it repeats is what keeps
+//     `--repo`/DSH_REPO_DIR working and lets the next successful run record the
+//     checkout that really ran.
+//
+// Every other built-in default is a value that means the same thing on every
+// machine, so recording it decides nothing; the checkout is the one default that
+// is a fact about this machine, which is why the rule is scoped to it.
+func DefaultRepoDir(home string) string {
+	return filepath.Join(home, DefaultRepoDirName)
 }
 
 // Load resolves the effective settings without writing anything, so reporting
@@ -221,8 +253,12 @@ func Load(getenv paths.Getenv, overrides Overrides) (Settings, error) {
 		RepoDir:     "default",
 		Port:        "default",
 		NodeVersion: "default",
-		StateDir:    stateSource,
-		ConfigPath:  configSource,
+		// The four numeric settings have no flag and no environment variable, so
+		// their layers are the document and the default. Naming the default here
+		// is what makes every line of `-v` answer the same question.
+		Timeouts:   "default",
+		StateDir:   stateSource,
+		ConfigPath: configSource,
 	}
 
 	document, found, err := readFile(configPath)
@@ -230,10 +266,10 @@ func Load(getenv paths.Getenv, overrides Overrides) (Settings, error) {
 		return Settings{}, err
 	}
 	if found {
-		if err := applyFile(&settings, document); err != nil {
+		if err := applyFile(&settings, document, DefaultRepoDir(home)); err != nil {
 			return Settings{}, usagef("%v", err)
 		}
-		markFileSources(&sources, document)
+		markFileSources(&sources, document, settings.ConfiguredRepoDir)
 	}
 	if err := applyEnv(&settings, getenv); err != nil {
 		return Settings{}, err
@@ -300,7 +336,7 @@ func (s Settings) Provision() error {
 	if err != nil {
 		return err
 	}
-	data, err := Encode(Default(home))
+	data, err := encode(provisionedDocument(Default(home), DefaultRepoDir(home)))
 	if err != nil {
 		return err
 	}
@@ -436,10 +472,10 @@ func (s Settings) Describe() []string {
 		"监听端口: " + strconv.Itoa(s.Port) + " (" + s.Sources.Port + ")",
 		"Node 版本: " + nodeVersionDisplay(s.NodeVersion) + " (" + s.Sources.NodeVersion + ")",
 		"日志文件: " + s.LogPath + " (" + s.Sources.LogPath + ")",
-		"启动超时: " + seconds(s.StartTimeout),
-		"停止超时: " + seconds(s.StopTimeout),
-		"锁超时:   " + seconds(s.LockTimeout),
-		"日志轮转: " + strconv.FormatInt(s.LogRotateBytes, 10) + " 字节 (0 表示不轮转)",
+		"启动超时: " + seconds(s.StartTimeout) + " (" + s.Sources.Timeouts + ")",
+		"停止超时: " + seconds(s.StopTimeout) + " (" + s.Sources.Timeouts + ")",
+		"锁超时:   " + seconds(s.LockTimeout) + " (" + s.Sources.Timeouts + ")",
+		"日志轮转: " + strconv.FormatInt(s.LogRotateBytes, 10) + " 字节 (0 表示不轮转) (" + s.Sources.Timeouts + ")",
 	}
 }
 
@@ -450,13 +486,20 @@ func (s Settings) Describe() []string {
 // anything. The Node release is left out while it is undetermined, so a fresh
 // document says nothing about a runtime it has not chosen yet.
 func Encode(settings Settings) ([]byte, error) {
-	return encode(provisionedDocument(settings))
+	return encode(provisionedDocument(settings, ""))
 }
 
 // provisionedDocument renders the document a first run writes.
-func provisionedDocument(settings Settings) File {
+//
+// Every tunable default is recorded — the document is how the surface becomes
+// discoverable on disk — except the checkout guess: it is a fact about one
+// machine rather than a setting, so it is passed in as guessRepoDir and left out
+// whenever the value is that guess. Encode passes no guess and therefore writes
+// whatever repository directory it is given, which keeps the serializer honest
+// about the settings it is handed.
+func provisionedDocument(settings Settings, guessRepoDir string) File {
 	document := File{}
-	if settings.RepoDir != "" {
+	if settings.RepoDir != "" && settings.RepoDir != guessRepoDir {
 		repoDir := settings.RepoDir
 		document.RepoDir = &repoDir
 	}
@@ -485,40 +528,139 @@ func encode(document File) ([]byte, error) {
 	return append(data, '\n'), nil
 }
 
-// RecordNodeVersion writes the release this installation runs into the settings
-// document, preserving everything else the operator wrote and creating the
-// document when there is none.
+// Wrote names the keys a write-back wrote, so the caller can say what changed
+// instead of announcing a write that did not happen.
+type Wrote struct {
+	// RepoDir reports that the checkout was written.
+	RepoDir bool
+	// NodeVersion reports that the Node release was written.
+	NodeVersion bool
+}
+
+// RecordRuntime writes the facts a successful run established into the settings
+// document: the checkout it ran from and the Node release it started.
 //
 // This is the only place dshctl writes a setting on its own initiative, and it
-// writes exactly one key: the document belongs to the operator, and a write that
-// re-rendered it from the values in effect would freeze flags and environment
-// variables into the next run.
-func (s Settings) RecordNodeVersion(version string) error {
-	release := strings.TrimSpace(version)
-	if release == "" {
-		return errors.New("拒绝把空的 Node 版本写入配置")
+// writes at most two keys. The document belongs to the operator, so a key is
+// written only when the document decides nothing about it: a document that names
+// a checkout or a release is never rewritten from underneath them, and every
+// other key the operator wrote is preserved byte for byte.
+//
+// The rule is what makes the first successful run decide the rest. A document
+// that names nothing is the shape a fresh installation has, and — because the
+// file is the layer that beats the built-in default — the only shape in which a
+// later command can follow the checkout and the runtime that demonstrably
+// worked. Without it, `--repo`/DSH_REPO_DIR and a PATH-resolved Node would apply
+// to one invocation and every later command would read a guess instead.
+//
+// The document is re-read here rather than taken from the caller's settings, so
+// the rule cannot be forgotten at a call site and cannot act on a stale view of
+// a file that is shared by every state directory pointing at it.
+//
+// A value that is empty is not recorded: an empty checkout means "nothing to
+// record for this key" and lets the Node release be written on its own.
+//
+// Returns:
+//   - which keys were written, so the caller can report each change.
+//   - an error when nothing was passed, a value is not a usable path, or the
+//     document cannot be read or written.
+func (s Settings) RecordRuntime(repoDir, nodeVersion string) (Wrote, error) {
+	var wrote Wrote
+	checkout, err := recordedCheckout(repoDir)
+	if err != nil {
+		return wrote, err
 	}
+	release := strings.TrimSpace(nodeVersion)
+	if checkout == "" && release == "" {
+		return wrote, errors.New("拒绝写入空的运行信息(仓库目录与 Node 版本都为空)")
+	}
+
 	document, found, err := readFile(s.ConfigPath)
 	if err != nil {
-		return err
+		return wrote, err
 	}
+	// The platform home is only needed to recognise a copy of the checkout
+	// guess; a document that decides a checkout already needs no comparison.
+	guess := ""
 	if !found {
 		home, err := paths.Home()
 		if err != nil {
-			return err
+			return wrote, err
 		}
-		document = provisionedDocument(Default(home))
+		guess = DefaultRepoDir(home)
+		document = provisionedDocument(Default(home), guess)
+	} else if checkout != "" && document.RepoDir != nil {
+		// Without a platform home the built-in guess cannot be spelled, so the
+		// document's value cannot be recognised as a copy of it. Leaving the key
+		// alone is the conservative reading — it is never overwritten on the
+		// chance that it decided nothing — and the release is still recorded.
+		if home, homeErr := paths.Home(); homeErr == nil {
+			guess = DefaultRepoDir(home)
+		}
 	}
-	document.NodeVersion = &release
+
+	writeRepoDir := checkout != "" && !documentDecidesCheckout(document, guess)
+	writeNodeVersion := release != "" && document.NodeVersion == nil
+	if !writeRepoDir && !writeNodeVersion {
+		return wrote, nil
+	}
+	if writeRepoDir {
+		document.RepoDir = &checkout
+	}
+	if writeNodeVersion {
+		document.NodeVersion = &release
+	}
 
 	data, err := encode(document)
 	if err != nil {
-		return err
+		return wrote, err
 	}
 	if err := paths.EnsureDir(s.StateDir); err != nil {
-		return err
+		return wrote, err
 	}
-	return atomically.WriteFile(s.ConfigPath, data, 0o600)
+	if err := atomically.WriteFile(s.ConfigPath, data, 0o600); err != nil {
+		return wrote, err
+	}
+	wrote.RepoDir = writeRepoDir
+	wrote.NodeVersion = writeNodeVersion
+	return wrote, nil
+}
+
+// recordedCheckout validates a checkout a run used and reports it, or reports an
+// empty string when there is nothing to record.
+func recordedCheckout(repoDir string) (string, error) {
+	if strings.TrimSpace(repoDir) == "" {
+		return "", nil
+	}
+	resolved, err := paths.Resolve(repoDir)
+	if err != nil {
+		return "", fmt.Errorf("拒绝把仓库路径写入配置: %w", err)
+	}
+	return resolved, nil
+}
+
+// documentDecidesCheckout reports whether the document names a checkout of its
+// own: a value that is present and is not merely a copy of the built-in guess.
+//
+// A value the platform cannot resolve still counts as a decision. The document
+// may be one this build refuses to load — a relative path, say — and replacing
+// it silently would rewrite what the operator wrote while pretending to have
+// read it.
+func documentDecidesCheckout(document File, guess string) bool {
+	if document.RepoDir == nil {
+		return false
+	}
+	if guess == "" {
+		// Without a platform home the guess cannot be recognised, and a value
+		// that cannot be compared must not be overwritten on the chance that it
+		// was the guess.
+		return true
+	}
+	resolved, err := paths.Resolve(*document.RepoDir)
+	if err != nil {
+		return true
+	}
+	return resolved != guess
 }
 
 // maxConfigBytes bounds the settings document. It holds a handful of fields; a
@@ -586,25 +728,45 @@ func readFile(path string) (File, bool, error) {
 }
 
 // applyFile layers the config file over the defaults.
-func applyFile(settings *Settings, document File) error {
+//
+// The guess is the built-in checkout for this machine. A document that names it
+// decides nothing — it repeats the default — so the value is left at the default
+// (identical anyway) and ConfiguredRepoDir stays empty, which is what lets a
+// successful run record the checkout that really ran.
+func applyFile(settings *Settings, document File, guess string) error {
 	if document.RepoDir != nil {
 		resolved, err := paths.Resolve(*document.RepoDir)
 		if err != nil {
 			return fmt.Errorf("配置文件 repoDir: %w", err)
 		}
 		settings.RepoDir = resolved
+		if resolved != guess {
+			settings.ConfiguredRepoDir = resolved
+		}
 	}
 	if document.Port != nil {
 		settings.Port = *document.Port
 	}
 	if document.StartTimeoutSeconds != nil {
-		settings.StartTimeout = time.Duration(*document.StartTimeoutSeconds) * time.Second
+		timeout, err := durationFromSeconds("startTimeoutSeconds", *document.StartTimeoutSeconds)
+		if err != nil {
+			return err
+		}
+		settings.StartTimeout = timeout
 	}
 	if document.StopTimeoutSeconds != nil {
-		settings.StopTimeout = time.Duration(*document.StopTimeoutSeconds) * time.Second
+		timeout, err := durationFromSeconds("stopTimeoutSeconds", *document.StopTimeoutSeconds)
+		if err != nil {
+			return err
+		}
+		settings.StopTimeout = timeout
 	}
 	if document.LockTimeoutSeconds != nil {
-		settings.LockTimeout = time.Duration(*document.LockTimeoutSeconds) * time.Second
+		timeout, err := durationFromSeconds("lockTimeoutSeconds", *document.LockTimeoutSeconds)
+		if err != nil {
+			return err
+		}
+		settings.LockTimeout = timeout
 	}
 	if document.LogRotateBytes != nil {
 		settings.LogRotateBytes = *document.LogRotateBytes
@@ -612,11 +774,26 @@ func applyFile(settings *Settings, document File) error {
 	return nil
 }
 
-// markFileSources records "file" for every field the document set. It is called
-// before applyEnv so that a later environment value can overwrite the label.
-func markFileSources(sources *Sources, document File) {
+// SourceRepoDirRepeatsDefault is the source label of a checkout that came from
+// the built-in default although the document names the same path. It says so
+// rather than claiming the file decided, because an operator reading `-v` would
+// otherwise see a path their file carries and wonder why an override still wins.
+const SourceRepoDirRepeatsDefault = "default(配置文件中的 repoDir 与默认值相同)"
+
+// markFileSources records "file" for every field the document decided. It is
+// called before applyEnv so that a later environment value can overwrite the
+// label.
+//
+// Parameters:
+//   - configuredRepoDir: the checkout the document decided, or empty when it
+//     decided none — the two cases read differently, because a file that merely
+//     repeats the default is not where the value came from.
+func markFileSources(sources *Sources, document File, configuredRepoDir string) {
 	if document.RepoDir != nil {
 		sources.RepoDir = "file"
+		if configuredRepoDir == "" {
+			sources.RepoDir = SourceRepoDirRepeatsDefault
+		}
 	}
 	if document.Port != nil {
 		sources.Port = "file"
@@ -753,6 +930,26 @@ func resolveLogPath(getenv paths.Getenv, stateDir string) (string, string, error
 		return path, "env " + paths.EnvLogFile, nil
 	}
 	return filepath.Join(stateDir, DefaultLogFileName), "default", nil
+}
+
+// durationFromSeconds converts a configured number of seconds, refusing one that
+// cannot be represented as a duration.
+//
+// The bounds are checked on the number rather than on the duration it produces,
+// and that is the whole point: time.Duration(seconds)*time.Second wraps around
+// once the value passes what a signed 64-bit nanosecond count can hold, so a
+// number far too large arrives as a negative duration and the reader is told the
+// opposite of what is wrong ("必须至少为 1 秒" for a value of 9223372037). The
+// ceiling exists for this case; checking it first is what lets it be reported as
+// the case it is.
+func durationFromSeconds(name string, seconds int) (time.Duration, error) {
+	if seconds > MaxTimeoutSeconds {
+		return 0, usagef("%s 不能超过 %d 秒: %d", name, MaxTimeoutSeconds, seconds)
+	}
+	if seconds < 1 {
+		return 0, usagef("%s 必须至少为 1 秒: %d", name, seconds)
+	}
+	return time.Duration(seconds) * time.Second, nil
 }
 
 // validateTimeout rejects a duration that cannot be represented in seconds.

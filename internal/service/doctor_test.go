@@ -15,6 +15,7 @@ import (
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/detach"
 	"github.com/rhczz/dshctl/internal/lock"
+	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/run"
 	statepkg "github.com/rhczz/dshctl/internal/state"
 )
@@ -396,7 +397,9 @@ func TestDoctorReportsAMissingRepository(t *testing.T) {
 	}
 	// The version row and the repository failure share one slot: a missing
 	// checkout is reported in its place, not beside it.
-	replaceRow(want, "仓库版本", Check{Name: "仓库目录", Status: CheckFail, Detail: f.repo + " 不存在"})
+	replaceRow(want, "仓库版本", Check{Name: "仓库目录", Status: CheckFail,
+		Detail: f.repo + " 不存在；用 --repo 或环境变量 " + paths.EnvRepoDir +
+			" 指定一次，成功运行后会写入 " + f.Settings.ConfigPath})
 	replaceCheck(want, "依赖", CheckFail, filepath.Join(f.repo, "node_modules")+" 不存在，请先执行 pnpm install")
 	replaceCheck(want, "构建产物", CheckFail, "缺少 "+f.Repo.BuildRecordPath()+"，请运行 dshctl build")
 

@@ -37,7 +37,7 @@ func (f *fixture) startSucceeds(t *testing.T) StartResult {
 var writeBackRows = map[string]func(*testing.T){
 	"W1":  testWriteBackW1RecordsTheDiscoveredRelease,
 	"W2":  testWriteBackW2RecordsNothingWhenTheStartFails,
-	"W3":  testWriteBackW3RecordsNothingWhenTheServiceIsAlreadyRunning,
+	"W3":  testWriteBackW3RecordsNoReleaseWhenTheServiceIsAlreadyRunning,
 	"W4":  testWriteBackW4RecordsAReleaseNamedByAFlag,
 	"W5":  testWriteBackW5RecordsAReleaseNamedByTheEnvironment,
 	"W6":  testWriteBackW6KeepsAConfiguredReleaseWhenAFlagOverridesIt,
@@ -97,10 +97,16 @@ func testWriteBackW2RecordsNothingWhenTheStartFails(t *testing.T) {
 	f.wantNoRecordedNodeVersion(t)
 }
 
-// testWriteBackW3RecordsNothingWhenTheServiceIsAlreadyRunning pins the early
+// testWriteBackW3RecordsNoReleaseWhenTheServiceIsAlreadyRunning pins the early
 // return: a start that finds the server up does not resolve a runtime at all, so
-// there is nothing to record — and the document must not be touched.
-func testWriteBackW3RecordsNothingWhenTheServiceIsAlreadyRunning(t *testing.T) {
+// there is no release to record.
+//
+// The document is not left entirely alone in that case — the checkout the
+// running instance was started from is recorded, because it is the one fact
+// every later command needs — and that half is pinned by the repoDir rows
+// (repodir_test.go). What this row pins is that no release is invented for a run
+// that never resolved one.
+func testWriteBackW3RecordsNoReleaseWhenTheServiceIsAlreadyRunning(t *testing.T) {
 	f := newFixture(t)
 	f.servePATHNode(t, config.TestedNodeVersion)
 	f.startSucceeds(t)
@@ -116,8 +122,8 @@ func testWriteBackW3RecordsNothingWhenTheServiceIsAlreadyRunning(t *testing.T) {
 	if !result.AlreadyRunning {
 		t.Fatal("the second start must report the server as already running")
 	}
-	if got := f.configDocument(t); len(got) != 0 {
-		t.Fatalf("document = %v, want it untouched: no start happened to record anything", got)
+	if got, present := f.configDocument(t)["nodeVersion"]; present {
+		t.Fatalf("document nodeVersion = %v, want none: no runtime was resolved", got)
 	}
 }
 
@@ -250,6 +256,12 @@ func testWriteBackW9RecordsDuringAnUpdate(t *testing.T) {
 // testWriteBackW10NeverWritesFromAReadOnlyCommand pins the promise the reporting
 // commands make: they read, they do not write. The document is compared byte for
 // byte, so a stray rewrite of any field fails here.
+//
+// A build is deliberately not part of this row: it is a mutating command that
+// runs in the checkout, and recording the checkout it built is what keeps the
+// next plain start on the tree that was just built. What must never write is the
+// set of commands whose whole job is to report — status, doctor, the logs, the
+// URL and the version.
 func testWriteBackW10NeverWritesFromAReadOnlyCommand(t *testing.T) {
 	f := newFixture(t)
 	f.servePATHNode(t, config.TestedNodeVersion)
@@ -265,9 +277,12 @@ func testWriteBackW10NeverWritesFromAReadOnlyCommand(t *testing.T) {
 		t.Fatalf("Status: %v", err)
 	}
 	_ = f.Doctor(context.Background())
-	if err := f.RunBuild(context.Background()); err != nil {
-		t.Fatalf("RunBuild: %v", err)
-	}
+	// The address is unavailable while nothing serves; the call is made for its
+	// side effects, which must be none.
+	_, _ = f.WebURL(context.Background())
+	// A missing log is an error for the command to report, not a write; the call
+	// is made because reading is all it may do.
+	_ = f.Logs(context.Background(), LogsOptions{Lines: 5})
 
 	after, err := os.ReadFile(f.Settings.ConfigPath)
 	if err != nil {

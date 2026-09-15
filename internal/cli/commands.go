@@ -22,6 +22,10 @@ func Commands() []Command {
 端口上是一个 dshctl 无法确认归属的进程时同样拒绝，dshctl 不会结束它没有
 启动过的进程。
 
+配置里没有写明 repoDir 时，成功启动会把本次使用的仓库目录写入配置；配置里
+已经写明时只打印一行说明，绝不改写。服务已在运行时只记录运行记录里的仓库
+目录，不会重新启动。
+
 环境变量: DSH_REPO_DIR, DSH_PORT, DSH_NODE_VERSION。
 退出码: 0 成功(含已在运行), 4 前置检查失败。`,
 			Run: runStart,
@@ -71,7 +75,10 @@ func Commands() []Command {
 			Name:    "build",
 			Summary: "在仓库内执行 pnpm run build",
 			Help: `先清理已删除包的残留目录，再执行 pnpm run build；
-输出实时显示并同时写入日志。`,
+输出实时显示并同时写入日志。
+
+配置里没有写明 repoDir 时，构建成功后会把这个 checkout 写入配置。服务正在运行时
+拒绝构建(会替换它正在使用的产物)。`,
 			Run: runBuild,
 		},
 		{
@@ -81,7 +88,9 @@ func Commands() []Command {
 → pnpm install → pnpm run build → 恢复启动。
 
 git pull 失败时旧构建仍然完好，会恢复启动旧版本并报告 pull 的错误；
-pnpm install 或构建失败时服务保持停止，日志中保留失败原因。`,
+pnpm install 或构建失败时服务保持停止，日志中保留失败原因。
+
+配置里没有写明 repoDir 时，更新成功后会把这个 checkout 写入配置。`,
 			Run: runUpdate,
 		},
 		{

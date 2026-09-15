@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -615,28 +616,9 @@ func newFixture(t *testing.T) *fixture {
 	stateDir := filepath.Join(root, "state")
 	logPath := filepath.Join(stateDir, "dsh-web.log")
 
-	writeFile(t, filepath.Join(repoDir, "package.json"), "{}")
-	writeFile(t, filepath.Join(repoDir, "pnpm-workspace.yaml"), "packages:\n  - packages/*\n")
-	writeFile(t, filepath.Join(repoDir, "node_modules", ".keep"), "")
-	writeFile(t, filepath.Join(repoDir, filepath.FromSlash(buildRecordRel)), "{}")
-	initGitRepo(t, repoDir)
+	makeCheckout(t, repoDir)
 
 	signature := nodeSignature(t, root)
-
-	// The fixture owns the environment completely: no HOME, no nvm of the
-	// operator's, and an empty PATH. An empty PATH is deliberate — it makes any
-	// accidental reliance on a tool installed on the machine fail loudly here
-	// instead of passing on a developer's laptop and failing in CI.
-	envLookup := func(key string) string {
-		switch key {
-		case paths.EnvHarnessHome:
-			return root
-		case "PATH":
-			return ""
-		default:
-			return ""
-		}
-	}
 
 	settings := config.Default(root)
 	settings.RepoDir = repoDir
@@ -648,6 +630,29 @@ func newFixture(t *testing.T) *fixture {
 	settings.Port = reserveFreePort(t)
 	settings.StartTimeout = 2 * time.Second
 	settings.StopTimeout = 2 * time.Second
+
+	// The fixture owns the environment completely: no node manager of the
+	// operator's and an empty PATH. An empty PATH is deliberate — it makes any
+	// accidental reliance on a tool installed on the machine fail loudly here
+	// instead of passing on a developer's laptop and failing in CI.
+	//
+	// The state directory and the port are answered rather than left out so that
+	// a test can resolve settings the way a command line does (see fixture.run):
+	// resolving them from the environment is what keeps every later invocation of
+	// a sequence on the same state directory and port as the first one. HOME is
+	// redirected above, so the built-in checkout guess is <root>/deepseek-harness.
+	envLookup := func(key string) string {
+		switch key {
+		case paths.EnvHarnessHome:
+			return root
+		case paths.EnvStateDir:
+			return stateDir
+		case paths.EnvPort:
+			return strconv.Itoa(settings.Port)
+		default:
+			return ""
+		}
+	}
 
 	h := newFakeHost()
 	h.nodeExecPath = signature
@@ -787,6 +792,20 @@ func (h *fakeHost) spawn() (int, error) {
 	}
 	h.mu.Unlock()
 	return pid, nil
+}
+
+// makeCheckout turns a directory into a checkout every check accepts: the
+// markers, the installed dependencies, the build record, and a real git
+// repository. It is how a fixture describes a second checkout — the shape a
+// machine has when the configured checkout and the running one differ.
+func makeCheckout(t *testing.T, dir string) string {
+	t.Helper()
+	writeFile(t, filepath.Join(dir, "package.json"), "{}")
+	writeFile(t, filepath.Join(dir, "pnpm-workspace.yaml"), "packages:\n  - packages/*\n")
+	writeFile(t, filepath.Join(dir, "node_modules", ".keep"), "")
+	writeFile(t, filepath.Join(dir, filepath.FromSlash(buildRecordRel)), "{}")
+	initGitRepo(t, dir)
+	return dir
 }
 
 // initGitRepo creates a real, minimal git repository.
@@ -1204,6 +1223,88 @@ func (f *fixture) servedNodePath(t *testing.T) string {
 		t.Fatal("the fixture serves no node binary")
 	}
 	return f.host.nodeExecPath
+}
+
+// run models one command of a sequence.
+//
+// Every dshctl invocation resolves its settings from scratch — flags over the
+// environment over the settings document over the built-in defaults — and then
+// builds a service from them. A test that keeps the settings it constructed by
+// hand can therefore never express what the *next* command sees, which is
+// exactly where a configuration that contradicts reality hides: the checkout the
+// document names is what a second invocation uses, whether or not it is the
+// checkout the first one ran from.
+//
+// Overrides are layered the way the command line layers them, and the fixture's
+// own state directory and port come from the environment (see newFixture), so a
+// sequence of calls shares one document, one record and one port.
+func (f *fixture) run(t *testing.T, overrides config.Overrides) config.Settings {
+	t.Helper()
+	loaded, err := config.Load(f.Getenv, overrides)
+	if err != nil {
+		t.Fatalf("resolve the settings: %v", err)
+	}
+	// The wait budgets are pacing for the fictional machine rather than policy:
+	// a failure path that waits out the built-in ninety seconds would turn one
+	// row of a sequence into a minute of test time.
+	loaded.StartTimeout = f.Settings.StartTimeout
+	loaded.StopTimeout = f.Settings.StopTimeout
+	f.Settings = loaded
+	// Production wires the checkout from the settings into the repository
+	// helper; a test that left the two apart would let a command act on one
+	// directory while describing another.
+	f.Repo.Dir = loaded.RepoDir
+	return loaded
+}
+
+// guess is the built-in checkout this machine's home implies.
+func (f *fixture) guess() string { return config.DefaultRepoDir(f.root) }
+
+// wantDocumentCheckout asserts the checkout the settings document names, and
+// reports that it names none when want is empty.
+func (f *fixture) wantDocumentCheckout(t *testing.T, want string) {
+	t.Helper()
+	got, present := f.configDocument(t)["repoDir"]
+	if want == "" {
+		if present {
+			t.Fatalf("document repoDir = %v, want none", got)
+		}
+		return
+	}
+	if got != want {
+		t.Fatalf("document repoDir = %v, want %q", got, want)
+	}
+}
+
+// wantRecordedCheckout asserts the checkout the settings document names, and
+// that it names none when want is empty.
+func (f *fixture) wantRecordedCheckout(t *testing.T, want string) {
+	t.Helper()
+	got, present := f.configDocument(t)["repoDir"]
+	if want == "" {
+		if present {
+			t.Fatalf("document repoDir = %v, want none", got)
+		}
+		return
+	}
+	if got != want {
+		t.Fatalf("document repoDir = %v, want %q", got, want)
+	}
+}
+
+// wantNoFailingCheckoutRow fails the test when a diagnosis reports a blocking row
+// about the checkout: the shape a machine takes when the configuration points at
+// a directory other than the one being served.
+func wantNoFailingCheckoutRow(t *testing.T, checks []Check) {
+	t.Helper()
+	for _, check := range checks {
+		switch check.Name {
+		case "仓库目录", "依赖", "构建产物", "仓库版本", "服务仓库":
+			if check.Status == CheckFail {
+				t.Fatalf("doctor reported a blocking row about the checkout: %+v", check)
+			}
+		}
+	}
 }
 
 // configDocument decodes the settings document the fixture wrote.

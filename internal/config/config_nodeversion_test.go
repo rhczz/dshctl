@@ -18,27 +18,39 @@ import (
 // (precedence) and V (write-back) sections of the decision table; the frozen
 // lists live beside them so a row cannot disappear quietly.
 
-// nodeWorld is a throwaway installation: a state directory that may hold a
-// settings document, and an environment that may name a release.
-type nodeWorld struct {
+// testWorld is a throwaway installation: a state directory that may hold a
+// settings document, a home directory, and an environment that may name a
+// release or a checkout.
+type testWorld struct {
 	t          *testing.T
 	root       string
+	home       string
 	stateDir   string
 	configPath string
 	vars       env
 }
 
-// newNodeWorld returns a world with a state directory and no settings document.
-func newNodeWorld(t *testing.T) *nodeWorld {
+// newTestWorld returns a world with a state directory and no settings document.
+//
+// The platform home is redirected into the temporary root as well. Two built-in
+// defaults are derived from it — the checkout guess (see DefaultRepoDir) and the
+// harness home — so a test that left it pointing at the developer's own home
+// would compare against a path no fixture can spell, and the developer's
+// ~/deepseek-harness would decide whether a row passes.
+func newTestWorld(t *testing.T) *testWorld {
 	t.Helper()
 	root := t.TempDir()
+	// os.UserHomeDir reads $HOME on Unix and %USERPROFILE% on Windows.
+	t.Setenv("HOME", root)
+	t.Setenv("USERPROFILE", root)
 	stateDir := filepath.Join(root, "state")
 	if err := os.MkdirAll(stateDir, 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	return &nodeWorld{
+	return &testWorld{
 		t:          t,
 		root:       root,
+		home:       root,
 		stateDir:   stateDir,
 		configPath: filepath.Join(stateDir, "config.json"),
 		vars: env{
@@ -48,8 +60,17 @@ func newNodeWorld(t *testing.T) *nodeWorld {
 	}
 }
 
+// guess is the built-in checkout default for this world's home.
+func (w *testWorld) guess() string { return DefaultRepoDir(w.home) }
+
+// checkout is a checkout that is not the built-in guess: the guess is
+// <home>/deepseek-harness, and this is a sibling of it.
+func (w *testWorld) checkout() string {
+	return filepath.Join(w.home, "projects", "deepseek-harness")
+}
+
 // writeDocument writes the settings document the world holds.
-func (w *nodeWorld) writeDocument(document string) *nodeWorld {
+func (w *testWorld) writeDocument(document string) *testWorld {
 	w.t.Helper()
 	if err := os.WriteFile(w.configPath, []byte(document), 0o600); err != nil {
 		w.t.Fatalf("write the settings document: %v", err)
@@ -58,13 +79,13 @@ func (w *nodeWorld) writeDocument(document string) *nodeWorld {
 }
 
 // withVariable sets one environment variable for this world.
-func (w *nodeWorld) withVariable(key, value string) *nodeWorld {
+func (w *testWorld) withVariable(key, value string) *testWorld {
 	w.vars[key] = value
 	return w
 }
 
 // load resolves the settings the way the program does.
-func (w *nodeWorld) load(overrides Overrides) Settings {
+func (w *testWorld) load(overrides Overrides) Settings {
 	w.t.Helper()
 	settings, err := Load(w.vars.Getenv, overrides)
 	if err != nil {
@@ -75,12 +96,12 @@ func (w *nodeWorld) load(overrides Overrides) Settings {
 
 // settings returns settings for this world without reading the document.
 //
-// The write-back rows are about what RecordNodeVersion does with whatever is on
+// The write-back rows are about what RecordRuntime does with whatever is on
 // disk, including the documents the loader refuses, so they must not go through
 // Load to reach it.
-func (w *nodeWorld) settings() Settings {
+func (w *testWorld) settings() Settings {
 	w.t.Helper()
-	settings := Default(fixtureHome())
+	settings := Default(w.home)
 	settings.StateDir = w.stateDir
 	settings.ConfigPath = w.configPath
 	settings.LogPath = filepath.Join(w.stateDir, DefaultLogFileName)
@@ -88,7 +109,7 @@ func (w *nodeWorld) settings() Settings {
 }
 
 // document returns the settings document as it is on disk.
-func (w *nodeWorld) document() string {
+func (w *testWorld) document() string {
 	w.t.Helper()
 	data, err := os.ReadFile(w.configPath)
 	if err != nil {
@@ -98,7 +119,7 @@ func (w *nodeWorld) document() string {
 }
 
 // fields decodes the settings document into a generic map.
-func (w *nodeWorld) fields() map[string]any {
+func (w *testWorld) fields() map[string]any {
 	w.t.Helper()
 	var decoded map[string]any
 	if err := json.Unmarshal([]byte(w.document()), &decoded); err != nil {
@@ -128,7 +149,7 @@ func TestPrecedenceMatrix(t *testing.T) {
 
 // testPrecedenceP1TheFlagWins pins the top of the order.
 func testPrecedenceP1TheFlagWins(t *testing.T) {
-	w := newNodeWorld(t).
+	w := newTestWorld(t).
 		writeDocument(`{"nodeVersion": "24.19.0"}`).
 		withVariable(paths.EnvNodeVersion, "24.18.0")
 	version := "24.21.0"
@@ -146,7 +167,7 @@ func testPrecedenceP1TheFlagWins(t *testing.T) {
 // like every other one: an exported variable is a decision about this run, and
 // the document is what a run without one falls back to.
 func testPrecedenceP2TheEnvironmentBeatsTheFile(t *testing.T) {
-	w := newNodeWorld(t).
+	w := newTestWorld(t).
 		writeDocument(`{"nodeVersion": "24.19.0"}`).
 		withVariable(paths.EnvNodeVersion, "24.21.0")
 
@@ -168,7 +189,7 @@ func testPrecedenceP2TheEnvironmentBeatsTheFile(t *testing.T) {
 // release is overridden above, and one that names none is simply the layer
 // below.
 func testPrecedenceP3TheEnvironmentAppliesWhenTheFileIsSilent(t *testing.T) {
-	w := newNodeWorld(t).
+	w := newTestWorld(t).
 		writeDocument(`{"port": 3081}`).
 		withVariable(paths.EnvNodeVersion, "24.21.0")
 
@@ -191,7 +212,7 @@ func testPrecedenceP3TheEnvironmentAppliesWhenTheFileIsSilent(t *testing.T) {
 // nothing configured the release is undetermined, which is what makes a
 // successful start discover one and write it back.
 func testPrecedenceP4NothingIsDeterminedByDefault(t *testing.T) {
-	settings := newNodeWorld(t).load(Overrides{})
+	settings := newTestWorld(t).load(Overrides{})
 	if settings.NodeVersion != "" {
 		t.Fatalf("NodeVersion = %q, want it undetermined", settings.NodeVersion)
 	}
@@ -207,20 +228,20 @@ func testPrecedenceP4NothingIsDeterminedByDefault(t *testing.T) {
 // absent one rather than as a release named " ".
 func testPrecedenceP5WhitespaceIsNotAValue(t *testing.T) {
 	// An environment that only holds blanks leaves the release undetermined.
-	blank := newNodeWorld(t).withVariable(paths.EnvNodeVersion, "   ")
+	blank := newTestWorld(t).withVariable(paths.EnvNodeVersion, "   ")
 	if settings := blank.load(Overrides{}); settings.NodeVersion != "" || settings.Sources.NodeVersion != "default" {
 		t.Fatalf("settings = %+v, want whitespace to be ignored", settings)
 	}
 
 	// A flag that only holds blanks does not shadow the file either.
-	w := newNodeWorld(t).writeDocument(`{"nodeVersion": "24.19.0"}`)
+	w := newTestWorld(t).writeDocument(`{"nodeVersion": "24.19.0"}`)
 	blankFlag := "   "
 	if settings := w.load(Overrides{NodeVersion: &blankFlag}); settings.NodeVersion != "24.19.0" {
 		t.Fatalf("NodeVersion = %q, want the file's value: a blank flag is not a request", settings.NodeVersion)
 	}
 
 	// A document value that only holds blanks is undetermined, not a release.
-	blankFile := newNodeWorld(t).writeDocument(`{"nodeVersion": " "}`)
+	blankFile := newTestWorld(t).writeDocument(`{"nodeVersion": " "}`)
 	settings := blankFile.load(Overrides{})
 	if settings.NodeVersion != "" || settings.ConfiguredNodeVersion != "" {
 		t.Fatalf("settings = %+v, want a blank document value to be ignored", settings)
@@ -231,18 +252,18 @@ func testPrecedenceP5WhitespaceIsNotAValue(t *testing.T) {
 // comparison, so that a value copied out of a shell prompt still names the
 // release it looks like.
 func testPrecedenceP6ValuesAreTrimmed(t *testing.T) {
-	w := newNodeWorld(t).writeDocument(`{"nodeVersion": " 24.19.0 "}`)
+	w := newTestWorld(t).writeDocument(`{"nodeVersion": " 24.19.0 "}`)
 	if settings := w.load(Overrides{}); settings.NodeVersion != "24.19.0" {
 		t.Fatalf("NodeVersion = %q, want the padded document value trimmed", settings.NodeVersion)
 	}
 
-	environ := newNodeWorld(t).withVariable(paths.EnvNodeVersion, "  24.21.0  ")
+	environ := newTestWorld(t).withVariable(paths.EnvNodeVersion, "  24.21.0  ")
 	if settings := environ.load(Overrides{}); settings.NodeVersion != "24.21.0" {
 		t.Fatalf("NodeVersion = %q, want the padded environment value trimmed", settings.NodeVersion)
 	}
 
 	padded := " 24.22.0 "
-	if settings := newNodeWorld(t).load(Overrides{NodeVersion: &padded}); settings.NodeVersion != "24.22.0" {
+	if settings := newTestWorld(t).load(Overrides{NodeVersion: &padded}); settings.NodeVersion != "24.22.0" {
 		t.Fatalf("NodeVersion = %q, want the padded flag value trimmed", settings.NodeVersion)
 	}
 }
@@ -251,7 +272,7 @@ func testPrecedenceP6ValuesAreTrimmed(t *testing.T) {
 // "I do not name a release".
 func testPrecedenceP7NullAndEmptyMeanUndetermined(t *testing.T) {
 	for _, document := range []string{`{"port": null, "nodeVersion": null}`, `{"nodeVersion": ""}`} {
-		w := newNodeWorld(t).writeDocument(document)
+		w := newTestWorld(t).writeDocument(document)
 		settings := w.load(Overrides{})
 		if settings.NodeVersion != "" || settings.ConfiguredNodeVersion != "" {
 			t.Fatalf("document %s produced %+v, want the release undetermined", document, settings)
@@ -269,14 +290,14 @@ func testPrecedenceP7NullAndEmptyMeanUndetermined(t *testing.T) {
 func testPrecedenceP8TheConfiguredReleaseTracksTheFile(t *testing.T) {
 	version := "24.21.0"
 
-	configured := newNodeWorld(t).
+	configured := newTestWorld(t).
 		writeDocument(`{"nodeVersion": "24.19.0"}`).
 		withVariable(paths.EnvNodeVersion, "24.18.0")
 	if settings := configured.load(Overrides{NodeVersion: &version}); settings.ConfiguredNodeVersion != "24.19.0" {
 		t.Fatalf("ConfiguredNodeVersion = %q, want the file's value", settings.ConfiguredNodeVersion)
 	}
 
-	silent := newNodeWorld(t).withVariable(paths.EnvNodeVersion, "24.18.0")
+	silent := newTestWorld(t).withVariable(paths.EnvNodeVersion, "24.18.0")
 	if settings := silent.load(Overrides{NodeVersion: &version}); settings.ConfiguredNodeVersion != "" {
 		t.Fatalf("ConfiguredNodeVersion = %q, want empty: the file names none", settings.ConfiguredNodeVersion)
 	}
@@ -287,7 +308,7 @@ var writeBackRows = map[string]func(*testing.T){
 	"V1":  testWriteBackV1CreatesAMissingDocument,
 	"V2":  testWriteBackV2AddsTheKeyToAnEmptyDocument,
 	"V3":  testWriteBackV3PreservesEveryOtherField,
-	"V4":  testWriteBackV4ReplacesAnExistingVersion,
+	"V4":  testWriteBackV4KeepsADecidedRelease,
 	"V5":  testWriteBackV5CreatesTheStateDirectory,
 	"V6":  testWriteBackV6RefusesAnEmptyVersion,
 	"V7":  testWriteBackV7ReportsADocumentItCannotRead,
@@ -308,9 +329,9 @@ func TestWriteBackMatrix(t *testing.T) {
 // installation: there is no settings document, so recording the release creates
 // one that holds the built-in defaults plus the release.
 func testWriteBackV1CreatesAMissingDocument(t *testing.T) {
-	w := newNodeWorld(t)
-	if err := w.settings().RecordNodeVersion("24.20.0"); err != nil {
-		t.Fatalf("RecordNodeVersion: %v", err)
+	w := newTestWorld(t)
+	if _, err := w.settings().RecordRuntime("", "24.20.0"); err != nil {
+		t.Fatalf("RecordRuntime: %v", err)
 	}
 	fields := w.fields()
 	if fields["nodeVersion"] != "24.20.0" {
@@ -329,9 +350,9 @@ func testWriteBackV1CreatesAMissingDocument(t *testing.T) {
 // means "everything at its default" — stays that way: only the release is
 // written, no settings are invented.
 func testWriteBackV2AddsTheKeyToAnEmptyDocument(t *testing.T) {
-	w := newNodeWorld(t).writeDocument("")
-	if err := w.settings().RecordNodeVersion("24.20.0"); err != nil {
-		t.Fatalf("RecordNodeVersion: %v", err)
+	w := newTestWorld(t).writeDocument("")
+	if _, err := w.settings().RecordRuntime("", "24.20.0"); err != nil {
+		t.Fatalf("RecordRuntime: %v", err)
 	}
 	fields := w.fields()
 	if len(fields) != 1 || fields["nodeVersion"] != "24.20.0" {
@@ -354,11 +375,11 @@ func testWriteBackV3PreservesEveryOtherField(t *testing.T) {
   "lockTimeoutSeconds": 14,
   "logRotateBytes": 131072
 }`, filepath.Join(fixtureHome(), "custom-checkout"))
-	w := newNodeWorld(t).writeDocument(document)
+	w := newTestWorld(t).writeDocument(document)
 	before := w.fields()
 
-	if err := w.settings().RecordNodeVersion("24.20.0"); err != nil {
-		t.Fatalf("RecordNodeVersion: %v", err)
+	if _, err := w.settings().RecordRuntime("", "24.20.0"); err != nil {
+		t.Fatalf("RecordRuntime: %v", err)
 	}
 	after := w.fields()
 	if after["nodeVersion"] != "24.20.0" {
@@ -374,29 +395,39 @@ func testWriteBackV3PreservesEveryOtherField(t *testing.T) {
 	}
 }
 
-// testWriteBackV4ReplacesAnExistingVersion pins the function's own contract: it
-// writes the release it is given. Deciding when to call it is the caller's rule,
-// and a function that silently kept the old value would make that rule
-// untestable.
-func testWriteBackV4ReplacesAnExistingVersion(t *testing.T) {
-	w := newNodeWorld(t).writeDocument(`{"nodeVersion": "24.19.0"}`)
-	if err := w.settings().RecordNodeVersion("24.21.0"); err != nil {
-		t.Fatalf("RecordNodeVersion: %v", err)
+// testWriteBackV4KeepsADecidedRelease pins where the write-back rule lives.
+//
+// Recording is the only write dshctl makes on its own initiative, so the rule
+// that protects the operator's document — a decided key is never replaced — is
+// enforced by the writer itself rather than by its callers. A rule that lives
+// only at the call sites is the kind that gets forgotten when a new call site
+// appears, and what it protects here is a document the operator wrote: silently
+// replacing it is the one outcome no caller should be able to cause by accident.
+// The caller-side half of the rule (a start that must not even try) is pinned in
+// internal/service.
+func testWriteBackV4KeepsADecidedRelease(t *testing.T) {
+	w := newTestWorld(t).writeDocument(`{"nodeVersion": "24.19.0"}`)
+	wrote, err := w.settings().RecordRuntime("", "24.21.0")
+	if err != nil {
+		t.Fatalf("RecordRuntime: %v", err)
 	}
-	if got := w.load(Overrides{}).NodeVersion; got != "24.21.0" {
-		t.Fatalf("NodeVersion = %q, want the value that was recorded", got)
+	if wrote.NodeVersion {
+		t.Fatalf("wrote = %+v, want it to report that nothing was written", wrote)
+	}
+	if got := w.load(Overrides{}).NodeVersion; got != "24.19.0" {
+		t.Fatalf("NodeVersion = %q, want the release the operator wrote", got)
 	}
 }
 
 // testWriteBackV5CreatesTheStateDirectory pins that recording does not depend on
 // something else having provisioned the state directory first.
 func testWriteBackV5CreatesTheStateDirectory(t *testing.T) {
-	w := newNodeWorld(t)
+	w := newTestWorld(t)
 	if err := os.RemoveAll(w.stateDir); err != nil {
 		t.Fatalf("remove the state directory: %v", err)
 	}
-	if err := w.settings().RecordNodeVersion("24.20.0"); err != nil {
-		t.Fatalf("RecordNodeVersion: %v", err)
+	if _, err := w.settings().RecordRuntime("", "24.20.0"); err != nil {
+		t.Fatalf("RecordRuntime: %v", err)
 	}
 	if _, err := os.Stat(w.configPath); err != nil {
 		t.Fatalf("the settings document must exist: %v", err)
@@ -407,10 +438,10 @@ func testWriteBackV5CreatesTheStateDirectory(t *testing.T) {
 // state the configuration must never hold, because it would mean "discover
 // again" written down as if it were a decision.
 func testWriteBackV6RefusesAnEmptyVersion(t *testing.T) {
-	w := newNodeWorld(t)
+	w := newTestWorld(t)
 	for _, version := range []string{"", "   "} {
-		if err := w.settings().RecordNodeVersion(version); err == nil {
-			t.Fatalf("RecordNodeVersion(%q) succeeded, want a refusal", version)
+		if _, err := w.settings().RecordRuntime("", version); err == nil {
+			t.Fatalf("RecordRuntime with %q succeeded, want a refusal", version)
 		}
 	}
 	if _, err := os.Stat(w.configPath); !os.IsNotExist(err) {
@@ -422,11 +453,11 @@ func testWriteBackV6RefusesAnEmptyVersion(t *testing.T) {
 // something that is not a document is reported rather than overwritten: the file
 // belongs to the operator.
 func testWriteBackV7ReportsADocumentItCannotRead(t *testing.T) {
-	w := newNodeWorld(t)
+	w := newTestWorld(t)
 	if err := os.MkdirAll(w.configPath, 0o700); err != nil {
 		t.Fatalf("mkdir at the settings path: %v", err)
 	}
-	if err := w.settings().RecordNodeVersion("24.20.0"); err == nil {
+	if _, err := w.settings().RecordRuntime("", "24.20.0"); err == nil {
 		t.Fatal("a directory at the settings path must be reported")
 	}
 }
@@ -434,8 +465,8 @@ func testWriteBackV7ReportsADocumentItCannotRead(t *testing.T) {
 // testWriteBackV8ReportsAnOversizedDocument pins the same boundary the loader
 // applies: a file too large to be a settings document is not silently replaced.
 func testWriteBackV8ReportsAnOversizedDocument(t *testing.T) {
-	w := newNodeWorld(t).writeDocument(strings.Repeat(" ", maxConfigBytes+1))
-	if err := w.settings().RecordNodeVersion("24.20.0"); err == nil {
+	w := newTestWorld(t).writeDocument(strings.Repeat(" ", maxConfigBytes+1))
+	if _, err := w.settings().RecordRuntime("", "24.20.0"); err == nil {
 		t.Fatal("an oversized document must be reported")
 	}
 }
@@ -445,7 +476,7 @@ func testWriteBackV8ReportsAnOversizedDocument(t *testing.T) {
 // a start can warn about it. The document itself is placed elsewhere, because a
 // state directory that cannot be created must be the failure under test.
 func testWriteBackV9ReportsAStateDirectoryItCannotCreate(t *testing.T) {
-	w := newNodeWorld(t)
+	w := newTestWorld(t)
 	if err := os.RemoveAll(w.stateDir); err != nil {
 		t.Fatalf("remove the state directory: %v", err)
 	}
@@ -454,7 +485,7 @@ func testWriteBackV9ReportsAStateDirectoryItCannotCreate(t *testing.T) {
 	}
 	settings := w.settings()
 	settings.ConfigPath = filepath.Join(w.root, "elsewhere", "config.json")
-	if err := settings.RecordNodeVersion("24.20.0"); err == nil {
+	if _, err := settings.RecordRuntime("", "24.20.0"); err == nil {
 		t.Fatal("a state directory that cannot be created must be reported")
 	}
 }
@@ -464,12 +495,13 @@ func testWriteBackV9ReportsAStateDirectoryItCannotCreate(t *testing.T) {
 // first document from, and that is reported rather than written somewhere
 // arbitrary.
 func testWriteBackV11ReportsAMissingPlatformHome(t *testing.T) {
-	// os.UserHomeDir reads $HOME on Unix and %USERPROFILE% on Windows.
+	w := newTestWorld(t)
+	// os.UserHomeDir reads $HOME on Unix and %USERPROFILE% on Windows. The world
+	// redirects both into its own root, so they are cleared after it exists.
 	t.Setenv("HOME", "")
 	t.Setenv("USERPROFILE", "")
 
-	w := newNodeWorld(t)
-	if err := w.settings().RecordNodeVersion("24.20.0"); err == nil {
+	if _, err := w.settings().RecordRuntime("", "24.20.0"); err == nil {
 		t.Fatal("with no settings document and no home directory the write must fail")
 	}
 }
@@ -485,10 +517,10 @@ func testWriteBackV10SurvivesALoad(t *testing.T) {
 		`{"startTimeoutSeconds": 12, "stopTimeoutSeconds": 13, "lockTimeoutSeconds": 14}`,
 	}
 	for _, document := range documents {
-		w := newNodeWorld(t).writeDocument(document)
+		w := newTestWorld(t).writeDocument(document)
 		before := w.load(Overrides{})
-		if err := before.RecordNodeVersion("24.20.0"); err != nil {
-			t.Fatalf("RecordNodeVersion with %s: %v", document, err)
+		if _, err := before.RecordRuntime("", "24.20.0"); err != nil {
+			t.Fatalf("RecordRuntime with %s: %v", document, err)
 		}
 		after := w.load(Overrides{})
 		if after.NodeVersion != "24.20.0" || after.ConfiguredNodeVersion != "24.20.0" {
@@ -539,7 +571,7 @@ func assertTableRows(t *testing.T, prefix string, frozen []string, cases map[str
 // refuses.
 func TestTheNodeMinimumIsNotConfigurable(t *testing.T) {
 	// A document that tries to set it is rejected as unknown.
-	w := newNodeWorld(t).writeDocument(`{"minNodeVersion": "1.0.0"}`)
+	w := newTestWorld(t).writeDocument(`{"minNodeVersion": "1.0.0"}`)
 	if _, err := Load(w.vars.Getenv, Overrides{}); err == nil {
 		t.Fatal("a document naming the minimum must be rejected")
 	} else if !strings.Contains(err.Error(), "minNodeVersion") {
@@ -547,7 +579,7 @@ func TestTheNodeMinimumIsNotConfigurable(t *testing.T) {
 	}
 
 	// An environment that tries to set it changes nothing.
-	w = newNodeWorld(t).
+	w = newTestWorld(t).
 		withVariable("DSH_MIN_NODE_VERSION", "1.0.0").
 		withVariable("DSHCTL_MIN_NODE_VERSION", "1.0.0")
 	if settings := w.load(Overrides{}); settings.NodeVersion != "" {

@@ -54,7 +54,9 @@ func (s *Service) Doctor(ctx context.Context) []Check {
 
 	switch {
 	case !s.Repo.Exists():
-		add("仓库目录", CheckFail, s.Settings.RepoDir+" 不存在")
+		add("仓库目录", CheckFail, fmt.Sprintf(
+			"%s 不存在；用 --repo 或环境变量 %s 指定一次，成功运行后会写入 %s",
+			s.Settings.RepoDir, paths.EnvRepoDir, s.Settings.ConfigPath))
 	case !s.Repo.IsGit():
 		add("仓库目录", CheckFail, s.Settings.RepoDir+" 不是 git 仓库")
 	case !s.Repo.IsServerCheckout():
@@ -189,6 +191,16 @@ func (s *Service) doctorService(ctx context.Context, add func(string, string, st
 		add("运行记录", CheckWarn, observed.record.Describe())
 	default:
 		add("运行记录", CheckOK, "不存在(尚未启动过服务)")
+	}
+
+	// The running instance and the configuration can name different checkouts:
+	// --repo applies to one invocation, and a checkout can move while a server
+	// keeps running. Saying so is what keeps a set of failures about the
+	// configured directory from looking like a broken service.
+	if running := status.RecordedRepoDir; running != "" && running != s.Settings.RepoDir {
+		add("服务仓库", CheckWarn, fmt.Sprintf(
+			"运行中的服务 (pid=%d) 来自 %s，配置中是 %s；用对应端口执行 dshctl stop 后再用 --repo %s start 可切换",
+			status.ListenerPID, running, s.Settings.RepoDir, running))
 	}
 }
 

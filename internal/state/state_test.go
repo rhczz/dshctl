@@ -17,14 +17,24 @@ func store(t *testing.T) Store {
 }
 
 // TestRoundTrip pins that a saved record reads back unchanged.
+//
+// Every field is compared, not a hand-picked few: a field that is written but
+// never read back — or read back into the wrong one — is how a record silently
+// loses the fact it exists for. The identity of a running server is more than
+// its pid and port: the checkout it serves and the runtime it runs are what let
+// a later command describe the instance instead of the configuration.
 func TestRoundTrip(t *testing.T) {
 	box := store(t)
 	record := Record{
-		PID:       4242,
-		StartedAt: 1_700_000_000,
-		Port:      3080,
-		URL:       "http://127.0.0.1:3080/?token=abc",
-		Phase:     PhaseRunning,
+		PID:         4242,
+		StartedAt:   1_700_000_000,
+		Port:        3080,
+		URL:         "http://127.0.0.1:3080/?token=abc",
+		SpawnedPID:  4241,
+		NodeVersion: "24.20.0",
+		NodePath:    "/opt/node/bin/node",
+		RepoDir:     "/srv/deepseek-harness",
+		Phase:       PhaseRunning,
 	}
 	if err := box.Save(record); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -36,12 +46,58 @@ func TestRoundTrip(t *testing.T) {
 	if !ok {
 		t.Fatal("Load reported no record")
 	}
-	if loaded.PID != record.PID || loaded.StartedAt != record.StartedAt ||
-		loaded.Port != record.Port || loaded.URL != record.URL || loaded.Phase != record.Phase {
+	record.UpdatedAt = loaded.UpdatedAt
+	if loaded != record {
 		t.Fatalf("loaded = %+v, want %+v", loaded, record)
 	}
 	if loaded.UpdatedAt == 0 {
 		t.Fatal("Save must stamp UpdatedAt")
+	}
+}
+
+// TestARecordFromOlderBuildOmitsTheCheckout pins the read half of the upgrade
+// path: a record written before the checkout was recorded carries no such field,
+// and it must load as "unknown" rather than as an empty or invented path. Every
+// decision that needs the checkout has to be able to tell the difference, and a
+// zero value that looked like a decision would move a command onto a directory
+// nobody named.
+func TestARecordFromOlderBuildOmitsTheCheckout(t *testing.T) {
+	box := store(t)
+	document := `{"pid": 4242, "startedAt": 1700000000, "port": 3080, "phase": "running"}`
+	if err := os.WriteFile(box.Path, []byte(document), 0o600); err != nil {
+		t.Fatalf("write the record: %v", err)
+	}
+	loaded, ok, err := box.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !ok {
+		t.Fatal("an older record must load")
+	}
+	if loaded.RepoDir != "" || loaded.NodeVersion != "" || loaded.NodePath != "" {
+		t.Fatalf("loaded = %+v, want the fields the older build never wrote to read as unknown", loaded)
+	}
+	if loaded.PID != 4242 || loaded.Port != 3080 || loaded.Phase != PhaseRunning {
+		t.Fatalf("loaded = %+v, want every field it does carry", loaded)
+	}
+}
+
+// TestSaveKeepsEveryOptionalFieldOutWhenEmpty pins the other half: a record that
+// carries nothing optional stays a small document, so a reader cannot mistake an
+// absent fact for an empty string that was saved.
+func TestSaveKeepsEveryOptionalFieldOutWhenEmpty(t *testing.T) {
+	box := store(t)
+	if err := box.Save(Record{PID: 4242, StartedAt: 1_700_000_000, Port: 3080, Phase: PhaseRunning}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	data, err := os.ReadFile(box.Path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	for _, key := range []string{"repoDir", "nodeVersion", "nodePath", "url", "spawnedPid"} {
+		if strings.Contains(string(data), `"`+key+`"`) {
+			t.Fatalf("record = %s, want no %q for an empty %s", data, key, key)
+		}
 	}
 }
 
@@ -276,9 +332,10 @@ func TestDescribe(t *testing.T) {
 	record := Record{
 		PID: 42, StartedAt: 1_700_000_000, Port: 3080, Phase: PhaseRunning,
 		URL: "http://x", NodeVersion: "24.20.0", NodePath: "/opt/node/bin/node",
+		RepoDir: "/srv/deepseek-harness",
 	}
 	text := record.Describe()
-	for _, want := range []string{"pid=42", "port=3080", "phase=running", "http://x", "node=24.20.0"} {
+	for _, want := range []string{"pid=42", "port=3080", "phase=running", "http://x", "node=24.20.0", "repo=/srv/deepseek-harness"} {
 		if !contains(text, want) {
 			t.Fatalf("Describe = %q, missing %q", text, want)
 		}
@@ -287,9 +344,14 @@ func TestDescribe(t *testing.T) {
 		t.Fatalf("Describe = %q, want the release rather than the whole path on one line", text)
 	}
 
+	// The checkout is a fact about the instance rather than a detail of the
+	// runtime, so a record that carries none must not look as if it served from
+	// somewhere: an empty path in the line would read as a directory named "".
 	withoutRuntime := Record{PID: 42, StartedAt: 1_700_000_000, Port: 3080, Phase: PhaseRunning}
-	if contains(withoutRuntime.Describe(), "node=") {
-		t.Fatalf("Describe = %q, want no runtime for a record that carries none", withoutRuntime.Describe())
+	for _, absent := range []string{"node=", "repo="} {
+		if contains(withoutRuntime.Describe(), absent) {
+			t.Fatalf("Describe = %q, want no %q for a record that carries none", withoutRuntime.Describe(), absent)
+		}
 	}
 }
 

@@ -73,6 +73,14 @@ type Record struct {
 	NodeVersion string `json:"nodeVersion,omitempty"`
 	// NodePath is the node binary the server was started with, when known.
 	NodePath string `json:"nodePath,omitempty"`
+	// RepoDir is the checkout the server was started from, when known. The
+	// checkout can differ from the configured one — `--repo` applies to one
+	// invocation, and the checkout may move while a server keeps running — so
+	// the record is the only place that says which tree this instance serves.
+	// It is what lets a reporting command describe the running service instead
+	// of the configuration, and what lets a start that finds the service already
+	// running close the gap between the two.
+	RepoDir string `json:"repoDir,omitempty"`
 	// Phase is what dshctl observed the last time it wrote the record.
 	Phase Phase `json:"phase"`
 	// UpdatedAt is when the record was last written, in Unix seconds.
@@ -245,6 +253,10 @@ func (r Record) Describe() string {
 	if r.NodeVersion != "" {
 		builder.WriteString(", node=")
 		builder.WriteString(r.NodeVersion)
+	}
+	if r.RepoDir != "" {
+		builder.WriteString(", repo=")
+		builder.WriteString(r.RepoDir)
 	}
 	return builder.String()
 }

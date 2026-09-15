@@ -18,7 +18,23 @@ func PrintStatus(w io.Writer, status Status) error {
 				return err
 			}
 		}
-		if _, err := fmt.Fprintf(w, "仓库: %s\n日志: %s\n", status.RepoDir, status.LogPath); err != nil {
+		// The subject of this branch is the service that is running, so the
+		// checkout line names the tree that process serves. The configured one is
+		// named too when the two differ: --repo applies to one invocation, and a
+		// status that printed only the configuration would describe a directory
+		// the running instance never used.
+		checkout := status.RepoDir
+		note := ""
+		switch {
+		case status.RecordedRepoDir != "":
+			checkout = status.RecordedRepoDir
+			if status.RecordedRepoDir != status.RepoDir {
+				note = " (配置中为 " + status.RepoDir + ")"
+			}
+		case checkout != "":
+			note = " (配置值；运行记录未记录仓库目录)"
+		}
+		if _, err := fmt.Fprintf(w, "仓库: %s%s\n日志: %s\n", checkout, note, status.LogPath); err != nil {
 			return err
 		}
 		return nil
