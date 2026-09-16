@@ -375,7 +375,7 @@ func TestStartAdoptsASurvivorOfAnInterruptedStart(t *testing.T) {
 				t.Fatalf("record.StartedAt = %d, want the listener's start time %d", record.StartedAt, listenerStartTime)
 			}
 			// The adopted record must satisfy the ownership check it exists for.
-			status, err := f.Status(context.Background())
+			status, err := f.Status(context.Background(), f.Settings.Port)
 			if err != nil {
 				t.Fatalf("Status: %v", err)
 			}
@@ -422,7 +422,7 @@ func TestStatusKeepsTheInterruptedRecordReadOnly(t *testing.T) {
 	wrapper, listener := 8000, 8001
 	seedInterruptedStart(t, f, wrapper, listener, false)
 
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -497,7 +497,7 @@ func TestFailedStartCleansUpTheWholeGroup(t *testing.T) {
 	if _, ok := f.stateRecord(t); ok {
 		t.Fatal("a failed start left its runtime record behind")
 	}
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -531,7 +531,7 @@ func TestFailedStartCleansUpWhenTheLeaderDiesFirst(t *testing.T) {
 	if _, ok := f.stateRecord(t); ok {
 		t.Fatal("a failed start left its runtime record behind")
 	}
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -876,7 +876,7 @@ func TestStatusClassifiesEveryState(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			f := newFixture(t)
 			testCase.setup(f, t)
-			status, err := f.Status(context.Background())
+			status, err := f.Status(context.Background(), f.Settings.Port)
 			if err != nil {
 				t.Fatalf("Status: %v", err)
 			}
@@ -896,7 +896,7 @@ func TestStatusReportsAnUninspectablePortAsAnError(t *testing.T) {
 	f := newFixture(t)
 	f.host.listenErr = errors.New("lsof: operation not permitted")
 
-	_, err := f.Status(context.Background())
+	_, err := f.Status(context.Background(), f.Settings.Port)
 	wantCode(t, err, exitcode.Preflight)
 }
 
@@ -908,7 +908,7 @@ func TestStatusReportsARecordThatDescribesNothing(t *testing.T) {
 		t.Fatalf("save record: %v", err)
 	}
 
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -936,7 +936,7 @@ func TestStatusCreatesNothingAtAll(t *testing.T) {
 		t.Fatalf("remove state: %v", err)
 	}
 
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -960,7 +960,7 @@ func TestStatusReportsStaleWithoutRetiringIt(t *testing.T) {
 		t.Fatalf("save record: %v", err)
 	}
 
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -989,7 +989,7 @@ func TestStatusDoesNotTakeTheLock(t *testing.T) {
 	// Another operation holds the lock, which a lock-taking status would wait on
 	// for the whole lock timeout.
 	start := time.Now()
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}

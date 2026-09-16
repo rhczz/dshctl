@@ -179,6 +179,19 @@ func (h *fakeHost) serving(pid int, command string) {
 	h.mu.Unlock()
 }
 
+// servingOnPort makes pid own a port other than the fixture's own. Two servers
+// of one state directory is the shape every multi-instance rule is about, and
+// the fixture has to be able to describe both at once.
+func (h *fakeHost) servingOnPort(port, pid int, command string) {
+	h.add(pid, command, fixtureStartTime)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.listenersByPort == nil {
+		h.listenersByPort = map[int]int{}
+	}
+	h.listenersByPort[port] = pid
+}
+
 // listen makes pid own the port without touching the process table.
 func (h *fakeHost) listen(pid int) {
 	h.mu.Lock()
@@ -222,6 +235,9 @@ func (h *fakeHost) Listening(_ context.Context, port int) (host.PortResult, erro
 		}
 		return host.PortResult{Listening: true, PID: pid}, nil
 	}
+	// Ports the fixture was not told about fall back to its own listener, which
+	// is how every single-instance test describes its port without naming it.
+
 	switch {
 	case h.listener == 0:
 		return host.PortResult{}, nil
@@ -726,7 +742,7 @@ func (h *fakeHost) attemptSpawn(call spawnCall) (int, error) {
 	h.commands = append(h.commands, spawnLogLine(call, 0))
 	h.mu.Unlock()
 
-	pid, err := h.spawn()
+	pid, err := h.spawn(portFromArgs(call.args))
 	if err != nil {
 		return 0, err
 	}
@@ -734,6 +750,23 @@ func (h *fakeHost) attemptSpawn(call spawnCall) (int, error) {
 	h.commands[index] = spawnLogLine(call, pid)
 	h.mu.Unlock()
 	return pid, nil
+}
+
+// portFromArgs reads the port a launch was asked to serve.
+//
+// The fixture models the port argument rather than ignoring it because a
+// multi-instance fixture has to know which server a child became: a restart of one
+// instance observes its own port, and a child recorded against the wrong one would
+// make that observation describe a server that does not exist.
+func portFromArgs(args []string) int {
+	for index, arg := range args {
+		if arg == "--port" && index+1 < len(args) {
+			if port, err := strconv.Atoi(args[index+1]); err == nil {
+				return port
+			}
+		}
+	}
+	return 0
 }
 
 // spawnLogLine renders one spawn attempt for the command log.
@@ -749,7 +782,7 @@ func (h *fakeHost) spawnCalls() []spawnCall {
 }
 
 // spawn hands out the next pid and applies the child's scripted fate.
-func (h *fakeHost) spawn() (int, error) {
+func (h *fakeHost) spawn(port int) (int, error) {
 	h.mu.Lock()
 	if h.spawnErr != nil {
 		err := h.spawnErr
@@ -787,6 +820,14 @@ func (h *fakeHost) spawn() (int, error) {
 			h.processes[listener].survivesGraceful = true
 		}
 		h.listener = listener
+		// A spawned child takes whatever port the launch asked for, which on a
+		// multi-instance fixture is not the fixture's own. Recording it per port
+		// is what lets a restart of another instance observe its own listener
+		// instead of the fixture's.
+		if h.listenersByPort == nil {
+			h.listenersByPort = map[int]int{}
+		}
+		h.listenersByPort[port] = listener
 		h.servedByListener = listener
 		h.servedByWrapper = pid
 	}
@@ -1250,11 +1291,25 @@ func (f *fixture) run(t *testing.T, overrides config.Overrides) config.Settings 
 	loaded.StartTimeout = f.Settings.StartTimeout
 	loaded.StopTimeout = f.Settings.StopTimeout
 	f.Settings = loaded
+	f.rebind()
 	// Production wires the checkout from the settings into the repository
 	// helper; a test that left the two apart would let a command act on one
 	// directory while describing another.
 	f.Repo.Dir = loaded.RepoDir
 	return loaded
+}
+
+// rebind re-derives the stores that belong to the settings.
+//
+// A record is one file per port and a fixture's settings can move to another
+// one, so a store pinned at construction would make the test read a file no
+// command writes: the port-keyed name is the settings' business (see
+// config.Settings.StateFile), and every caller that replaces the settings has to
+// ask them again for it. `New` wires the same two values, which is what keeps a
+// fixture and the service it stands for describing one machine.
+func (f *fixture) rebind() {
+	f.Record = state.Store{Path: f.Settings.StateFile()}
+	f.Log = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
 }
 
 // guess is the built-in checkout this machine's home implies.

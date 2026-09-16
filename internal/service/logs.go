@@ -116,40 +116,53 @@ func (s *Service) WebURL(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	status := observed.status
+	return s.observedAddress(observed.status)
+}
 
+// observedAddress reports the token-carrying address of one observed instance.
+//
+// It answers for a server of ours that is up or starting, and for the survivor
+// of an interrupted start; every other state has no address. A multi-instance
+// command and a single-instance one ask the same question here, which is what
+// keeps `url --port 3081` and the 3081 line of a bare `url` from disagreeing
+// about the same server.
+//
+// The port is the value's own, so one instance's address is never reported for
+// another: an address carries a token, and handing an operator the token of a
+// different server is exactly the mistake this pairing exists to prevent.
+func (s *Service) observedAddress(status Status) (string, error) {
 	switch {
 	case status.Owning():
 		// The server is up (or starting): its address is the one it announced.
-		if url := status.URLFromRecord; url != "" && addressPort(url) == s.Settings.Port {
+		if url := status.URLFromRecord; url != "" && addressPort(url) == s.boundPort() {
 			return url, nil
 		}
-		address, truncated := announcedURL(s.Settings.LogPath, s.Settings.Port)
+		address, truncated := announcedURL(s.Settings.LogPath, s.boundPort())
 		if address != "" {
 			return address, nil
 		}
 		if truncated {
 			return "", exitcode.New(exitcode.Failure,
 				"日志已超过 %d MiB，未能在其中定位端口 %d 的访问地址\n提示: 可运行 dshctl logs -n 50 查看尾部输出",
-				logScanMiB, s.Settings.Port)
+				logScanMiB, s.boundPort())
 		}
 		if status.State == StateStarting {
 			return "", exitcode.New(exitcode.Failure,
-				"服务正在启动，尚未公布端口 %d 的访问地址;稍后重试或查看 dshctl logs", s.Settings.Port)
+				"服务正在启动，尚未公布端口 %d 的访问地址;稍后重试或查看 dshctl logs", s.boundPort())
 		}
 		return "", exitcode.New(exitcode.Failure,
-			"运行记录中没有端口 %d 的访问地址，日志中也找不到: %s", s.Settings.Port, s.Settings.LogPath)
+			"运行记录中没有端口 %d 的访问地址，日志中也找不到: %s", s.boundPort(), s.Settings.LogPath)
 
 	case status.Survivor:
 		// A server of ours is serving, left behind by an interrupted start.
 		// Its address is in the log; managing it again is one command away.
-		address, _ := announcedURL(s.Settings.LogPath, s.Settings.Port)
+		address, _ := announcedURL(s.Settings.LogPath, s.boundPort())
 		if address != "" {
 			fmt.Fprintln(s.Err, "提示: 这是上次启动被中断后仍存活的服务;运行 dshctl start 或 dshctl stop 可恢复管理")
 			return address, nil
 		}
 		return "", exitcode.New(exitcode.Failure,
-			"端口 %d 上的服务是上次启动遗留的，日志中找不到它的访问地址;运行 dshctl start 恢复管理后再试", s.Settings.Port)
+			"端口 %d 上的服务是上次启动遗留的，日志中找不到它的访问地址;运行 dshctl start 恢复管理后再试", s.boundPort())
 
 	default:
 		return "", exitcode.New(exitcode.NotRunning,

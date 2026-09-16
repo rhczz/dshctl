@@ -65,7 +65,7 @@ func (s *Service) startLocked(ctx context.Context) (StartResult, error) {
 	case StateForeign:
 		return StartResult{}, exitcode.New(exitcode.Preflight,
 			"端口 %d 被其他程序占用 (pid=%d: %s);请先停止它,或用 --port 换一个端口",
-			s.Settings.Port, observed.status.ListenerPID, observed.status.ListenerCommand)
+			s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
 	case StateOrphan:
 		// A start that was killed between writing the wrapper record and the
 		// port answering leaves the server serving with a record that names the
@@ -89,7 +89,7 @@ func (s *Service) startLocked(ctx context.Context) (StartResult, error) {
 		return StartResult{}, exitcode.New(exitcode.Preflight,
 			"端口 %d 上的进程 (pid=%d) 无法确认是不是 dshctl 启动的服务: %s\n"+
 				"提示: 确认它可以安全停止后手动结束它,再重新启动;dshctl 不会主动结束无法确认归属的进程",
-			s.Settings.Port, observed.status.ListenerPID, observed.status.ListenerCommand)
+			s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
 	}
 
 	if observed.hasRecord {
@@ -100,7 +100,7 @@ func (s *Service) startLocked(ctx context.Context) (StartResult, error) {
 			return StartResult{}, exitcode.New(exitcode.Preflight,
 				"运行记录中的服务 (pid=%d) 仍然存活，但它没有监听端口 %d\n"+
 					"提示: 先运行 dshctl stop(会按记录结束它),或确认该进程可以安全结束后手动处理",
-				observed.status.RecordedPID, s.Settings.Port)
+				observed.status.RecordedPID, s.boundPort())
 		}
 		// The record names a pid that is gone or has been recycled: clear it so
 		// it cannot describe the server this call is about to start.
@@ -205,7 +205,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		PID:         pid,
 		SpawnedPID:  pid,
 		StartedAt:   spawnedAt,
-		Port:        s.Settings.Port,
+		Port:        s.boundPort(),
 		Phase:       state.PhaseRunning,
 		NodeVersion: installation.Version,
 		NodePath:    installation.NodePath,
@@ -237,7 +237,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		PID:         listenerPID,
 		SpawnedPID:  pid,
 		StartedAt:   startedAt,
-		Port:        s.Settings.Port,
+		Port:        s.boundPort(),
 		Phase:       state.PhaseRunning,
 		URL:         s.urlFromLog(ctx),
 		NodeVersion: installation.Version,
@@ -428,7 +428,7 @@ func (s *Service) spawn(pnpm string, installation nodejs.Installation, log *os.F
 		spawn = spawnDetached
 	}
 	args := []string{"--dir", s.Settings.RepoDir, "dsh", "web",
-		"--port", strconv.Itoa(s.Settings.Port), "--no-open"}
+		"--port", strconv.Itoa(s.boundPort()), "--no-open"}
 	return spawn(pnpm, args, s.Settings.RepoDir, run.WithPathPrefix(installation.BinDir), log)
 }
 
@@ -477,7 +477,7 @@ func (s *Service) cleanupFailedStart(ctx context.Context, pid int, cause error) 
 	if err := s.waitForStopped(ctx, s.Settings.StopTimeout); err != nil {
 		// The port is still held, so nothing was really cleaned up. Saying so is
 		// the difference between a recoverable state and a mystery.
-		s.errorf("端口 %d 仍被占用，本次启动的进程没有全部退出: %v", s.Settings.Port, err)
+		s.errorf("端口 %d 仍被占用，本次启动的进程没有全部退出: %v", s.boundPort(), err)
 	}
 
 	fmt.Fprintln(s.Err, "已清理。日志尾部:")
@@ -679,7 +679,7 @@ func (s *Service) urlFromLog(ctx context.Context) string {
 	if err := ctx.Err(); err != nil {
 		return ""
 	}
-	address, truncated := announcedURL(s.Settings.LogPath, s.Settings.Port)
+	address, truncated := announcedURL(s.Settings.LogPath, s.boundPort())
 	if address == "" && truncated {
 		s.warn("日志过大，未能在其中找到本次启动公布的访问地址;可用 dshctl logs 查看或等待服务输出")
 	}

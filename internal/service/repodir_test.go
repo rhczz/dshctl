@@ -59,7 +59,7 @@ func TestASuccessfulStartMakesTheNextCommandUseTheSameCheckout(t *testing.T) {
 	if next.Sources.RepoDir != "file" || next.ConfiguredRepoDir != f.repo {
 		t.Fatalf("settings = %+v, want the checkout read back from the document", next)
 	}
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -467,7 +467,7 @@ func TestStatusNamesTheCheckoutTheRunningServiceUses(t *testing.T) {
 	f.documentNaming(t, decided)
 	f.run(t, config.Overrides{})
 
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}

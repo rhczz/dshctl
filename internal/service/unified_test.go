@@ -86,7 +86,7 @@ func TestStatusReportsALiveRecordAsNotStale(t *testing.T) {
 		t.Fatalf("save record: %v", err)
 	}
 
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestDoctorAgreesWithStatusOnASurvivor(t *testing.T) {
 	f := newFixture(t)
 	seedInterruptedStart(t, f, 8000, 8001, false)
 
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -292,7 +292,7 @@ func TestStatusReportsARecycledRecordAsStaleEvenWithAStrangerOnThePort(t *testin
 		t.Fatalf("save record: %v", err)
 	}
 
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -325,7 +325,7 @@ func TestAdoptSurvivorRefusesAListenerOutsideTheRecordedTree(t *testing.T) {
 	}
 
 	// The state machine must not call this a survivor.
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -361,7 +361,7 @@ func TestStatusReportsPortReadiness(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
-	starting, err := f.Status(context.Background())
+	starting, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
@@ -370,7 +370,7 @@ func TestStatusReportsPortReadiness(t *testing.T) {
 	}
 
 	f.host.ready = true
-	running, err := f.Status(context.Background())
+	running, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}

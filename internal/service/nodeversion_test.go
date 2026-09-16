@@ -273,7 +273,7 @@ func testWriteBackW10NeverWritesFromAReadOnlyCommand(t *testing.T) {
 		t.Fatalf("read the settings document: %v", err)
 	}
 
-	if _, err := f.Status(context.Background()); err != nil {
+	if _, err := f.Status(context.Background(), f.Settings.Port); err != nil {
 		t.Fatalf("Status: %v", err)
 	}
 	_ = f.Doctor(context.Background())
@@ -567,7 +567,7 @@ func TestTheRecordNamesTheRuntimeTheInstanceUses(t *testing.T) {
 
 	// The structured status carries the same fact, so a script that reads
 	// `status --json` is not left guessing which runtime is serving.
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}

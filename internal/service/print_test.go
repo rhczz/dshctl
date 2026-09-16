@@ -16,6 +16,40 @@ func hostFacts(command, source string) host.Facts {
 
 // TestPrintStatusNamesTheState pins the human-readable report for every state,
 // so an operator always learns what was observed.
+// TestTheStatusReportNamesOnlyInstancesThatMatter pins what a bare report is
+// worth reading: an instance that is simply not running is left out of the notes
+// beside the report.
+//
+// Every start leaves a record behind, so after a few stop-and-start rounds a
+// report that listed every record would bury the servers that are up under the
+// ports that were switched off — the same failure as not reporting them at all,
+// one layer further out. The instances themselves stay in the report, because a
+// caller that wants every one of them is the reason the list exists.
+func TestTheStatusReportNamesOnlyInstancesThatMatter(t *testing.T) {
+	statuses := []Status{
+		{State: StateRunning, Port: 3080},
+		{State: StateStopped, Port: 3081},
+		{State: StateOrphan, Port: 3082, ListenerPID: 42},
+		{State: StateRunning, Port: 3083},
+	}
+	report := NewStatusReport(statuses)
+
+	if report.Status.Port != 3080 {
+		t.Fatalf("report.Status.Port = %d, want the first instance", report.Status.Port)
+	}
+	want := []int{3082, 3083}
+	got := make([]int, 0, len(report.Others))
+	for _, status := range report.Others {
+		got = append(got, status.Port)
+	}
+	if !equalInts(got, want) {
+		t.Fatalf("the notes name ports %v, want %v", got, want)
+	}
+	if len(report.Ports) != len(statuses) {
+		t.Fatalf("the report lists %d instances, want all %d", len(report.Ports), len(statuses))
+	}
+}
+
 func TestPrintStatusNamesTheState(t *testing.T) {
 	cases := []struct {
 		name   string

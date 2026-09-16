@@ -12,6 +12,17 @@
 //     unknown state instead of assuming the port is free.
 //  3. A service that is listening but not owned by dshctl is reported and left
 //     alone. dshctl never kills a process it did not start.
+//  4. The port is a *selector*, not the identity of the installation. One state
+//     directory manages every server dshctl started, one record per port: naming
+//     a port on the command line, or in the environment, acts on that instance
+//     alone, and leaving it out acts on all of them. Treating the configured
+//     port as the only instance is how a server started with `--port` kept
+//     serving while `status` reported nothing running and `stop` refused to
+//     touch it — an orphan nothing in the tool could name again.
+//
+// Rules 1-3 are per instance and rule 4 is about which instances an operation
+// covers; an operation that covers several holds one lock for all of them, so no
+// other command sees half of it.
 package service
 
 import (
@@ -72,6 +83,17 @@ type Service struct {
 	poll  time.Duration
 	// grace is how long a stop waits after a graceful request before forcing.
 	grace time.Duration
+	// port is the instance this value acts on. One state directory may manage
+	// several servers, so "the port" is part of an operation rather than of the
+	// configuration: atPort derives a value bound to another instance, and
+	// everything below it — the probe, the spawn arguments, the record — follows
+	// that one port. Every field around it is shared on purpose: the lock
+	// serializes the whole directory, and the log carries every instance.
+	//
+	// Zero means "unset", and port() then answers the configured port, which is
+	// the shape a value built by hand (a test, or code that predates several
+	// instances) has.
+	port int
 }
 
 // Dependencies are the process-wide values a Service runs with.
@@ -119,7 +141,37 @@ func New(settings config.Settings, deps Dependencies) *Service {
 		sleep:     sleepCtx,
 		poll:      pollInterval,
 		grace:     terminateGrace,
+		port:      settings.Port,
 	}
+}
+
+// port is the instance this value acts on, falling back to the configured port
+// for a value that was not built by New.
+func (s *Service) boundPort() int {
+	if s.port > 0 {
+		return s.port
+	}
+	return s.Settings.Port
+}
+
+// atPort derives a value bound to another instance of the same installation.
+//
+// Everything a command must share stays shared: the state directory, the log,
+// the lock, the checkout and the host. Only the port moves, and with it the
+// record, the spawn arguments and every probe. The record store is carried over
+// explicitly rather than re-derived, because the configured port is not the port
+// this value is about any more.
+func (s *Service) atPort(port int) *Service {
+	bound := *s
+	bound.port = port
+	bound.Settings.Port = port
+	bound.Record = state.Store{Path: bound.Settings.StateFile()}
+	return &bound
+}
+
+// selection resolves the instances a command acts on.
+func (s *Service) selection() (config.StateSelection, error) {
+	return s.Settings.StateSelection()
 }
 
 // buildRecordRel mirrors config's build marker for the repo package.

@@ -20,7 +20,7 @@ func TestStatusReportsACorruptRecordAsStaleWithoutRetiringIt(t *testing.T) {
 	f := newFixture(t)
 	f.seedCorruptRecord(t, corruptRecordContent)
 
-	status, err := f.Status(context.Background())
+	status, err := f.Status(context.Background(), f.Settings.Port)
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}

@@ -34,6 +34,12 @@ const (
 	// adopts it first when group evidence proves it is this dshctl's own
 	// server left behind by an interrupted start.
 	StateOrphan = "port-unmanaged"
+	// StateUnobservable means a discovered instance could not be looked at at
+	// all, because the port probe failed. It is deliberately not "stopped": the
+	// command does not know, and claiming it does is how a running server gets
+	// forgotten. Only instances other than the one a command names can end up
+	// here; a failed probe of the configured port is reported as an error.
+	StateUnobservable = "unobservable"
 )
 
 // Timing constants of the observation loop. They are behaviour, not policy, so
@@ -116,6 +122,10 @@ type Status struct {
 	LockHolder int `json:"lockHolder,omitempty"`
 	// LockUnreadable reports that the lock exists but could not be inspected.
 	LockUnreadable bool `json:"lockUnreadable,omitempty"`
+	// ProbeError explains why a discovered instance could not be looked at. It
+	// is set only with StateUnobservable, and it is what keeps that state from
+	// being read as a claim about the server.
+	ProbeError string `json:"probeError,omitempty"`
 }
 
 // Owning reports whether the state describes a server this dshctl owns.
@@ -163,7 +173,7 @@ type observed struct {
 	corrupt bool
 }
 
-// Status observes the service without changing anything at all.
+// Status observes one instance without changing anything at all.
 //
 // It takes no lock and creates no file. An operation lock would have to live in
 // the state directory, and creating that directory is a write; a reporting
@@ -176,8 +186,8 @@ type observed struct {
 // StateOrphan or StateForeign, never a silent "stopped", and a record that
 // describes nothing is reported as stale for the operator to see. The next
 // mutating command retires it.
-func (s *Service) Status(ctx context.Context) (Status, error) {
-	result, err := s.observe(ctx)
+func (s *Service) Status(ctx context.Context, port int) (Status, error) {
+	result, err := s.atPort(port).observe(ctx)
 	if err != nil {
 		return Status{}, err
 	}
@@ -295,12 +305,12 @@ func (s *Service) observe(ctx context.Context) (observed, error) {
 // probeRequired observes the port, turning a failed probe into a Preflight error
 // so that "I could not look" is never read as "nothing is listening".
 func (s *Service) probeRequired(ctx context.Context) (readiness, error) {
-	result, err := s.Host.Listening(ctx, s.Settings.Port)
+	result, err := s.Host.Listening(ctx, s.boundPort())
 	if err != nil {
 		if errors.Is(err, host.ErrUnsupported) {
 			return readiness{}, exitcode.New(exitcode.Preflight,
 				"缺少可用的端口探测工具(lsof/ss/netstat)，无法判断端口 %d 的状态\n"+
-					"提示: 安装其中任意一个(例如 iproute2 或 net-tools)后重试", s.Settings.Port)
+					"提示: 安装其中任意一个(例如 iproute2 或 net-tools)后重试", s.boundPort())
 		}
 		return readiness{}, exitcode.Wrap(exitcode.Preflight, err)
 	}
@@ -331,7 +341,7 @@ func (s *Service) dials(ctx context.Context) bool {
 	if dial == nil {
 		dial = dialPort
 	}
-	return dial(ctx, s.Settings.Port)
+	return dial(ctx, s.boundPort())
 }
 
 // dialPort connects to the loopback port once.
@@ -349,7 +359,7 @@ func dialPort(ctx context.Context, port int) bool {
 func (s *Service) baseStatus() Status {
 	status := Status{
 		URL:        s.Settings.URL(),
-		Port:       s.Settings.Port,
+		Port:       s.boundPort(),
 		RepoDir:    s.Settings.RepoDir,
 		RepoReady:  s.Repo.IsServerCheckout(),
 		BuildReady: s.Repo.BuildReady(),
@@ -448,7 +458,7 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 				}
 				if time.Since(ownerlessSince) >= ownerlessListenGrace {
 					return 0, exitcode.New(exitcode.Preflight,
-						"端口 %d 已有监听，但平台探测工具未报告其归属进程，无法确认它是本次启动的服务", s.Settings.Port)
+						"端口 %d 已有监听，但平台探测工具未报告其归属进程，无法确认它是本次启动的服务", s.boundPort())
 				}
 			} else {
 				ownerlessSince = time.Time{}
@@ -458,11 +468,11 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 				// outlived its reaper.
 				if exited != nil && exited(ctx) {
 					return 0, exitcode.New(exitcode.Failure,
-						"DSH Web 进程 (pid=%d) 已退出，端口 %d 始终没有就绪(详见日志)", expectedPID, s.Settings.Port)
+						"DSH Web 进程 (pid=%d) 已退出，端口 %d 始终没有就绪(详见日志)", expectedPID, s.boundPort())
 				}
 				if !s.Host.Alive(ctx, expectedPID) {
 					return 0, exitcode.New(exitcode.Failure,
-						"DSH Web 进程 (pid=%d) 已退出，端口 %d 始终没有就绪", expectedPID, s.Settings.Port)
+						"DSH Web 进程 (pid=%d) 已退出，端口 %d 始终没有就绪", expectedPID, s.boundPort())
 				}
 			}
 		} else if observation.pid == expectedPID || s.descendsFromSpawned(expectedPID, observation.pid) {
@@ -480,20 +490,20 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 			// process and is refused.
 			return 0, exitcode.New(exitcode.Preflight,
 				"端口 %d 被另一个进程占用 (pid=%d: %s)",
-				s.Settings.Port, observation.pid, describeFacts(observation.facts))
+				s.boundPort(), observation.pid, describeFacts(observation.facts))
 		}
 		if time.Now().After(deadline) {
 			// A port that kept answering without a nameable owner is reported as
 			// what it is, rather than as a bare timeout.
 			if !ownerlessSince.IsZero() {
 				return 0, exitcode.New(exitcode.Preflight,
-					"端口 %d 已有监听，但平台探测工具未报告其归属进程，无法确认它是本次启动的服务", s.Settings.Port)
+					"端口 %d 已有监听，但平台探测工具未报告其归属进程，无法确认它是本次启动的服务", s.boundPort())
 			}
 			if lastErr != nil {
 				return 0, exitcode.Wrap(exitcode.Failure, lastErr)
 			}
 			return 0, exitcode.New(exitcode.Failure,
-				"等待端口 %d 就绪超时 (%s)", s.Settings.Port, timeout)
+				"等待端口 %d 就绪超时 (%s)", s.boundPort(), timeout)
 		}
 		if err := s.sleep(ctx, s.poll); err != nil {
 			return 0, err
@@ -523,7 +533,7 @@ func (s *Service) waitForStopped(ctx context.Context, timeout time.Duration) err
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		result, err := s.Host.Listening(ctx, s.Settings.Port)
+		result, err := s.Host.Listening(ctx, s.boundPort())
 		if err != nil {
 			return exitcode.Wrap(exitcode.Preflight, err)
 		}
@@ -532,12 +542,33 @@ func (s *Service) waitForStopped(ctx context.Context, timeout time.Duration) err
 		}
 		if time.Now().After(deadline) {
 			return exitcode.New(exitcode.Failure,
-				"端口 %d 仍被 pid=%d 占用，停止超时", s.Settings.Port, result.PID)
+				"端口 %d 仍被 pid=%d 占用，停止超时", s.boundPort(), result.PID)
 		}
 		if err := s.sleep(ctx, s.poll); err != nil {
 			return err
 		}
 	}
+}
+
+// stickyLock runs fn while one operation lock covers every instance of this
+// state directory.
+//
+// A multi-instance operation derives a value per port, and those values must not
+// each take the lock on their own: releasing it between the instances would let
+// another command observe half of a stop, which is exactly the state an operator
+// must never see. Aquiring it here, on the directory, makes the rule impossible
+// to forget at a call site.
+func stickyLock[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {
+	var zero T
+	held, err := lock.Acquire(ctx, s.Settings.LockFile(), s.Settings.LockTimeout)
+	if err != nil {
+		return zero, exitcode.Wrap(exitcode.LockTimeout, err)
+	}
+	defer held.Release()
+	if err := provision(s); err != nil {
+		return zero, err
+	}
+	return fn()
 }
 
 // withLock runs fn while holding the operation lock, provisioning the state
@@ -575,22 +606,32 @@ func provision(s *Service) error {
 }
 
 // statusSummary explains an unactionable state in one line.
-func statusSummary(status Status) string {
-	switch status.State {
+func statusSummary(status Status) string { return status.Summary() }
+
+// Summary renders one instance's state as the short phrase every report uses, so
+// `status`, `stop` and `url` describe the same observation in the same words.
+//
+// It is exported because the one-line explanations a command prints — "nothing
+// is running", why a port was skipped — come from here rather than from a second
+// spelling of the same states.
+func (s Status) Summary() string {
+	switch s.State {
 	case StateRunning:
 		return "运行中"
 	case StateStarting:
 		return "启动中"
 	case StateForeign:
-		return fmt.Sprintf("端口 %d 被其他程序占用 (pid=%d)", status.Port, status.ListenerPID)
+		return fmt.Sprintf("端口 %d 被其他程序占用 (pid=%d)", s.Port, s.ListenerPID)
 	case StateOrphan:
-		if status.Survivor {
-			return fmt.Sprintf("端口 %d 上是上次启动被中断后仍存活的服务 (pid=%d)", status.Port, status.ListenerPID)
+		if s.Survivor {
+			return fmt.Sprintf("端口 %d 上是上次启动被中断后仍存活的服务 (pid=%d)", s.Port, s.ListenerPID)
 		}
-		return fmt.Sprintf("端口 %d 被一个 dshctl 无法确认归属的进程占用 (pid=%d), 运行记录缺失或与之矛盾", status.Port, status.ListenerPID)
+		return fmt.Sprintf("端口 %d 被一个 dshctl 无法确认归属的进程占用 (pid=%d), 运行记录缺失或与之矛盾", s.Port, s.ListenerPID)
+	case StateUnobservable:
+		return fmt.Sprintf("端口 %d 无法探测: %s", s.Port, s.ProbeError)
 	default:
-		if status.RecordLive {
-			return fmt.Sprintf("未监听端口 %d(记录中的 pid=%d 仍然存活)", status.Port, status.RecordedPID)
+		if s.RecordLive {
+			return fmt.Sprintf("未监听端口 %d(记录中的 pid=%d 仍然存活)", s.Port, s.RecordedPID)
 		}
 		return "未运行"
 	}

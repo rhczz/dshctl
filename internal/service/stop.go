@@ -14,7 +14,10 @@ import (
 type StopResult struct {
 	// Status is the service state after the call.
 	Status Status
-	// Unverifiable reports that a process dshctl cannot vouch for owns the port.
+	// Unverifiable reports that a process dshctl cannot vouch for owns the port,
+	// so the caller cannot be told the port is free. For one named port that is
+	// the whole answer; a multi-instance stop reads it as incomplete only when a
+	// record of ours was there to be ended (see StopAllResult).
 	Unverifiable bool
 }
 
@@ -62,17 +65,25 @@ func (s *Service) stopLocked(ctx context.Context) (StopResult, error) {
 
 // reportNothingToStop reports the port as it is and retires a record that
 // describes nothing.
+//
+// "Unverifiable" means the caller cannot be told the port is free: something
+// holds it that dshctl did not establish a right to end. Both states below report
+// it, and they answer differently one level up — a single named port treats it as
+// the complete answer to the question asked, while a stop that covered more
+// counts it as incomplete only when a record of ours was there to be ended (see
+// StopAllResult).
 func (s *Service) reportNothingToStop(ctx context.Context, observed observed) (StopResult, error) {
 	unverifiable := false
 	switch observed.status.State {
 	case StateForeign:
 		fmt.Fprintf(s.Err, "注意: 端口 %d 被非 DSH 进程占用 (pid=%d: %s)，已跳过，不会误杀它\n",
-			s.Settings.Port, observed.status.ListenerPID, observed.status.ListenerCommand)
+			s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
+		unverifiable = true
 	case StateOrphan:
 		// Something serves the port that dshctl cannot call its own. Stopping it
 		// would mean guessing, and guessing here means killing a stranger.
 		fmt.Fprintf(s.Err, "注意: 端口 %d 上的进程 (pid=%d) 无法确认是 dshctl 启动的服务，已跳过\n",
-			s.Settings.Port, observed.status.ListenerPID)
+			s.boundPort(), observed.status.ListenerPID)
 		fmt.Fprintf(s.Err, "提示: 确认它可以安全停止后手动结束它;dshctl 不会结束无法确认归属的进程\n")
 		unverifiable = true
 	default:
@@ -93,7 +104,7 @@ func (s *Service) reportNothingToStop(ctx context.Context, observed observed) (S
 // The pid is passed in because the server that runs is not always the pid the
 // record names (a survivor is adopted before this call, so the two agree here).
 func (s *Service) shutdown(ctx context.Context, observed observed, pid int) (StopResult, error) {
-	fmt.Fprintf(s.Out, "正在停止 DSH Web (pid=%d) ...\n", pid)
+	fmt.Fprintf(s.Out, "正在停止端口 %d 上的 DSH Web (pid=%d) ...\n", s.boundPort(), pid)
 
 	// terminate is the single verified-signal path: it re-reads the record and
 	// the process start time before every signal, so a pid recycled during the
@@ -106,7 +117,7 @@ func (s *Service) shutdown(ctx context.Context, observed observed, pid int) (Sto
 		// only a failed stop when the holder is part of the tree the record
 		// describes; a stranger that took the port is a note, not a failure.
 		if stranger, ok := s.strangerOnPort(ctx, observed.record); ok {
-			s.warn("端口 %d 现由其他进程 (pid=%d) 占用;它不是 dshctl 启动的服务", s.Settings.Port, stranger)
+			s.warn("端口 %d 现由其他进程 (pid=%d) 占用;它不是 dshctl 启动的服务", s.boundPort(), stranger)
 		} else {
 			return StopResult{}, err
 		}
@@ -241,7 +252,7 @@ func (s *Service) Restart(ctx context.Context) (StartResult, error) {
 			(observed.status.State == StateOrphan && !observed.status.Survivor) {
 			return StartResult{}, exitcode.New(exitcode.Preflight,
 				"端口 %d 被 dshctl 无法确认归属的进程占用 (pid=%d): %s\n提示: 先确认并处理它,再执行重启",
-				s.Settings.Port, observed.status.ListenerPID, observed.status.ListenerCommand)
+				s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
 		}
 		if _, err := s.stopLocked(ctx); err != nil {
 			return StartResult{}, err
