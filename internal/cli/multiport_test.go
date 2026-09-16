@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -55,10 +56,12 @@ func TestBinaryManagesServersOnSeveralPorts(t *testing.T) {
 			t.Fatalf("status never names port %d:\nstdout=%s\nstderr=%s", port, status.stdout, status.stderr)
 		}
 	}
-	for _, want := range []string{"运行中", "token=PORT-" + strconv.Itoa(named)} {
-		if !strings.Contains(status.stderr, want) {
-			t.Fatalf("the status note for port %d does not carry %q:\n%s", named, want, status.stderr)
-		}
+	// Where a token appears is the contract pinned above; that it appears at all
+	// is this assertion. The report is one document split over two streams, so
+	// the address of the named instance is looked for in both.
+	if !strings.Contains(status.stdout+status.stderr, "token=PORT-"+strconv.Itoa(named)) {
+		t.Fatalf("status never hands out the address of port %d:\nstdout=%s\nstderr=%s\n%s",
+			named, status.stdout, status.stderr, def.describe(t))
 	}
 
 	// The token of each port must be reachable: naming the port selects that
@@ -155,12 +158,12 @@ func TestBinaryReportsAndStopsEveryInstanceWithoutAPort(t *testing.T) {
 	// their addresses, so "nothing is running" is never the whole answer.
 	status := run("status")
 	if status.code != 3 {
-		t.Fatalf("status exit = %d, want 3 for a stopped configured port\nstdout=%s\nstderr=%s",
-			status.code, status.stdout, status.stderr)
+		t.Fatalf("status exit = %d, want 3 for a stopped configured port\nstdout=%s\nstderr=%s\n%s",
+			status.code, status.stdout, status.stderr, def.describe(t))
 	}
 	for _, port := range []int{named, other} {
 		if !strings.Contains(status.stderr, "端口 "+strconv.Itoa(port)) {
-			t.Fatalf("status never names port %d:\n%s", port, status.stderr)
+			t.Fatalf("status never names port %d:\n%s\n%s", port, status.stderr, def.describe(t))
 		}
 		if want := "token=PORT-" + strconv.Itoa(port); !strings.Contains(status.stderr, want) {
 			t.Fatalf("the status note for port %d does not carry %q:\n%s", port, want, status.stderr)
@@ -217,11 +220,12 @@ func TestBinaryReportsAndStopsEveryInstanceWithoutAPort(t *testing.T) {
 // may or may not name a port. `configured` is the port `config.json` names;
 // `named` and `other` are free ports a test starts servers on.
 type multiportFixture struct {
-	configured int
-	named      int
-	other      int
-	stateDir   string
-	run        func(args ...string) invocation
+	configured  int
+	named       int
+	other       int
+	stateDir    string
+	environment []string
+	run         func(args ...string) invocation
 }
 
 // newMultiportFixture builds the installation, the node and pnpm stubs the child
@@ -268,12 +272,21 @@ func newMultiportFixture(t *testing.T) multiportFixture {
 
 	// The server announces its own address the way the real one does, so the
 	// `url` assertions read a token that belongs to the port that printed it.
+	//
+	// The writes are synchronous on purpose. A pipe leaves stdout buffered, so
+	// console.log would still be sitting in the process's buffer at the moment
+	// dshctl reads the log: on a fast machine the start finishes before node
+	// flushes, the record is written without an address, and the test fails for a
+	// reason that has nothing to do with several instances. The real server
+	// flushes what it announces; the stub has to as well.
 	server := filepath.Join(root, "server.js")
 	writeFile(server, `
+const fs = require('fs');
 const net = require('net');
 const port = Number(process.argv[process.argv.indexOf('--port') + 1]);
-console.log('dsh web: http://127.0.0.1:' + port + '/?token=PORT-' + port);
-net.createServer(() => {}).listen(port, '127.0.0.1', () => console.log('listening'));
+const announce = (line) => fs.writeSync(1, line + '\n');
+announce('dsh web: http://127.0.0.1:' + port + '/?token=PORT-' + port);
+net.createServer(() => {}).listen(port, '127.0.0.1', () => announce('listening'));
 setInterval(() => {}, 1000);
 `)
 	binDir := filepath.Join(root, "bin")
@@ -343,5 +356,65 @@ setInterval(() => {}, 1000);
 			_ = run("--port", strconv.Itoa(port), "stop")
 		}
 	})
-	return multiportFixture{configured: configured, named: named, other: other, stateDir: stateDir, run: run}
+	return multiportFixture{
+		configured: configured, named: named, other: other,
+		stateDir: stateDir, environment: environment, run: run,
+	}
+}
+
+// describe is the evidence a failure needs: what each port looks like from
+// outside (a listener or not), what this state directory holds for it, what the
+// binary reports, and what the servers announced.
+//
+// The properties under test are about things outside dshctl — a port that
+// answers, a process that is gone — and "the assertion failed" is not enough to
+// tell a defect from an environment in which the port was taken by somebody
+// else between two commands. One snapshot turns the next failure into an answer
+// instead of another run.
+func (f multiportFixture) describe(t *testing.T) string {
+	t.Helper()
+	var report strings.Builder
+	for _, port := range []int{f.configured, f.named, f.other} {
+		fmt.Fprintf(&report, "port %d: listening=%v record=%v\n",
+			port, listenerAlive(port), recordNames(t, f.stateDir, port))
+	}
+	status := f.run("status", "--json")
+	fmt.Fprintf(&report, "status --json: exit=%d\n%s\n%s\n", status.code, status.stdout, status.stderr)
+	if entries, err := os.ReadDir(f.stateDir); err == nil {
+		for _, entry := range entries {
+			if !strings.Contains(entry.Name(), ".state.json") {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(f.stateDir, entry.Name()))
+			if err != nil {
+				continue
+			}
+			fmt.Fprintf(&report, "%s: %s\n", entry.Name(), data)
+		}
+	}
+	data, err := os.ReadFile(filepath.Join(f.stateDir, "dsh-web.log"))
+	if err == nil {
+		fmt.Fprintf(&report, "log:\n%s\n", data)
+	}
+	for _, port := range []int{f.configured, f.named, f.other} {
+		record, err := os.ReadFile(filepath.Join(f.stateDir, fmt.Sprintf("dsh-web-%d.state.json", port)))
+		if err == nil {
+			fmt.Fprintf(&report, "record %d: %s\n", port, record)
+		}
+	}
+	return report.String()
+}
+
+// recordNames lists the runtime records this state directory holds for one port.
+func recordNames(t *testing.T, stateDir string, port int) []string {
+	t.Helper()
+	matches, err := filepath.Glob(filepath.Join(stateDir, fmt.Sprintf("dsh-web-%d.state.json", port)))
+	if err != nil {
+		return nil
+	}
+	names := make([]string, 0, len(matches))
+	for _, match := range matches {
+		names = append(names, filepath.Base(match))
+	}
+	return names
 }
