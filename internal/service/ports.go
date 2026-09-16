@@ -214,9 +214,10 @@ func (s *Service) runningSelection(ctx context.Context, ports []int) ([]int, err
 // URLReport is what `url` found: the addresses of the running instances, the
 // observation of each instance, and the instance the command was about.
 type URLReport struct {
-	// Statuses is every observed instance, in ascending port order. It is what
-	// lets the caller report the instances that have no address yet instead of
-	// printing fewer lines and saying nothing about why.
+	// Statuses is every observed instance: the one the command was about first,
+	// then the rest in ascending port order. It is what lets the caller report
+	// the instances that have no address yet instead of printing fewer lines and
+	// saying nothing about why.
 	Statuses []Status
 	// Addresses maps a port to its token-carrying address.
 	Addresses map[int]string

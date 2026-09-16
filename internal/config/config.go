@@ -422,7 +422,9 @@ func (s Settings) StateFile() string {
 // The port the configuration names is always part of the selection, even with no
 // record on disk, so a reporting command still describes it.
 type StateSelection struct {
-	// Ports are the instances to act on, in ascending order.
+	// Ports are the instances to act on. The configured port leads — it is the
+	// instance a report answers for and the one whose state decides the exit
+	// code — and every discovered port follows in ascending order.
 	Ports []int
 	// Explicit reports that the port was named rather than left to the
 	// configuration, so a command must act on that port alone.
@@ -481,7 +483,7 @@ func (s Settings) StateSelection() (StateSelection, error) {
 		ports = append(ports, port)
 	}
 	ports = append(ports, s.Port)
-	return StateSelection{Ports: uniqueSorted(ports)}, nil
+	return StateSelection{Ports: configuredFirst(ports, s.Port)}, nil
 }
 
 // stateFilePrefix and stateFileSuffix are the parts of StateFileNamePattern
@@ -504,21 +506,35 @@ func recordPort(name string) (int, bool) {
 	return port, true
 }
 
-// uniqueSorted returns the values in ascending order without duplicates, so
-// every multi-instance report and every stop sequence has one deterministic
-// order.
-func uniqueSorted(values []int) []int {
-	sort.Ints(values)
-	if len(values) == 0 {
-		return values
+// configuredFirst returns first followed by the remaining values in ascending
+// order, each appearing once.
+//
+// The order of a selection is not cosmetic: every multi-instance command reads
+// the port it is about off the front of the list, so sorting the whole list by
+// number would answer for whichever instance happens to have the lowest port.
+// A configured port above a recorded one is then reported as a note about
+// somebody else's server, and `status` exits 0 for a port that is not running —
+// on the machine of whoever drew those numbers, and nowhere else.
+func configuredFirst(values []int, first int) []int {
+	ordered := make([]int, 0, len(values))
+	ordered = append(ordered, first)
+	rest := make([]int, 0, len(values))
+	for _, value := range values {
+		if value != first {
+			rest = append(rest, value)
+		}
 	}
-	unique := values[:1]
-	for _, value := range values[1:] {
+	sort.Ints(rest)
+	if len(rest) == 0 {
+		return ordered
+	}
+	unique := rest[:1]
+	for _, value := range rest[1:] {
 		if value != unique[len(unique)-1] {
 			unique = append(unique, value)
 		}
 	}
-	return unique
+	return append(ordered, unique...)
 }
 
 // StateFileGlob is the pattern that finds the runtime record of every port in a

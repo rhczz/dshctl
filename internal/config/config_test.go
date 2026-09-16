@@ -548,9 +548,10 @@ func TestDescribeNamesEverySource(t *testing.T) {
 
 // TestStateSelectionNamesTheInstancesACommandActsOn pins the model every
 // multi-instance command rests on: without a named port the selection is the
-// configured port plus every record the state directory holds, and a name that
-// matches the record pattern but carries no usable port is skipped rather than
-// allowed to break the whole directory.
+// configured port plus every record the state directory holds, the configured
+// port leads whatever its number, and a name that matches the record pattern but
+// carries no usable port is skipped rather than allowed to break the whole
+// directory.
 func TestStateSelectionNamesTheInstancesACommandActsOn(t *testing.T) {
 	stateDir := filepath.Join(t.TempDir(), "state")
 	if err := os.MkdirAll(stateDir, 0o700); err != nil {
@@ -580,7 +581,12 @@ func TestStateSelectionNamesTheInstancesACommandActsOn(t *testing.T) {
 		explicit bool
 	}{
 		{"configured port only", 3080, "file", []int{3080, 3081, 4123}, false},
-		{"no record for the configured port", 3999, "file", []int{3080, 3081, 3999, 4123}, false},
+		{"no record for the configured port", 3999, "file", []int{3999, 3080, 3081, 4123}, false},
+		// The first port is the instance a report answers for: the exit code of
+		// `status`, the `stop` result an operator reads first. A configured port
+		// that happens to sit above the recorded ones must still lead, or the
+		// command silently becomes about whichever server has the lowest number.
+		{"configured port above every record", 60000, "file", []int{60000, 3080, 3081, 4123}, false},
 		{"port from the flag", 3080, "flag", []int{3080}, true},
 		{"port from the environment", 3081, "env", []int{3081}, true},
 	}

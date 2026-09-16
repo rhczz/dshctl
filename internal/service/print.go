@@ -17,8 +17,9 @@ import (
 type StatusReport struct {
 	// Status is the instance the command was about.
 	Status Status `json:"status"`
-	// Ports lists every observed instance, in ascending port order. It is what
-	// makes a server started with another port visible instead of orphaned.
+	// Ports lists every observed instance: the instance the command was about
+	// first, then the rest in ascending port order. It is what makes a server
+	// started with another port visible instead of orphaned.
 	Ports []Status `json:"ports,omitempty"`
 	// Others is the instances worth naming beside the one above: the ones that
 	// are serving, or that need attention. An instance that is simply not running

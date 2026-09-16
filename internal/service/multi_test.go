@@ -471,9 +471,13 @@ func TestRestartWithoutAPortRestartsEveryInstance(t *testing.T) {
 	if len(results) != 2 {
 		t.Fatalf("restarted %d instances, want 2: %+v", len(results), results)
 	}
+	// The configured instance leads the sequence whatever its number: a bare
+	// command reads the instance it is about off the front of the selection, so
+	// the order is part of the contract rather than an artefact of the numbers.
 	restarted := []int{results[0].Status.Port, results[1].Status.Port}
-	if !equalInts(restarted, []int{first, second}) {
-		t.Fatalf("restarted ports = %v, want %v", restarted, []int{first, second})
+	if !equalInts(restarted, []int{second, first}) {
+		t.Fatalf("restarted ports = %v, want %v (the configured instance first)",
+			restarted, []int{second, first})
 	}
 	wantRecordForPort(t, f, first, true)
 	wantRecordForPort(t, f, second, true)
@@ -488,7 +492,7 @@ func TestRestartWithoutAPortRestartsEveryInstance(t *testing.T) {
 	if got := len(ports); got != 3 {
 		t.Fatalf("spawn calls = %d (%v), want three: the first start and one per restarted instance", got, ports)
 	}
-	if want := []int{portFromArgs(spawnedFirst.args), first, second}; !equalInts(ports, want) {
+	if want := []int{portFromArgs(spawnedFirst.args), second, first}; !equalInts(ports, want) {
 		t.Fatalf("spawned ports = %v, want %v", ports, want)
 	}
 }

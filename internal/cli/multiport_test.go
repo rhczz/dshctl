@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -56,11 +57,20 @@ func TestBinaryManagesServersOnSeveralPorts(t *testing.T) {
 			t.Fatalf("status never names port %d:\nstdout=%s\nstderr=%s", port, status.stdout, status.stderr)
 		}
 	}
-	// Where a token appears is the contract pinned above; that it appears at all
-	// is this assertion. The report is one document split over two streams, so
-	// the address of the named instance is looked for in both.
-	if !strings.Contains(status.stdout+status.stderr, "token=PORT-"+strconv.Itoa(named)) {
-		t.Fatalf("status never hands out the address of port %d:\nstdout=%s\nstderr=%s\n%s",
+	// Where a token appears is the contract: standard output is the instance the
+	// command was about, standard error is every other one. The configured port
+	// is above the named one here, so a report that answers for the
+	// lowest-numbered instance instead of the configured one fails right here.
+	if want := "token=PORT-" + strconv.Itoa(configured); !strings.Contains(status.stdout, want) {
+		t.Fatalf("standard output is not the report of the configured port %d:\nstdout=%s\nstderr=%s\n%s",
+			configured, status.stdout, status.stderr, def.describe(t))
+	}
+	if want := "端口 " + strconv.Itoa(named); !strings.Contains(status.stderr, want) {
+		t.Fatalf("the note for port %d is not on standard error:\nstdout=%s\nstderr=%s\n%s",
+			named, status.stdout, status.stderr, def.describe(t))
+	}
+	if !strings.Contains(status.stderr, "token=PORT-"+strconv.Itoa(named)) {
+		t.Fatalf("the status note for port %d does not carry its address:\nstdout=%s\nstderr=%s\n%s",
 			named, status.stdout, status.stderr, def.describe(t))
 	}
 
@@ -315,9 +325,16 @@ setInterval(() => {}, 1000);
 	// The port the settings file names, and two to start on: the reported shape,
 	// where the file decides what a bare command means and the command line
 	// decides which instance it is about.
-	configured := freePort(t)
-	named := freePort(t)
-	other := freePort(t)
+	//
+	// The roles are assigned after the ports are drawn rather than in draw order:
+	// the configured port is the highest of the three. Whether a report answers
+	// for the configured instance or for the lowest-numbered one is invisible
+	// when the configured port happens to be lowest, which is what draw order
+	// gave it on a machine that hands out ascending ports — and the shape that
+	// hid the defect this fixture exists for.
+	ports := []int{freePort(t), freePort(t), freePort(t)}
+	sort.Ints(ports)
+	configured, named, other := ports[2], ports[0], ports[1]
 	writeFile(filepath.Join(stateDir, "config.json"), `{"port": `+strconv.Itoa(configured)+`}`+"\n")
 
 	// The port comes from the settings document rather than the environment:

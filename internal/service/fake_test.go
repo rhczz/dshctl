@@ -97,6 +97,13 @@ type fakeHost struct {
 	fail func(cmd run.Command) error
 	// nextPID is handed to the next spawn.
 	nextPID int
+	// handedOut is every pid this fictional machine has ever given a process.
+	// Process ids are identities: a port still mapped to a pid whose entry came
+	// back to life as an unrelated process makes a stopped server look like an
+	// intruder on its own port, which is a defect in the double rather than in
+	// the code under test. The map is what makes that impossible instead of
+	// unlikely.
+	handedOut map[int]bool
 	// spawnErr makes the next spawn fail.
 	spawnErr error
 	// spontaneouslyServed makes a spawned child take the port on its own.
@@ -774,6 +781,35 @@ func spawnLogLine(call spawnCall, pid int) string {
 	return fmt.Sprintf("spawn pid=%d args=%s", pid, strings.Join(call.args, " "))
 }
 
+// TestFakeHostNeverReusesAPid pins the double's own identity rule: two processes
+// on this fictional machine never share a pid.
+//
+// The listener used to be "wrapper plus one", a pid the counter later handed to
+// somebody else. A port still mapped to that pid then reported a live process
+// that had nothing to do with it, and a restart that started the configured
+// instance first failed against a stopped port that looked occupied — a defect
+// in the double, reported by a test that is about the product.
+func TestFakeHostNeverReusesAPid(t *testing.T) {
+	h := newFakeHost()
+	h.spontaneouslyServed = true
+	seen := map[int]string{}
+	for round := 0; round < 3; round++ {
+		wrapper, err := h.spawn(4000 + round)
+		if err != nil {
+			t.Fatalf("spawn %d: %v", round, err)
+		}
+		for _, process := range []struct {
+			role string
+			pid  int
+		}{{"wrapper", wrapper}, {"listener", h.servedByListener}} {
+			if where, ok := seen[process.pid]; ok {
+				t.Fatalf("pid %d was handed out twice: %s and %s", process.pid, where, process.role)
+			}
+			seen[process.pid] = process.role
+		}
+	}
+}
+
 // spawnCalls returns a copy of the spawn log.
 func (h *fakeHost) spawnCalls() []spawnCall {
 	h.mu.Lock()
@@ -781,7 +817,29 @@ func (h *fakeHost) spawnCalls() []spawnCall {
 	return append([]spawnCall(nil), h.spawns...)
 }
 
+// nextUnusedPID hands out one pid and remembers it, so no two processes on this
+// fictional machine share an identity. It is called with the mutex held.
+func (h *fakeHost) nextUnusedPID() (int, error) {
+	if h.handedOut == nil {
+		h.handedOut = map[int]bool{}
+	}
+	pid := h.nextPID
+	h.nextPID++
+	if h.handedOut[pid] {
+		return 0, fmt.Errorf("fixture 把 pid %d 分配给了两个进程", pid)
+	}
+	h.handedOut[pid] = true
+	return pid, nil
+}
+
 // spawn hands out the next pid and applies the child's scripted fate.
+//
+// Every pid comes from the counter, including the listener's: the listener used
+// to be "wrapper plus one", which is a pid the counter later handed to somebody
+// else. A port whose entry in listenersByPort still named that recycled pid then
+// reported a live listener that had nothing to do with it, and a restart of the
+// *other* instance first put a stopped port back in that state — Start refused,
+// correctly, to take a port it could not account for.
 func (h *fakeHost) spawn(port int) (int, error) {
 	h.mu.Lock()
 	if h.spawnErr != nil {
@@ -789,8 +847,11 @@ func (h *fakeHost) spawn(port int) (int, error) {
 		h.mu.Unlock()
 		return 0, err
 	}
-	pid := h.nextPID
-	h.nextPID++
+	pid, err := h.nextUnusedPID()
+	if err != nil {
+		h.mu.Unlock()
+		return 0, err
+	}
 	entry := &fakeProcess{command: "pnpm --dir repo dsh web", startedAt: fixtureStartTime, alive: true}
 	h.processes[pid] = entry
 	serve := h.spontaneouslyServed
@@ -809,7 +870,11 @@ func (h *fakeHost) spawn(port int) (int, error) {
 		}
 		// The listener is a child of the wrapper, in the wrapper's group: this is
 		// the shape a package script produces.
-		listener := pid + 1
+		listener, err := h.nextUnusedPID()
+		if err != nil {
+			h.mu.Unlock()
+			return 0, err
+		}
 		h.processes[listener] = &fakeProcess{
 			command:   "node apps/cli/src/bin.ts web",
 			startedAt: fixtureStartTime,

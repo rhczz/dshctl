@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/rhczz/dshctl/internal/config"
@@ -106,19 +107,46 @@ func minimalToolPath() string {
 	return strings.Join(dirs, string(os.PathListSeparator))
 }
 
-// freePort returns a TCP port that was free a moment ago.
+// freePort returns a TCP port that was free a moment ago and that no earlier
+// call in this process has handed out.
+//
+// The tests that start several servers ask for several ports and give them
+// roles that must not collide. A fixture whose "configured" port is also a port
+// the test starts a server on makes every assertion about that port vacuous, and
+// the failure it produces on a machine where the kernel reuses the port reads
+// like a dshctl defect. Remembering the answers costs nothing and removes the
+// possibility.
 func freePort(t *testing.T) int {
 	t.Helper()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("reserve a port: %v", err)
+	freePorts.Lock()
+	defer freePorts.Unlock()
+	for attempt := 0; attempt < 64; attempt++ {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("reserve a port: %v", err)
+		}
+		port := listener.Addr().(*net.TCPAddr).Port
+		if err := listener.Close(); err != nil {
+			t.Fatalf("release the port: %v", err)
+		}
+		if freePorts.handed[port] {
+			continue
+		}
+		if freePorts.handed == nil {
+			freePorts.handed = map[int]bool{}
+		}
+		freePorts.handed[port] = true
+		return port
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	if err := listener.Close(); err != nil {
-		t.Fatalf("release the port: %v", err)
-	}
-	return port
+	t.Fatal("no unused port could be reserved")
+	return 0
 }
+
+// freePorts holds every port freePort has already returned. See freePort.
+var freePorts = struct {
+	sync.Mutex
+	handed map[int]bool
+}{}
 
 // TestVersionCommand pins the plain version output and that it touches nothing.
 func TestVersionCommand(t *testing.T) {
