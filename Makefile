@@ -19,7 +19,7 @@ TEST_TIMEOUT ?= 600s
 
 PLATFORMS := darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64
 
-.PHONY: build vet test test-race hermetic coverage workflow-check fmt fmt-check check ci cross mutation install uninstall clean help
+.PHONY: build vet test test-race hermetic coverage workflow-check conventions fmt fmt-check check ci cross mutation install uninstall clean help
 
 ## build: compile the binary into bin/dshctl
 build:
@@ -53,6 +53,10 @@ coverage:
 workflow-check:
 	@python3 scripts/check-workflow.py
 
+## conventions: check the writing, structure, and dependency conventions
+conventions:
+	@python3 scripts/check-conventions.py
+
 ## fmt: format every source file
 fmt:
 	gofmt -s -w .
@@ -77,11 +81,11 @@ cross:
 		GOOS=$$goos GOARCH=$$goarch go build -ldflags "$(LDFLAGS)" -o "$$out" ./cmd/dshctl || exit 1; \
 	done
 
-## check: verify formatting, vet, and tests without rewriting anything
-check: fmt-check vet test
+## check: verify formatting, conventions, vet, and tests without rewriting anything
+check: fmt-check conventions vet test
 
 ## ci: what the pipeline runs on every commit
-ci: workflow-check fmt-check vet coverage
+ci: workflow-check fmt-check conventions vet coverage
 	go test -race -count=1 -timeout $(TEST_TIMEOUT) ./...
 
 ## mutation: break each Node decision and require the suite to notice

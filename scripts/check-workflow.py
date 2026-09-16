@@ -194,12 +194,13 @@ def check_platform_matrix(text: str) -> None:
 
 
 def check_hermetic_gates(text: str) -> None:
-    """The three properties the hermetic job exists for must survive a refactor."""
+    """The checks the hermetic job exists for must survive a refactor."""
     block = job_block(text, "hermetic")
     if not block:
         fail("the hermetic job is missing")
     for needle, description in (
         ("check-workflow.py", "the workflow-shape check"),
+        ("check-conventions.py", "the writing and structure conventions"),
         ("hermetic-check.sh", "the throwaway-HOME run"),
         ("-coverprofile=", "the coverage profile of that run"),
         ("check-coverage.py", "the coverage gate"),

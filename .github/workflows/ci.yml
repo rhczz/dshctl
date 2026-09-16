@@ -125,6 +125,12 @@ jobs:
         # running, so its shape is checked here.
         run: python3 scripts/check-workflow.py
 
+      - name: Writing and structure conventions
+        # The rules in AGENTS.md, the project skills, and the decision records
+        # are prose. The part of them a machine can decide runs here, next to
+        # the other repository-shape check.
+        run: python3 scripts/check-conventions.py
+
       - name: Run the suite once, in a throwaway HOME, with coverage
         # One execution, three properties: the script asserts that nothing was
         # created outside the tests' own temporary directories, the profile below
