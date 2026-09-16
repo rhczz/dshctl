@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -93,6 +94,13 @@ const (
 
 // Settings is the effective configuration.
 type Settings struct {
+	// Home is the platform home this resolution ran against, or empty when the
+	// platform did not provide one. It is carried because the built-in checkout
+	// guess is derived from it: a later decision that has to recognise a document
+	// repeating that guess must use the same home the document was read with, and
+	// asking the environment again would answer a second, possibly different
+	// question (see RecordRuntime).
+	Home string
 	// RepoDir is the deepseek-harness checkout dshctl builds and runs.
 	RepoDir string
 	// ConfiguredRepoDir is the checkout the settings document decides, or empty
@@ -191,6 +199,7 @@ type Overrides struct {
 // path that only makes sense on one machine.
 func Default(home string) Settings {
 	return Settings{
+		Home:           home,
 		RepoDir:        DefaultRepoDir(home),
 		Port:           DefaultPort,
 		StartTimeout:   DefaultStartTimeout,
@@ -332,11 +341,17 @@ func (s Settings) Provision() error {
 	}
 	// A symlink or other residue falls through: WriteFile renames the document
 	// over it, which is how a stale symlink is retired without following it.
-	home, err := paths.Home()
-	if err != nil {
-		return err
+	//
+	// The document is rendered from the home these settings were resolved with,
+	// the same one RecordRuntime would use to recognise a copy of the guess: two
+	// answers to "which machine is this" is how a provisioned file and a
+	// write-back come to disagree about the same path. Without it there is no
+	// default to write, and a document holding a path derived from nowhere is
+	// exactly the file every later run would honour.
+	if s.Home == "" {
+		return errors.New("无法确定用户主目录: 运行环境未提供")
 	}
-	data, err := encode(provisionedDocument(Default(home), DefaultRepoDir(home)))
+	data, err := encode(provisionedDocument(Default(s.Home), DefaultRepoDir(s.Home)))
 	if err != nil {
 		return err
 	}
@@ -390,6 +405,120 @@ func (s Settings) Validate() error {
 // StateFile is the runtime record of the server dshctl started on this port.
 func (s Settings) StateFile() string {
 	return filepath.Join(s.StateDir, fmt.Sprintf(StateFileNamePattern, s.Port))
+}
+
+// StateSelection is how much of the state directory a command acts on. It is
+// the answer to "which instances did the operator name?" and it has two shapes:
+// the one port somebody asked for, or every instance this state directory
+// manages.
+//
+// The distinction is what makes `--port`/`DSH_PORT` a *selector* rather than a
+// setting: naming a port means "just this instance", while leaving it out means
+// "whatever is running here". The alternative — treating the configured port as
+// the only instance — is how a server started with `--port` became invisible to
+// `status` and unreachable by `stop`, leaving it to serve with no way to end it
+// through the tool.
+//
+// The port the configuration names is always part of the selection, even with no
+// record on disk, so a reporting command still describes it.
+type StateSelection struct {
+	// Ports are the instances to act on, in ascending order.
+	Ports []int
+	// Explicit reports that the port was named rather than left to the
+	// configuration, so a command must act on that port alone.
+	Explicit bool
+}
+
+// All reports whether the selection covers every managed instance.
+func (s StateSelection) All() bool { return !s.Explicit }
+
+// StateSelection resolves which instances a command acts on.
+//
+// A port that came from a flag or from the environment is a decision and wins:
+// the command acts on that port alone. Otherwise the command acts on the
+// configured port plus every port this state directory holds a record for — the
+// records are dshctl's own files, named after their port, so finding them
+// requires no guess and no probe.
+//
+// Searching the directory is not a write, and "no records" is the normal answer
+// on a machine that never started a server, so a reporting command can call this
+// without mutating anything.
+//
+// Returns:
+//   - the selection.
+//   - a failure-coded error when the state directory cannot be searched.
+func (s Settings) StateSelection() (StateSelection, error) {
+	if s.Sources.Port == "flag" || s.Sources.Port == "env" {
+		return StateSelection{Ports: []int{s.Port}, Explicit: true}, nil
+	}
+	matches, err := filepath.Glob(StateFileGlob(s.StateDir))
+	if err != nil {
+		return StateSelection{}, exitcode.Wrap(exitcode.Failure,
+			fmt.Errorf("无法定位状态目录 %s 中的运行记录: %w", s.StateDir, err))
+	}
+	// filepath.Glob reports a directory it cannot read as "no matches" rather
+	// than as an error, and "no matches" is exactly how this selection concludes
+	// that there is nothing else to stop. The two answers are therefore told
+	// apart here: a directory that exists and cannot be read is a failure, so
+	// that a server this command was asked to end can never be left behind
+	// because dshctl was not allowed to look for it.
+	if len(matches) == 0 {
+		if _, err := os.ReadDir(s.StateDir); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return StateSelection{}, exitcode.Wrap(exitcode.Failure,
+				fmt.Errorf("无法读取状态目录 %s: %w", s.StateDir, err))
+		}
+	}
+	ports := make([]int, 0, len(matches)+1)
+	for _, path := range matches {
+		port, ok := recordPort(filepath.Base(path))
+		if !ok {
+			// A name that matches the pattern but carries no usable port was
+			// not written by this build. No command could act on it, and failing
+			// every command because of one stray file would let a single
+			// leftover byte break the whole state directory.
+			continue
+		}
+		ports = append(ports, port)
+	}
+	ports = append(ports, s.Port)
+	return StateSelection{Ports: uniqueSorted(ports)}, nil
+}
+
+// stateFilePrefix and stateFileSuffix are the parts of StateFileNamePattern
+// around the port, which is what a discovered file name is read back with.
+const (
+	stateFilePrefix = "dsh-web-"
+	stateFileSuffix = ".state.json"
+)
+
+// recordPort reads the port a record file name carries.
+func recordPort(name string) (int, bool) {
+	if !strings.HasPrefix(name, stateFilePrefix) || !strings.HasSuffix(name, stateFileSuffix) {
+		return 0, false
+	}
+	digits := name[len(stateFilePrefix) : len(name)-len(stateFileSuffix)]
+	port, err := strconv.Atoi(digits)
+	if err != nil || port < MinPort || port > MaxPort {
+		return 0, false
+	}
+	return port, true
+}
+
+// uniqueSorted returns the values in ascending order without duplicates, so
+// every multi-instance report and every stop sequence has one deterministic
+// order.
+func uniqueSorted(values []int) []int {
+	sort.Ints(values)
+	if len(values) == 0 {
+		return values
+	}
+	unique := values[:1]
+	for _, value := range values[1:] {
+		if value != unique[len(unique)-1] {
+			unique = append(unique, value)
+		}
+	}
+	return unique
 }
 
 // StateFileGlob is the pattern that finds the runtime record of every port in a
@@ -581,22 +710,23 @@ func (s Settings) RecordRuntime(repoDir, nodeVersion string) (Wrote, error) {
 	}
 	// The platform home is only needed to recognise a copy of the checkout
 	// guess; a document that decides a checkout already needs no comparison.
+	//
+	// It is the home these settings were resolved with rather than the one in the
+	// environment now: the document was written by a run that spelled the guess
+	// with the former, and a home that changed in between would make its copy
+	// unrecognisable — silently skipping the write-back and leaving the next
+	// command to resolve a checkout nobody chose. An unresolvable home is the
+	// same conservative answer as before: the guess cannot be spelled, so a
+	// document that carries a checkout keeps it.
 	guess := ""
 	if !found {
-		home, err := paths.Home()
-		if err != nil {
-			return wrote, err
+		if s.Home == "" {
+			return wrote, errors.New("无法确定用户主目录: 运行环境未提供")
 		}
-		guess = DefaultRepoDir(home)
-		document = provisionedDocument(Default(home), guess)
-	} else if checkout != "" && document.RepoDir != nil {
-		// Without a platform home the built-in guess cannot be spelled, so the
-		// document's value cannot be recognised as a copy of it. Leaving the key
-		// alone is the conservative reading — it is never overwritten on the
-		// chance that it decided nothing — and the release is still recorded.
-		if home, homeErr := paths.Home(); homeErr == nil {
-			guess = DefaultRepoDir(home)
-		}
+		guess = DefaultRepoDir(s.Home)
+		document = provisionedDocument(Default(s.Home), guess)
+	} else if checkout != "" && document.RepoDir != nil && s.Home != "" {
+		guess = DefaultRepoDir(s.Home)
 	}
 
 	writeRepoDir := checkout != "" && !documentDecidesCheckout(document, guess)

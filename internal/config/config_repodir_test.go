@@ -324,6 +324,7 @@ var writeBackRepoRows = map[string]func(*testing.T){
 	"W9":  testRepodirW9LeavesTheKeyAloneWithoutAPlatformHome,
 	"W10": testRepodirW10TheDocumentStaysValidAndPrivate,
 	"W11": testRepodirW11LeavesAnUnreadableCheckoutAlone,
+	"W12": testRepodirW12UsesTheHomeTheSettingsWereResolvedWith,
 }
 
 // TestRepodirWriteBackMatrix runs every row of the write-back table.
@@ -594,6 +595,39 @@ func testRepodirW9LeavesTheKeyAloneWithoutAPlatformHome(t *testing.T) {
 	}
 }
 
+// testRepodirW12UsesTheHomeTheSettingsWereResolvedWith pins which home decides
+// whether a document is repeating the built-in guess.
+//
+// The guess is a fact about the machine the settings were resolved on, and the
+// settings carry it. Asking the environment again at write-back time asks a
+// second question with a possibly different answer — an exported HOME that moved
+// between the two makes the document's copy of the guess unrecognisable, and a
+// write-back that silently skips is worse than one that fails: the next command
+// resolves a checkout nobody chose, with nothing on disk saying why.
+func testRepodirW12UsesTheHomeTheSettingsWereResolvedWith(t *testing.T) {
+	w := newTestWorld(t)
+	w.writeDocument(`{"repoDir": ` + quote(w.guess()) + `}`)
+	settings := w.load(Overrides{})
+	// The environment moves after the command resolved its settings, which is
+	// what a different HOME in the next shell looks like to one process.
+	t.Setenv("HOME", filepath.Join(w.root, "elsewhere"))
+	t.Setenv("USERPROFILE", filepath.Join(w.root, "elsewhere"))
+
+	wrote, err := settings.RecordRuntime(w.checkout(), "")
+	if err != nil {
+		t.Fatalf("RecordRuntime: %v", err)
+	}
+	if !wrote.RepoDir {
+		t.Fatalf("wrote = %+v, want the checkout recorded: the document only repeats the guess", wrote)
+	}
+	if got := w.fields()["repoDir"]; got != w.checkout() {
+		t.Fatalf("document repoDir = %v, want %q", got, w.checkout())
+	}
+	if after := w.load(Overrides{}); after.RepoDir != w.checkout() {
+		t.Fatalf("reloaded RepoDir = %q, want the recorded checkout %q", after.RepoDir, w.checkout())
+	}
+}
+
 // testRepodirW10TheDocumentStaysValidAndPrivate pins the shape of what is left
 // on disk: valid JSON, owner-only permissions, no temporary residue, and a
 // document the loader accepts.
@@ -671,7 +705,7 @@ func TestRepodirTablesAreComplete(t *testing.T) {
 		"R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10", "R11", "R12",
 	}, resolutionRows)
 	assertTableRows(t, "W", []string{
-		"W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11",
+		"W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11", "W12",
 	}, writeBackRepoRows)
 }
 

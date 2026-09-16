@@ -491,17 +491,20 @@ func testWriteBackV9ReportsAStateDirectoryItCannotCreate(t *testing.T) {
 }
 
 // testWriteBackV11ReportsAMissingPlatformHome pins the last fallback: with no
-// document and no way to learn the home directory, there is nothing to render a
-// first document from, and that is reported rather than written somewhere
-// arbitrary.
+// document and no home directory to render a first one from, the write is
+// reported rather than done somewhere arbitrary.
+//
+// The settings carry the home they were resolved with, so the check is on the
+// settings rather than on the environment now: a home that disappeared after the
+// command resolved its settings says nothing about whether this run had one, and
+// treating it as absent would refuse a write the operator's own machine supports.
 func testWriteBackV11ReportsAMissingPlatformHome(t *testing.T) {
 	w := newTestWorld(t)
-	// os.UserHomeDir reads $HOME on Unix and %USERPROFILE% on Windows. The world
-	// redirects both into its own root, so they are cleared after it exists.
-	t.Setenv("HOME", "")
-	t.Setenv("USERPROFILE", "")
+	settings := w.settings()
+	settings.Home = ""
+	settings.RepoDir = ""
 
-	if _, err := w.settings().RecordRuntime("", "24.20.0"); err == nil {
+	if _, err := settings.RecordRuntime("", "24.20.0"); err == nil {
 		t.Fatal("with no settings document and no home directory the write must fail")
 	}
 }

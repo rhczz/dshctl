@@ -261,18 +261,18 @@ func TestTimeoutBoundsAreEnforcedOnEveryKey(t *testing.T) {
 }
 
 // TestProvisionReportsAMissingPlatformHome pins that generating the document
-// needs the same home a load does: with no home directory there is nothing to
-// render the defaults from, and that is reported rather than written somewhere
-// arbitrary — the state directory itself is derived from the same home.
+// needs a home to render the defaults from: without one there is nothing to
+// write, and a document holding a path derived from nowhere is exactly the file
+// every later run would honour.
+//
+// The settings carry the home they were resolved with, so this is the same
+// question a load answers, asked of the value the command is actually holding —
+// not of the environment, which may have moved since.
 func TestProvisionReportsAMissingPlatformHome(t *testing.T) {
 	w := newTestWorld(t)
-	settings, err := Load(w.vars.Getenv, Overrides{})
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	// os.UserHomeDir reads $HOME on Unix and %USERPROFILE% on Windows.
-	t.Setenv("HOME", "")
-	t.Setenv("USERPROFILE", "")
+	settings := w.settings()
+	settings.Home = ""
+	settings.RepoDir = ""
 
 	if err := settings.Provision(); err == nil {
 		t.Fatal("provisioning without a platform home must be reported")

@@ -546,6 +546,105 @@ func TestDescribeNamesEverySource(t *testing.T) {
 	}
 }
 
+// TestStateSelectionNamesTheInstancesACommandActsOn pins the model every
+// multi-instance command rests on: without a named port the selection is the
+// configured port plus every record the state directory holds, and a name that
+// matches the record pattern but carries no usable port is skipped rather than
+// allowed to break the whole directory.
+func TestStateSelectionNamesTheInstancesACommandActsOn(t *testing.T) {
+	stateDir := filepath.Join(t.TempDir(), "state")
+	if err := os.MkdirAll(stateDir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	write := func(name string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(stateDir, name), []byte("{}"), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	write(fmt.Sprintf(StateFileNamePattern, 3081))
+	write(fmt.Sprintf(StateFileNamePattern, 4123))
+	// A record for the configured port, a name no build wrote, and a file that
+	// only looks like a record: the first must not be duplicated, the other two
+	// must not be acted on.
+	write(fmt.Sprintf(StateFileNamePattern, 3080))
+	write("dsh-web-abc.state.json")
+	write("dsh-web-999999.state.json")
+	write("notes.txt")
+
+	cases := []struct {
+		name     string
+		port     int
+		source   string
+		want     []int
+		explicit bool
+	}{
+		{"configured port only", 3080, "file", []int{3080, 3081, 4123}, false},
+		{"no record for the configured port", 3999, "file", []int{3080, 3081, 3999, 4123}, false},
+		{"port from the flag", 3080, "flag", []int{3080}, true},
+		{"port from the environment", 3081, "env", []int{3081}, true},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			settings := Default(t.TempDir())
+			settings.StateDir = stateDir
+			settings.Port = testCase.port
+			settings.Sources.Port = testCase.source
+
+			selection, err := settings.StateSelection()
+			if err != nil {
+				t.Fatalf("StateSelection: %v", err)
+			}
+			if !equalPorts(selection.Ports, testCase.want) {
+				t.Fatalf("ports = %v, want %v", selection.Ports, testCase.want)
+			}
+			if selection.Explicit != testCase.explicit {
+				t.Fatalf("Explicit = %v, want %v", selection.Explicit, testCase.explicit)
+			}
+			if selection.All() == testCase.explicit {
+				t.Fatalf("All() = %v with Explicit = %v", selection.All(), selection.Explicit)
+			}
+		})
+	}
+}
+
+// TestStateSelectionFailsWhenTheDirectoryCannotBeSearched pins that a state
+// directory the process may not read is an error rather than an empty selection:
+// "I could not look" must never become "there is nothing here", because the
+// commands that ask are the ones that end servers and rewrite checkouts.
+func TestStateSelectionFailsWhenTheDirectoryCannotBeSearched(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("a directory that cannot be read is a Unix permission, and root ignores it")
+	}
+	stateDir := filepath.Join(t.TempDir(), "state")
+	if err := os.MkdirAll(stateDir, 0o700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.Chmod(stateDir, 0o000); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(stateDir, 0o700) })
+
+	settings := Default(t.TempDir())
+	settings.StateDir = stateDir
+	if _, err := settings.StateSelection(); err == nil {
+		t.Fatal("an unreadable state directory produced a selection")
+	}
+}
+
+// equalPorts reports whether two port lists are the same list.
+func equalPorts(got, want []int) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for index := range got {
+		if got[index] != want[index] {
+			return false
+		}
+	}
+	return true
+}
+
 // TestStateFileGlobFindsEveryPortsRecord is the regression test for a guard that
 // silently saw nothing: the glob used to be built by replacing the first "0" in
 // the whole joined path, so a state directory containing a digit (…/001/state,

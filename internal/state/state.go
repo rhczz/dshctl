@@ -1,4 +1,5 @@
-// Package state stores the runtime record of the Web server dshctl started.
+// Package state stores the runtime records of the Web servers dshctl started:
+// one file per port, so one state directory can manage several of them.
 //
 // The record exists to answer one question without ever guessing: "is this pid
 // still the process I started?" A bare pid cannot answer it, because an
@@ -37,6 +38,8 @@ const (
 	//
 	// A record exists only for a server that reached that point: it is written
 	// after the port answers, so there is no separate "starting" phase to record.
+	// (A start that is interrupted writes a wrapper record first so the process
+	// it launched is not left unowned; see internal/service.)
 	PhaseRunning Phase = "running"
 )
 
