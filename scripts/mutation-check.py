@@ -157,6 +157,13 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         ["./internal/config/"],
     ),
     (
+        "the selection is sorted by number instead of by what the command is about",
+        "internal/config/config.go",
+        "return StateSelection{Ports: configuredFirst(ports, s.Port)}, nil",
+        "sort.Ints(ports)\n\treturn StateSelection{Ports: configuredFirst(ports, ports[0])}, nil",
+        ["./internal/config/", "./internal/cli/"],
+    ),
+    (
         "a configured timeout is not range-checked before it becomes a duration",
         "internal/config/config.go",
         "\tif seconds > MaxTimeoutSeconds {\n\t\treturn 0, usagef(\"%s 不能超过 %d 秒: %d\", name, MaxTimeoutSeconds, seconds)\n\t}",
