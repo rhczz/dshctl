@@ -117,8 +117,8 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "the write-back replaces the operator's document with defaults",
         "internal/config/config.go",
-        "\tif !found {\n\t\thome, err := paths.Home()",
-        "\tif found {\n\t\thome, err := paths.Home()",
+        "\tif !found {\n\t\tif s.Home == \"\" {",
+        "\tif found {\n\t\tif s.Home == \"\" {",
         ["./internal/config/"],
     ),
     (
@@ -138,8 +138,8 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "a copy of the built-in guess counts as a decision",
         "internal/config/config.go",
-        "\t\tif resolved != guess {\n\t\t\tsettings.ConfiguredRepoDir = resolved\n\t\t}",
-        "\t\tsettings.ConfiguredRepoDir = resolved",
+        "\treturn resolved != guess\n}",
+        "\treturn resolved == guess\n}",
         ["./internal/config/", "./internal/service/", "./internal/cli/"],
     ),
     (

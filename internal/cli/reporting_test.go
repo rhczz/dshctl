@@ -28,9 +28,16 @@ func TestStatusJSONCarriesTheResolvedValues(t *testing.T) {
 	if result.code != 3 {
 		t.Fatalf("status exit = %d, want 3 for a stopped service (stderr = %s)", result.code, result.stderr)
 	}
-	var status map[string]any
-	if err := json.Unmarshal([]byte(result.stdout), &status); err != nil {
+	var document map[string]any
+	if err := json.Unmarshal([]byte(result.stdout), &document); err != nil {
 		t.Fatalf("status --json is not JSON: %v\n%s", err, result.stdout)
+	}
+	// The instance the command was about is the document itself; `ports` carries
+	// the others beside it, so a script that only knows the configured port keeps
+	// reading the same keys it always did.
+	status, ok := document["status"].(map[string]any)
+	if !ok {
+		t.Fatalf("status document has no status object: %s", result.stdout)
 	}
 
 	root := filepath.Dir(stateDir)
@@ -52,6 +59,20 @@ func TestStatusJSONCarriesTheResolvedValues(t *testing.T) {
 	}
 	if wantURL := "http://127.0.0.1:" + portString(t, status["port"]); status["url"] != wantURL {
 		t.Fatalf("url = %v, want %q", status["url"], wantURL)
+	}
+	// The list of instances is the same observation, so the one the command was
+	// about appears in it exactly once: a report that repeated it, or omitted it,
+	// would describe a machine with an instance that does not exist.
+	ports, ok := document["ports"].([]any)
+	if !ok || len(ports) != 1 {
+		t.Fatalf("ports = %v, want exactly the configured instance", document["ports"])
+	}
+	only, ok := ports[0].(map[string]any)
+	if !ok {
+		t.Fatalf("ports[0] = %v, want an object", ports[0])
+	}
+	if only["port"] != status["port"] {
+		t.Fatalf("ports[0].port = %v, want the configured %v", only["port"], status["port"])
 	}
 }
 

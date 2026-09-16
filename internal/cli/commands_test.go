@@ -656,9 +656,15 @@ func TestStatusJSONCarriesTheStateMachineFields(t *testing.T) {
 	if code != exitcode.NotRunning {
 		t.Fatalf("exit = %d, want %d (stderr = %s)", code, exitcode.NotRunning, stderr)
 	}
-	var decoded map[string]any
-	if err := json.Unmarshal([]byte(stdout), &decoded); err != nil {
+	var document map[string]any
+	if err := json.Unmarshal([]byte(stdout), &document); err != nil {
 		t.Fatalf("stdout is not JSON: %v\n%s", err, stdout)
+	}
+	// The instance the command was about is the document itself, so the keys a
+	// script already branches on keep their meaning; `ports` lists the others.
+	decoded, ok := document["status"].(map[string]any)
+	if !ok {
+		t.Fatalf("status JSON has no status object: %s", stdout)
 	}
 	for _, key := range []string{
 		"state", "url", "port", "ready", "recordLive", "recordStale",
@@ -670,6 +676,12 @@ func TestStatusJSONCarriesTheStateMachineFields(t *testing.T) {
 	}
 	if decoded["state"] != "stopped" {
 		t.Fatalf("state = %v, want stopped for an empty state directory", decoded["state"])
+	}
+	// A state directory with nothing in it has one instance to report: the port
+	// the configuration names, which was never started.
+	ports, ok := document["ports"].([]any)
+	if !ok || len(ports) != 1 {
+		t.Fatalf("ports = %v, want exactly the configured instance: %s", document["ports"], stdout)
 	}
 	// The token must not leak into a report about a server that is not running.
 	if token, ok := decoded["urlWithToken"]; ok && token != "" {

@@ -35,22 +35,30 @@ func Commands() []Command {
 			Summary: "停止 DSH Web",
 			Help: `停止 DSH Web。
 
-只有运行记录中记录、且启动时间仍然吻合的进程会被结束。端口被其他程序
-占用时只提示，绝不误杀。`,
+不加 --port 时停止本状态目录管理的每一个服务；--port 或 DSH_PORT 指定端口时
+只停止该端口上的服务。只有运行记录中记录、且启动时间仍然吻合的进程会被结束；
+端口被其他程序占用时只提示，绝不误杀。
+
+退出码: 0 成功, 4 不点名时有服务因无法确认归属而未被停止。`,
 			Run: runStop,
 		},
 		{
 			Name:    "restart",
 			Summary: "重启 DSH Web",
-			Help:    `在同一个操作锁内先停止再启动，其他 dshctl 操作无法插入两者之间。`,
-			Run:     runRestart,
+			Help: `重启 DSH Web。不加 --port 时重启本状态目录中正在运行的每一个服务，
+指定端口时只重启该端口。停与启在同一个操作锁内完成，其他 dshctl 操作无法
+插入两者之间；任何一个端口无法确认归属时会在停任何服务之前拒绝。`,
+			Run: runRestart,
 		},
 		{
 			Name:    "status",
 			Summary: "查看运行状态",
 			Help: `查看运行状态。端口是"有没有服务"的判据，运行记录是"是不是我们的"的判据。
 
-  --json   以 JSON 输出，便于脚本消费
+不加 --port 时报告本状态目录管理的每一个服务，第一个是配置里那个端口；指定
+端口时只报告该端口。
+
+  --json   以 JSON 输出，便于脚本消费(status 为配置端口，ports 为全部实例)
 
 退出码: 0 运行中(含启动中), 3 未运行或端口被其他进程占用, 4 端口无法探测。`,
 			Run: runStatus,
@@ -58,8 +66,12 @@ func Commands() []Command {
 		{
 			Name:    "url",
 			Summary: "打印带 token 的访问地址",
-			Help:    `打印 dsh web 最近一次公布的访问地址(含 token)，可直接粘贴到浏览器。`,
-			Run:     runURL,
+			Help: `打印 dsh web 最近一次公布的访问地址(含 token)，可直接粘贴到浏览器。
+
+不加 --port 时每个运行中的实例打印一行；指定端口时只打印该端口。某个实例在
+运行却还没公布地址时会在标准错误上说明。
+退出码: 0 至少打印了一个地址, 3 一个地址都没有。`,
+			Run: runURL,
 		},
 		{
 			Name:    "logs",
@@ -131,7 +143,8 @@ func Usage(w io.Writer) {
 	fmt.Fprint(w, `
 全局参数:
   --repo <路径>     覆盖仓库目录(环境变量 DSH_REPO_DIR)
-  --port <端口>     覆盖监听端口(环境变量 DSH_PORT)
+  --port <端口>     指定端口(环境变量 DSH_PORT); status/stop/restart/url 不带它
+                    时作用于本状态目录管理的全部服务
   --node <版本>     指定 Node 版本, 仅本次生效(环境变量 DSH_NODE_VERSION)
   --config <文件>   覆盖配置文件路径(环境变量 DSHCTL_CONFIG)
   -v, --verbose     打印生效配置及其来源
@@ -170,8 +183,14 @@ func runStop(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	_, err = newService(env).Stop(ctx)
-	return err
+	result, err := newService(env).StopAll(ctx)
+	if err != nil {
+		return err
+	}
+	if result.Unverifiable {
+		return exitcode.SilentExit(exitcode.Preflight)
+	}
+	return nil
 }
 
 // runRestart implements `dshctl restart`.
@@ -184,7 +203,7 @@ func runRestart(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	_, err = newService(env).Restart(ctx)
+	_, err = newService(env).RestartAll(ctx)
 	return err
 }
 
@@ -199,18 +218,22 @@ func runStatus(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	status, err := newService(env).Status(ctx)
+	statuses, err := newService(env).Statuses(ctx)
 	if err != nil {
 		return err
 	}
+	report := service.NewStatusReport(statuses)
 	if *asJSON {
-		if err := printJSON(env.Stdout, status); err != nil {
+		if err := printJSON(env.Stdout, report); err != nil {
 			return err
 		}
-	} else if err := service.PrintStatus(env.Stdout, status); err != nil {
+	} else if err := service.PrintStatuses(env.Stdout, env.Stderr, report); err != nil {
 		return err
 	}
-	if status.ServeExitCode() != exitcode.OK {
+	// The exit code answers the question the command was asked: the port the
+	// configuration names, or the one that was named on the command line. Other
+	// instances are reported beside it, never instead of it.
+	if report.Status.ServeExitCode() != exitcode.OK {
 		return exitcode.SilentExit(exitcode.NotRunning)
 	}
 	return nil
@@ -226,12 +249,26 @@ func runURL(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	address, err := newService(env).WebURL(ctx)
+	report, err := newService(env).URLReport(ctx)
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintln(env.Stdout, address)
-	return err
+	if err := service.PrintURLs(env.Stdout, env.Stderr, report); err != nil {
+		return err
+	}
+	// `url` succeeds exactly when it handed out an address, which is the promise
+	// a pipeline depends on: no output and exit 3 has to mean "there is nothing
+	// to talk to", or a script cannot tell a working server from a broken one.
+	// A port that has no address while another instance does is named on
+	// standard error rather than passed off as this command's answer.
+	if len(report.Addresses) > 0 {
+		return nil
+	}
+	if !report.Status.Owning() && !report.Status.Survivor {
+		return exitcode.New(exitcode.NotRunning,
+			"DSH Web 未在运行(%s)，没有可访问的地址", report.Status.Summary())
+	}
+	return exitcode.SilentExit(exitcode.NotRunning)
 }
 
 // runLogs implements `dshctl logs`.

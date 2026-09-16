@@ -332,8 +332,17 @@ func TestStatusJSONIsParseable(t *testing.T) {
 	if err := json.Unmarshal([]byte(stdout), &decoded); err != nil {
 		t.Fatalf("stdout is not JSON: %v\n%s", err, stdout)
 	}
-	if decoded["state"] == nil {
+	// The document is the report of the instance the command was about; `ports`
+	// carries every instance beside it.
+	status, ok := decoded["status"].(map[string]any)
+	if !ok {
+		t.Fatalf("status JSON has no status object: %s", stdout)
+	}
+	if status["state"] == nil {
 		t.Fatalf("status JSON has no state: %s", stdout)
+	}
+	if _, ok := decoded["ports"].([]any); !ok {
+		t.Fatalf("status JSON has no ports list: %s", stdout)
 	}
 }
 
