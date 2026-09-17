@@ -7,7 +7,7 @@ description: 决定 dshctl 一次改动该跑哪些门禁（本地只跑快检�
 
 ## 概要
 
-`make` 是门禁的唯一入口（`../../../Makefile`）。分工是硬规则：本地只跑快检与定点复现，**全量门禁只在 CI 跑，本地不执行 `make ci`**。快检是本机实测约 2 分钟的 `make check` 里的前三项（`fmt-check`、`conventions`、`vet`）加受影响包的 `go test`，全量（全套测试、race、覆盖率、hermetic、变异、交叉编译、workflow 形状）由 GitHub Actions 在三平台矩阵上跑——上游 DSH 仓库从不默认跑全量，本仓库现在同样。完整门禁表、耗时基线（CI 预算用）与失败定位见 `references/gates.md`；用行为探针回归 skill 与 AGENTS.md 的改动见 `references/effectiveness-probes.md`。
+`make` 是门禁的唯一入口（`../../../Makefile`）。分工是硬规则：本地只跑快检与定点复现，**全量门禁只在 CI 跑，本地不执行 `make ci`**。快检是本机实测约 2 分钟的 `make check` 里的前三项（`fmt-check`、`conventions`、`vet`）加受影响包的 `go test`，全量（全套测试、race、覆盖率、hermetic、变异、交叉编译）由 GitHub Actions 在三平台矩阵上跑——上游 DSH 仓库从不默认跑全量，本仓库现在同样。完整门禁表、耗时基线（CI 预算用）与失败定位见 `references/gates.md`；用行为探针回归 skill 与 AGENTS.md 的改动见 `references/effectiveness-probes.md`。
 
 ## 规则
 
