@@ -32,12 +32,13 @@ import (
 // would have noticed went through port-keyed helpers of their own, and a test
 // that reads the wrong file can pass while describing a machine that does not
 // exist — the failure mode this file exists to rule out.
+//
+// The port drawn below is a second port of the same fixture and cannot be the
+// one the fixture was built on: reserveFreePort never hands a port out twice
+// (see TestReserveFreePortDoesNotHandOutAPortTwice).
 func TestMovingTheFixturePortMovesItsRecordStore(t *testing.T) {
 	f := newFixture(t)
 	other := reserveFreePort(t)
-	for other == f.Settings.Port {
-		other = reserveFreePort(t)
-	}
 	configuredPort(t, f, other)
 
 	if f.Record.Path != f.Settings.StateFile() {

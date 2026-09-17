@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/host"
@@ -219,5 +220,64 @@ func TestStopClearsARecordThatDescribesNothing(t *testing.T) {
 	f.wantNoSignals(t)
 	if _, err := os.Lstat(f.Settings.StateFile()); !os.IsNotExist(err) {
 		t.Fatalf("a stale record survived the stop (err=%v)", err)
+	}
+}
+
+// TestStopTimesOutWhenTheTreeKeepsThePort pins the deadline on the wait that
+// follows a stop request.
+//
+// The recorded process answers the graceful request and is gone, but a child of
+// it still holds the port: the stop cannot report success, and it cannot wait
+// forever either. The wait is bounded by the stop budget, and the refusal names
+// the timeout so an operator knows the difference between "the server did not
+// let go" and "dshctl could not look".
+func TestStopTimesOutWhenTheTreeKeepsThePort(t *testing.T) {
+	f := newFixture(t)
+	// The wrapper the record names answers the graceful request by handing the
+	// port to a child of its own; only the force signal ends the wrapper. What
+	// is left holding the port is the tree, not the recorded process.
+	f.host.add(4321, "pnpm --dir repo dsh web", fixtureStartTime)
+	f.host.listen(4321)
+	f.host.mu.Lock()
+	wrapper := f.host.processes[4321]
+	wrapper.survivesGraceful = true
+	wrapper.onGraceful = func() {
+		f.host.mu.Lock()
+		defer f.host.mu.Unlock()
+		f.host.processes[4322] = &fakeProcess{
+			command:   "node apps/cli/src/bin.ts web",
+			startedAt: fixtureStartTime,
+			alive:     true,
+			group:     4321,
+		}
+		f.host.listener = 4322
+	}
+	f.host.mu.Unlock()
+	if err := f.Record.Save(state.Record{
+		PID: 4321, SpawnedPID: 4321, StartedAt: fixtureStartTime,
+		Port: f.Settings.Port, Phase: state.PhaseRunning,
+	}); err != nil {
+		t.Fatalf("save record: %v", err)
+	}
+	f.Settings.StopTimeout = 100 * time.Millisecond
+
+	started := time.Now()
+	_, err := f.Stop(context.Background())
+	elapsed := time.Since(started)
+
+	wantCode(t, err, exitcode.Failure)
+	wantContains(t, err, "停止超时")
+	// A bound, not a stopwatch: the budget is short and the fixture's own
+	// pacing is shorter, so a generous ceiling separates "the deadline was
+	// honoured" from "the wait never ended".
+	if elapsed > 5*time.Second {
+		t.Fatalf("stop took %s, want it bounded by a small multiple of the %s budget",
+			elapsed, f.Settings.StopTimeout)
+	}
+	if !f.host.isAlive(4322) {
+		t.Fatalf("pid %d alive = false, want the test premise: a descendant still holding the port", 4322)
+	}
+	if _, ok := f.stateRecord(t); !ok {
+		t.Fatal("the record is gone after a failed stop, want it kept so the operator can retry")
 	}
 }

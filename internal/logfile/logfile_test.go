@@ -442,10 +442,11 @@ func TestStreamFollowsNewContentAcrossRotation(t *testing.T) {
 	sink := &syncBuffer{}
 	ctx, cancel := newCancelContext()
 	done := make(chan error, 1)
+	attached := awaitSettled(t, logger)
 	go func() { done <- logger.Stream(ctx, sink) }()
-	// An existing file is followed from its end, so let the follower attach
-	// before writing what it must observe.
-	time.Sleep(50 * time.Millisecond)
+	// An existing file is followed from its end, so the follower has to have
+	// attached before the line it must observe is written.
+	attached()
 
 	if err := logger.Line("first"); err != nil {
 		t.Fatalf("Line: %v", err)
@@ -486,13 +487,13 @@ func TestStreamFollowsAFileCreatedLater(t *testing.T) {
 	sink := &syncBuffer{}
 	ctx, cancel := newCancelContext()
 	done := make(chan error, 1)
+	settled := awaitSettled(t, logger)
 	go func() { done <- logger.Stream(ctx, sink) }()
 
-	// Let the follower decide that the file does not exist yet. Writing before
-	// that decision is a race: the file may be created in the window between the
-	// follower's own check and its first stat, which makes the test flaky rather
-	// than the code wrong.
-	time.Sleep(50 * time.Millisecond)
+	// The follower has to have decided that the file does not exist yet: writing
+	// before that decision is a race the test would lose, not a defect in the
+	// code.
+	settled()
 	if err := logger.Line("born"); err != nil {
 		t.Fatalf("Line: %v", err)
 	}
@@ -515,9 +516,10 @@ func TestStreamFollowsAReplacedFile(t *testing.T) {
 	sink := &syncBuffer{}
 	ctx, cancel := newCancelContext()
 	done := make(chan error, 1)
+	attached := awaitSettled(t, logger)
 	go func() { done <- logger.Stream(ctx, sink) }()
 	// Attach at the end of the existing file first.
-	time.Sleep(50 * time.Millisecond)
+	attached()
 	if err := logger.Line("live"); err != nil {
 		t.Fatalf("Line: %v", err)
 	}
@@ -597,8 +599,9 @@ func TestStreamFromDoesNotApplyAPositionToANewGeneration(t *testing.T) {
 	sink := &syncBuffer{}
 	ctx, cancel := newCancelContext()
 	done := make(chan error, 1)
+	settled := awaitSettled(t, logger)
 	go func() { done <- logger.StreamFrom(ctx, sink, 10) }()
-	time.Sleep(200 * time.Millisecond) // several polls over the absent file
+	settled() // the follower has observed the absence and dropped the position
 
 	replacement := strings.Repeat("B", 21)
 	if err := os.WriteFile(path, []byte(replacement), 0o600); err != nil {

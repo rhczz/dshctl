@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,12 +16,11 @@ import (
 // The prune tests assert what a real repository makes of a real tree; silently
 // skipping them on a machine without git would leave the destructive half of
 // dshctl unverified while the build stays green, which is exactly the outcome a
-// test is supposed to prevent.
+// test is supposed to prevent. newCheckout's requireGit is the one place that
+// asks whether git is there, so every fixture answers that question the same
+// way; this helper adds the check that the fixture really is a worktree.
 func mustCheckout(t *testing.T) *checkout {
 	t.Helper()
-	if _, err := exec.LookPath("git"); err != nil {
-		t.Fatalf("the prune tests need a real git binary: %v", err)
-	}
 	box := newCheckout(t)
 	if !box.repo.IsGit() {
 		t.Fatalf("the fixture at %s is not a git worktree", box.dir)

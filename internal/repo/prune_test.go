@@ -2,7 +2,6 @@ package repo
 
 import (
 	"context"
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,10 +19,24 @@ type checkout struct {
 	repo Repo
 }
 
+// requireGit fails the test when the real git binary is missing.
+//
+// The fixture is a real repository and every prune decision is git's answer
+// about it, so a machine without git has nothing to assert here. Skipping
+// instead would leave the destructive half of dshctl unverified behind a green
+// build, which is the outcome mustCheckout documents in full.
+func requireGit(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Fatalf("prune tests need a real git executable: %v", err)
+	}
+}
+
 // newCheckout creates a git repository, commits what has been staged, and
 // returns it wrapped in a Repo.
 func newCheckout(t *testing.T) *checkout {
 	t.Helper()
+	requireGit(t)
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatalf("resolve temp dir: %v", err)
@@ -138,10 +151,9 @@ func (c *checkout) mkdir(relative string) {
 // fixture's commands may therefore only ever touch their own temporary
 // directory.
 //
-// A machine without git skips the test rather than failing it: the package's
-// tests need a real repository, but their absence says nothing about the code
-// under test. (The tests that must not pass silently when git is missing check
-// for it themselves before they get here.)
+// Every failure is a fixture failure. requireGit has already established that
+// git is installed, so "git is missing" is not an outcome this helper may turn
+// into a silent pass.
 func (c *checkout) git(args ...string) string {
 	c.t.Helper()
 	full := append([]string{"-c", "core.hooksPath="}, args...)
@@ -150,13 +162,6 @@ func (c *checkout) git(args ...string) string {
 	cmd.Env = fixtureGitEnv()
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		// Skip only when git itself is missing: that is the machine's absence,
-		// not the code's failure. Anything else — a commit refused, a broken
-		// index, a misconfiguration — is a real fixture failure and must be
-		// reported rather than silently turned into a green skip.
-		if errors.Is(err, exec.ErrNotFound) {
-			c.t.Skipf("git is unavailable: %v", err)
-		}
 		c.t.Fatalf("git %v failed (%v): %s", args, err, out)
 	}
 	return string(out)
@@ -302,12 +307,16 @@ func TestPruneIgnoresASymlinkedPackageDirectory(t *testing.T) {
 }
 
 // TestPruneKeepsTrackedPathsWithNonASCIICharacters is the regression test for
-// git's default path quoting: the escaped form never matched the real directory,
-// so a committed file was deleted.
+// reading git's tracked paths as its escaped form: the escaped name never
+// matched the real directory, so a committed file was deleted.
+//
+// The fixture carries no package.json on purpose: the entry scan rejects a
+// directory holding an unrecognised entry, so a manifest would save this
+// directory even with the tracked lookup deleted, and the test would pin
+// nothing.
 func TestPruneKeepsTrackedPathsWithNonASCIICharacters(t *testing.T) {
 	box := newCheckout(t)
 	box.write("vendor/fóo/lib/index.js", "committed source")
-	box.write("vendor/fóo/package.json", "{}")
 	box.commit()
 	// Residue appears next to the tracked source, as a cancelled build leaves it.
 	box.write("vendor/fóo/node_modules/dep/index.js", "x")
@@ -323,26 +332,30 @@ func TestPruneKeepsTrackedPathsWithNonASCIICharacters(t *testing.T) {
 	}
 }
 
-// TestPruneKeepsPathsWithSpacesAndQuotes pins the same quoting class for the
-// other characters git escapes: a path with spaces and shell metacharacters must
-// be compared literally instead of as its escaped form.
+// TestPruneKeepsPathsWithSpacesAndQuotes pins the same literal comparison for
+// the characters a shell or a quoted listing mangles: the candidate's directory
+// name holds a space, a single quote and an ampersand, and a tracked file inside
+// it is the only thing that can save it.
 //
 // The name carries a single quote rather than a double one because a Windows
 // file name cannot contain a double quote at all: the platform cannot represent
-// the path, so no test can stage it there.
+// the path, so no test can stage it there. The fixture carries no package.json,
+// for the reason given in TestPruneKeepsTrackedPathsWithNonASCIICharacters.
 func TestPruneKeepsPathsWithSpacesAndQuotes(t *testing.T) {
 	const weird = `vendor/weird 'na&me'`
 	box := newCheckout(t)
 	box.write(weird+"/lib/index.js", "committed source")
-	box.write(weird+"/package.json", "{}")
 	box.commit()
 	box.write(weird+"/node_modules/dep/index.js", "x")
 
+	if got := box.candidatePaths(); len(got) != 0 {
+		t.Fatalf("candidates = %v, want none for a tracked directory", got)
+	}
 	if _, err := box.repo.Prune(context.Background(), nil); err != nil {
 		t.Fatalf("Prune: %v", err)
 	}
 	if !box.exists(weird + "/lib/index.js") {
-		t.Fatal("a tracked file with an escaped path was deleted")
+		t.Fatal("a tracked file whose directory name carries spaces and quotes was deleted")
 	}
 }
 
@@ -389,6 +402,7 @@ func TestPruneSurvivesGlobMetacharactersInTheRepositoryPath(t *testing.T) {
 // newCheckoutIn creates a checkout at a caller-chosen path.
 func newCheckoutIn(t *testing.T, dir string) *checkout {
 	t.Helper()
+	requireGit(t)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir %s: %v", dir, err)
 	}

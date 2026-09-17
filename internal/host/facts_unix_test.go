@@ -55,6 +55,21 @@ func TestAliveReportsThisProcess(t *testing.T) {
 	}
 }
 
+// TestAliveTreatsAPermissionRefusedSignalAsExistence pins the EPERM boundary of
+// the existence probe: pid 1 exists on every Unix and belongs to another user,
+// so a non-root runner's kill(1, 0) is refused with EPERM — and that refusal is
+// proof the process is there, not proof that it is gone.
+//
+// The boundary is what keeps a server owned by a different user from being
+// reported as gone and restarted on top of itself. Root is not special-cased
+// here: where the signal is accepted instead, the same expression answers true
+// through its other branch, so the assertion holds for every runner.
+func TestAliveTreatsAPermissionRefusedSignalAsExistence(t *testing.T) {
+	if !New().Alive(context.Background(), 1) {
+		t.Fatal("Alive(1) reported pid 1 as gone: a permission refusal (EPERM, the answer a non-root runner gets) is evidence that the process exists")
+	}
+}
+
 // TestSignalRejectsNonsense pins that no signal is ever aimed at pid 0, which
 // would mean "every process in the group".
 func TestSignalRejectsNonsense(t *testing.T) {

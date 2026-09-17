@@ -83,6 +83,14 @@ type Service struct {
 	poll  time.Duration
 	// grace is how long a stop waits after a graceful request before forcing.
 	grace time.Duration
+	// fingerprint is how long a start waits for the process start time every
+	// later ownership decision is checked against. It is a field for the same
+	// reason as the two above: the test that reaches the degraded mode has to
+	// exhaust the budget, and spending the production budget to get there makes
+	// the suite slow without asserting anything about how long the wait is —
+	// that the production value is generous is pinned on its own. Zero means the
+	// production value, so a value built by hand stays correct.
+	fingerprint time.Duration
 	// port is the instance this value acts on. One state directory may manage
 	// several servers, so "the port" is part of an operation rather than of the
 	// configuration: atPort derives a value bound to another instance, and
@@ -141,7 +149,10 @@ func New(settings config.Settings, deps Dependencies) *Service {
 		sleep:     sleepCtx,
 		poll:      pollInterval,
 		grace:     terminateGrace,
-		port:      settings.Port,
+		// The production budget: a test shortens it through the field, and
+		// TestFingerprintTimeoutIsGenerous pins that this value stays generous.
+		fingerprint: fingerprintTimeout,
+		port:        settings.Port,
 	}
 }
 
@@ -152,6 +163,15 @@ func (s *Service) boundPort() int {
 		return s.port
 	}
 	return s.Settings.Port
+}
+
+// fingerprintBudget is how long a start waits for the process start time,
+// falling back to the production value for a value that was not built by New.
+func (s *Service) fingerprintBudget() time.Duration {
+	if s.fingerprint > 0 {
+		return s.fingerprint
+	}
+	return fingerprintTimeout
 }
 
 // atPort derives a value bound to another instance of the same installation.

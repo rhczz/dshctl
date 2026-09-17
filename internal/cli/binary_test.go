@@ -102,8 +102,19 @@ func runBinary(t *testing.T, args ...string) (invocation, string) {
 // it (the comparison is case-insensitive because Windows spells PATH as "Path").
 func runBinaryWith(t *testing.T, overrides map[string]string, args ...string) (invocation, string) {
 	t.Helper()
-	path := binary(t)
 	root := t.TempDir()
+	return runBinaryIn(t, root, overrides, args...), filepath.Join(root, "state")
+}
+
+// runBinaryIn runs the built binary with the hermetic environment rooted at a
+// directory the caller owns.
+//
+// It exists for the tests that have to seed the tree before the run and compare
+// it afterwards: a fixture created inside this helper cannot be snapshotted
+// first, and "the command wrote nothing" is a claim about the whole tree.
+func runBinaryIn(t *testing.T, root string, overrides map[string]string, args ...string) invocation {
+	t.Helper()
+	path := binary(t)
 	stateDir := filepath.Join(root, "state")
 	home := filepath.Join(root, "home")
 	if err := os.MkdirAll(home, 0o700); err != nil {
@@ -133,7 +144,7 @@ func runBinaryWith(t *testing.T, overrides map[string]string, args ...string) (i
 			t.Fatalf("running %v: %v", args, err)
 		}
 	}
-	return invocation{code: code, stdout: stdout.String(), stderr: stderr.String()}, stateDir
+	return invocation{code: code, stdout: stdout.String(), stderr: stderr.String()}
 }
 
 // setEnvironment replaces one variable in a KEY=VALUE list, or appends it when

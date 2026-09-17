@@ -62,10 +62,14 @@ func TestStartFailsFastWhenTheRealChildExitsImmediately(t *testing.T) {
 
 	// Use the real launcher, the real PATH lookup and the real probes rather than
 	// the fictional ones: the point of this test is what the operating system
-	// actually reports about a real child.
+	// actually reports about a real child. The fingerprint budget goes back to
+	// the production value for the same reason — the fixture shortens it so the
+	// tests of a fictional machine do not spend it, and a real process must be
+	// given the time the product gives it.
 	f.Spawn = nil
 	f.LookPath = run.LookPath
 	f.Host = host.NewWithLookPath(run.LookPath)
+	f.fingerprint = fingerprintTimeout
 	f.Settings.StartTimeout = 30 * time.Second
 
 	start := time.Now()
@@ -113,8 +117,10 @@ setTimeout(() => process.exit(0), 30000);
 	f.Settings.StartTimeout = 20 * time.Second
 	f.Dial = nil // the real server really listens
 	// Real probes and a real resolver: this test runs real processes, so every
-	// substitute that only knows about fictional ones has to go.
+	// substitute that only knows about fictional ones has to go — including the
+	// shortened fingerprint budget the fixture uses for those substitutes.
 	f.Host = host.NewWithLookPath(run.LookPath)
+	f.fingerprint = fingerprintTimeout
 	f.Node = &nodejs.Resolver{LookPath: run.LookPath, Glob: filepath.Glob, Stat: os.Stat}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

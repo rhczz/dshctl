@@ -46,3 +46,28 @@ func waitForText(t *testing.T, sink *syncBuffer, text string) {
 	}
 	t.Fatalf("timed out waiting for %q in %q", text, sink.String())
 }
+
+// awaitSettled makes the follower report when its first pass has fixed the
+// position it reads from, and returns a function that waits for that report.
+//
+// A test that writes the line it expects to be streamed has to know the pass
+// happened: the follower decides its starting position inside its own goroutine,
+// so sleeping first is a bet on the scheduler, and a loaded runner loses it.
+func awaitSettled(t *testing.T, logger *Logger) func() {
+	t.Helper()
+	settled := make(chan struct{}, 1)
+	logger.SetSettledHook(func() {
+		select {
+		case settled <- struct{}{}:
+		default:
+		}
+	})
+	return func() {
+		t.Helper()
+		select {
+		case <-settled:
+		case <-time.After(3 * time.Second):
+			t.Fatal("the follower never completed its first pass")
+		}
+	}
+}

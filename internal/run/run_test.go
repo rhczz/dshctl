@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -55,6 +57,12 @@ func TestRunRejectsAnAlreadyCancelledContext(t *testing.T) {
 
 // TestRunCancelReachesTheWholeProcessTree pins the behaviour pnpm needs: a tool
 // that started helpers must not leave them behind holding the build directory.
+//
+// The grandchild sleeps far longer than this test's patience, so it cannot
+// expire on its own while a broken cancellation waits: what the test measures is
+// the kill, not the clock. The shell's `wait` must not be what ends the run
+// either — the grandchild's disappearance is asserted on its own, before the
+// call is allowed to report anything.
 func TestRunCancelReachesTheWholeProcessTree(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("this fixture uses a POSIX shell")
@@ -68,26 +76,30 @@ func TestRunCancelReachesTheWholeProcessTree(t *testing.T) {
 	go func() {
 		finished <- NewRunner().Run(ctx, Command{
 			Name:   shell,
-			Args:   []string{"-c", "sleep 30 & echo $! > " + pidFile + "; wait"},
+			Args:   []string{"-c", "sleep 600 & echo $! > " + pidFile + "; wait"},
 			Stdout: io.Discard,
 			Stderr: io.Discard,
 		})
 	}()
 
 	grandchild := waitForPID(t, pidFile)
+	// The cleanup is the test's own, not the code under test: a cancellation
+	// that failed must not leave a ten-minute sleeper behind for the rest of
+	// the run.
+	t.Cleanup(func() { killProcess(t, shell, grandchild) })
 	cancel()
-	if err := <-finished; !errors.Is(err, context.Canceled) {
-		t.Fatalf("a cancelled run must report cancellation, got %v", err)
-	}
 
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if !processExists(grandchild) {
-			return
-		}
-		time.Sleep(20 * time.Millisecond)
+	if !waitForGone(grandchild, 5*time.Second) {
+		t.Fatalf("grandchild %d survived the cancellation, want the whole process tree ended", grandchild)
 	}
-	t.Fatalf("grandchild %d survived the cancellation", grandchild)
+	select {
+	case err := <-finished:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("a cancelled run must report cancellation, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Run did not return after the cancellation, want it to report context.Canceled")
+	}
 }
 
 // TestCaptureCollectsBothStreams pins the collector, including that it tees to
@@ -285,6 +297,30 @@ func requireShell(t *testing.T) string {
 		t.Skip("sh is unavailable")
 	}
 	return shell
+}
+
+// waitForGone polls until a pid no longer exists, or the budget runs out.
+func waitForGone(pid int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if !processExists(pid) {
+			return true
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return !processExists(pid)
+}
+
+// killProcess ends a pid the fixture started, through the shell the fixture
+// already resolved. It is the test's own cleanup: production code must end the
+// tree on its own, and this is what keeps a failed cancellation from leaving a
+// child behind.
+func killProcess(t *testing.T, shell string, pid int) {
+	t.Helper()
+	if pid <= 0 {
+		return
+	}
+	_ = exec.Command(shell, "-c", "kill -9 "+strconv.Itoa(pid)).Run()
 }
 
 // waitForPID reads the pid a scripted shell wrote, or fails the test.

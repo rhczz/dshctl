@@ -66,9 +66,9 @@ type PruneReport struct {
 //     removal outside the checkout.
 //   - A candidate whose parent holds a package.json is a vendor archive or a
 //     build product rather than residue, and is left alone.
-//   - Tracking is decided by git with core.quotePath disabled and NUL-separated
-//     output, so a path with non-ASCII characters is compared literally instead
-//     of as its escaped form.
+//   - Tracking is decided by git's NUL-separated output, which emits paths raw,
+//     so a path with non-ASCII characters is compared literally instead of as
+//     its escaped form.
 //   - The pattern walk uses io/fs on an opened root, so glob metacharacters in
 //     the repository path cannot redirect the walk to another tree.
 //
@@ -115,8 +115,14 @@ func (r Repo) PruneCandidates(ctx context.Context) ([]Candidate, error) {
 // trackedDirectories returns every directory inside the prune roots that still
 // holds a tracked file. One git invocation answers for the whole tree; asking
 // per package would spawn a process per package on every build.
+//
+// The NUL-separated form is required, not cosmetic: without `-z` git quotes a
+// path holding non-ASCII bytes, and the quoted name never matches the directory
+// the walk produced. `core.quotePath` is deliberately not passed: it has no
+// effect on `-z` output, so setting it would be configuration that decides
+// nothing.
 func (r Repo) trackedDirectories(ctx context.Context) (map[string]struct{}, error) {
-	args := []string{"-C", r.Dir, "-c", "core.quotePath=false", "ls-files", "-z", "--"}
+	args := []string{"-C", r.Dir, "ls-files", "-z", "--"}
 	for _, area := range pruneAreas {
 		args = append(args, area.name)
 	}

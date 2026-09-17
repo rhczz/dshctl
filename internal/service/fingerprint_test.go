@@ -22,10 +22,13 @@ func TestStartWithoutAFingerprintStillWorksAndSaysSo(t *testing.T) {
 	f.Host = unknownFingerprint{inner: f.Host}
 	f.host.spontaneouslyServed = true
 	f.Settings.StartTimeout = 2 * time.Second
-	// The fingerprint retry is a real budget, and this host never produces one,
-	// so the start spends that budget before recording the degraded mode. That is
-	// the behaviour under test: it is slow but it works. The context is wider
-	// than the budget so the assertion is about the outcome, not the clock.
+	// The fixture shortens the fingerprint budget: this host never produces a
+	// start time, so the start spends the whole budget before recording the
+	// degraded mode, and that is the behaviour under test. How long the
+	// production budget is belongs to TestFingerprintTimeoutIsGenerous, not
+	// here; what matters is that the budget is exhausted and the start then
+	// proceeds. The context is wider than the budget so the assertion is about
+	// the outcome, not the clock.
 	ctx, cancel := context.WithTimeout(context.Background(), fingerprintTimeout+10*time.Second)
 	defer cancel()
 

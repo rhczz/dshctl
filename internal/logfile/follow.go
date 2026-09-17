@@ -30,7 +30,7 @@ func (l *Logger) StreamFrom(ctx context.Context, w io.Writer, position int64) er
 	if interval <= 0 {
 		interval = defaultPoll
 	}
-	return followFrom(ctx, l.Path, w, interval, position)
+	return followFrom(ctx, l.Path, w, interval, position, l.settled)
 }
 
 // Stream follows this logger's file and writes everything appended after the
@@ -52,11 +52,6 @@ func (l *Logger) Stream(ctx context.Context, w io.Writer) error {
 	return l.StreamFrom(ctx, w, 0)
 }
 
-// follow implements the tail -F loop from position 0.
-func follow(ctx context.Context, path string, w io.Writer, interval time.Duration) error {
-	return followFrom(ctx, path, w, interval, 0)
-}
-
 // followFrom implements the tail -F loop.
 //
 // The handle lives for one read and is closed again before the poll sleeps. A
@@ -65,7 +60,13 @@ func follow(ctx context.Context, path string, w io.Writer, interval time.Duratio
 // terminal would stop the operator (or a rotation script) from replacing the log
 // in another. The file's identity is what carries the follow across ticks, and
 // the position is what decides where the next read starts.
-func followFrom(ctx context.Context, path string, w io.Writer, interval time.Duration, position int64) error {
+//
+// settled, when not nil, is called once after the first pass through the loop
+// has finished. The starting position is fixed by then — the first attach has
+// happened, or an absent file has been observed — so anything written after the
+// call is streamed. It exists for tests, which otherwise have to guess how long
+// the follower's goroutine needs to be scheduled.
+func followFrom(ctx context.Context, path string, w io.Writer, interval time.Duration, position int64, settled func()) error {
 	var (
 		file *os.File
 		// read is the file the last read came from. It outlives the handle on
@@ -91,7 +92,15 @@ func followFrom(ctx context.Context, path string, w io.Writer, interval time.Dur
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	for {
+	for pass := 0; ; pass++ {
+		// The first pass has fixed where this follow reads from — its attach
+		// happened, or the file was observed to be absent — so a caller told
+		// about it can write content that is guaranteed to be streamed.
+		if pass == 1 && settled != nil {
+			settled()
+			settled = nil
+		}
+
 		if err := ctx.Err(); err != nil {
 			return err
 		}

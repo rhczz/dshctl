@@ -53,6 +53,12 @@ type Logger struct {
 	Now func() time.Time
 	// poll is how often Follow re-checks the file; 0 uses defaultPoll.
 	poll time.Duration
+	// settled, when set, runs once after the follower's first pass has fixed the
+	// position it reads from. It exists for tests: where a follow starts is
+	// decided inside the follower's own goroutine, so a test that writes the
+	// line it expects to be streamed would otherwise be betting on when that
+	// goroutine is scheduled.
+	settled func()
 }
 
 // New returns a logger for path.
@@ -66,6 +72,10 @@ func (l *Logger) SetPollInterval(interval time.Duration) {
 		l.poll = interval
 	}
 }
+
+// SetSettledHook registers a function to run once, after the follower's first
+// pass has fixed the position it reads from; it exists for tests.
+func (l *Logger) SetSettledHook(hook func()) { l.settled = hook }
 
 // BackupPath is where the previous generation of the log is kept.
 func (l *Logger) BackupPath() string { return l.Path + ".old" }

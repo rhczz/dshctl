@@ -640,9 +640,12 @@ func (s *Service) pnpmPath() (string, error) {
 //
 // The budget is generous on purpose: this value is the fingerprint every later
 // ownership decision rests on, so waiting a moment for it is cheaper than
-// proceeding without it.
+// proceeding without it. The wait itself is not the contract — reaching the
+// degraded mode after the budget is — so a test may shorten the budget through
+// the service field while the production value stays as pinned by
+// TestFingerprintTimeoutIsGenerous.
 func (s *Service) processStartTime(ctx context.Context, pid int, exited func(context.Context) bool) int64 {
-	deadline := time.Now().Add(fingerprintTimeout)
+	deadline := time.Now().Add(s.fingerprintBudget())
 	for {
 		// A process that has already ended will never yield a start time, and
 		// waiting the whole budget for one would turn a fast failure into a slow

@@ -12,13 +12,17 @@ unchanged is reported as a bug in this script rather than as a passing check:
 a mutation that never applied proves nothing.
 
 Usage:
-    python3 scripts/mutation-check.py [--list] [--only NAME] [-v]
+    python3 scripts/mutation-check.py [--list] [--only NAME] [--shard I/N] [-v]
+
+The sweep is partitioned deterministically by index, so it can run as N parallel
+CI jobs without either of them covering the same mutation or leaving one out.
 """
 
 from __future__ import annotations
 
 import argparse
 import pathlib
+import re
 import signal
 import subprocess
 import sys
@@ -282,6 +286,118 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         "",
         ["./internal/service/"],
     ),
+    (
+        "a fingerprint that could not be read is reported as a readable one",
+        "internal/service/start.go",
+        "\t\tif time.Now().After(deadline) {\n\t\t\treturn 0\n\t\t}",
+        "\t\tif time.Now().After(deadline) {\n\t\t\treturn time.Now().Unix()\n\t\t}",
+        ["./internal/service/"],
+    ),
+    (
+        "following a log replays everything already in it",
+        "internal/logfile/follow.go",
+        "skipExisting = position == 0 && fileExists(path)",
+        "skipExisting = false",
+        ["./internal/logfile/"],
+    ),
+    (
+        "the detached child stays in dshctl's session",
+        "internal/detach/detach_unix.go",
+        "return &syscall.SysProcAttr{Setsid: true}",
+        "return &syscall.SysProcAttr{}",
+        ["./internal/detach/"],
+    ),
+    (
+        "the detachment attribute never reaches the kernel",
+        "internal/detach/detach.go",
+        "func Start(cmd *exec.Cmd) (*Process, error) {\n\tif err := cmd.Start(); err != nil {",
+        "func Start(cmd *exec.Cmd) (*Process, error) {\n\tcmd.SysProcAttr = nil\n\tif err := cmd.Start(); err != nil {",
+        ["./internal/detach/"],
+    ),
+    (
+        "a permission refusal is read as the process being gone",
+        "internal/host/ports_unix.go",
+        "return err == nil || errors.Is(err, syscall.EPERM)",
+        "return err == nil || errors.Is(err, syscall.EINTR)",
+        ["./internal/host/"],
+    ),
+    (
+        "probing whether a process exists ends it",
+        "internal/host/ports_unix.go",
+        "\terr = process.Signal(syscall.Signal(0))",
+        "\terr = process.Kill()",
+        ["./internal/host/"],
+    ),
+    (
+        "a directory git still tracks is treated as residue",
+        "internal/repo/prune.go",
+        "\tif _, ok := tracked[path.Clean(relative)]; ok {\n\t\treturn Candidate{}, false\n\t}\n",
+        "",
+        ["./internal/repo/"],
+    ),
+    (
+        "git's tracked paths are read in their quoted form",
+        "internal/repo/prune.go",
+        '\targs := []string{"-C", r.Dir, "ls-files", "-z", "--"}',
+        '\targs := []string{"-C", r.Dir, "ls-files", "--"}',
+        ["./internal/repo/"],
+    ),
+    (
+        "a lock that was never won is reported as a generic failure",
+        "internal/service/observe.go",
+        "func withLockValue[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {\n\tvar zero T\n\theld, err := lock.Acquire(ctx, s.Settings.LockFile(), s.Settings.LockTimeout)\n\tif err != nil {\n\t\treturn zero, exitcode.Wrap(exitcode.LockTimeout, err)\n\t}",
+        "func withLockValue[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {\n\tvar zero T\n\theld, err := lock.Acquire(ctx, s.Settings.LockFile(), s.Settings.LockTimeout)\n\tif err != nil {\n\t\treturn zero, exitcode.Wrap(exitcode.Failure, err)\n\t}",
+        ["./internal/service/"],
+    ),
+    (
+        "a multi-instance operation no longer serializes on the state directory",
+        "internal/service/observe.go",
+        "func stickyLock[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {\n\tvar zero T\n\theld, err := lock.Acquire(ctx, s.Settings.LockFile(), s.Settings.LockTimeout)\n\tif err != nil {\n\t\treturn zero, exitcode.Wrap(exitcode.LockTimeout, err)\n\t}\n\tdefer held.Release()",
+        "func stickyLock[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {\n\tvar zero T",
+        ["./internal/service/"],
+    ),
+    (
+        "a bare stop covers only the configured instance",
+        "internal/service/ports.go",
+        "\t\tvar result StopAllResult\n\t\tfor _, port := range selection.Ports {",
+        "\t\tvar result StopAllResult\n\t\tfor _, port := range selection.Ports[:1] {",
+        ["./internal/service/"],
+    ),
+    (
+        "the stop deadline is a hundred times more patient than the budget",
+        "internal/service/observe.go",
+        "func (s *Service) waitForStopped(ctx context.Context, timeout time.Duration) error {\n\tdeadline := time.Now().Add(timeout)",
+        "func (s *Service) waitForStopped(ctx context.Context, timeout time.Duration) error {\n\tdeadline := time.Now().Add(100 * timeout)",
+        ["./internal/service/"],
+    ),
+    (
+        "the fingerprint absorbs no clock granularity",
+        "internal/service/observe.go",
+        "\tfingerprintTolerance = 5 * time.Second",
+        "\tfingerprintTolerance = 0",
+        ["./internal/service/"],
+    ),
+    (
+        "the port fixture hands a role to a port it already used",
+        "internal/service/fake_test.go",
+        "\t\tif reservedPorts.handed[port] {\n\t\t\tcontinue\n\t\t}\n\t\tif reservedPorts.handed == nil {\n\t\t\treservedPorts.handed = map[int]bool{}\n\t\t}\n\t\treservedPorts.handed[port] = true\n\t\treturn port",
+        "\t\treturn port",
+        ["./internal/service/"],
+    ),
+    (
+        "a cancelled run kills only the process it started",
+        "internal/run/process_unix.go",
+        "\t_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)",
+        "\t_ = syscall.Kill(cmd.Process.Pid, syscall.SIGKILL)",
+        ["./internal/run/"],
+    ),
+    (
+        "a sibling manifest no longer protects a subtree from pruning",
+        "internal/repo/prune.go",
+        "\tif hasSiblingManifest(rootFS, relative) {\n\t\t// The parent ships its own package.json, so this directory is part of\n\t\t// the project rather than leftovers from a deleted package.\n\t\treturn Candidate{}, false\n\t}\n",
+        "",
+        ["./internal/repo/"],
+    ),
 ]
 
 
@@ -290,7 +406,9 @@ def run(packages: list[str]) -> tuple[str, str]:
 
     Returns one of:
       "passed"  — the suite accepted the mutated program.
-      "caught"  — a test failed, which is the evidence this script is after.
+      "caught"  — the suite went red, which is the evidence this script is after.
+                  A test binary that dies by signal counts: it did not survive
+                  the mutation, and only a build failure proves nothing.
       "invalid" — the program no longer builds, or something else went wrong
                   before a test could run. That is not evidence: a mutation that
                   does not compile is not a decision the suite pinned.
@@ -309,17 +427,56 @@ def run(packages: list[str]) -> tuple[str, str]:
         # compiled. Reporting that as a surviving mutation would blame the suite
         # for the environment.
         return "environment", output
+    # A build failure is decided first: its output also carries FAIL lines, and
+    # a mutation that never compiled proves nothing about the suite.
     if "build failed" in output or "cannot use" in output or "[build failed]" in output:
         return "invalid", output
     if "--- FAIL" in output or "panic:" in output or "test timed out" in output:
         return "caught", output
+    if re.search(r"^FAIL\s+\S+", output, re.MULTILINE) or "signal: " in output:
+        # The suite failed without a per-test line: the test binary itself was
+        # killed, or it aborted. A mutation like "probing a process ends it"
+        # takes the whole binary down with the test that observes it, and that
+        # is the suite noticing — classifying it as invalid would report a
+        # pinned decision as unpinned.
+        return "caught", output
     return "invalid", output
+
+
+def select(entries: list, only: str | None, shard: str | None) -> list:
+    """Return the mutations this invocation owns, in list order.
+
+    The partition is index modulo the shard count: every entry belongs to exactly
+    one shard, the union of all shards is the whole list, and adding an entry
+    never moves an existing one to a different shard. That is what makes a sharded
+    sweep the same gate as a serial one rather than a sample of it.
+    """
+    selected = [entry for entry in entries if not only or only in entry[0]]
+    if not selected:
+        print(f"no mutation matches {only!r}", file=sys.stderr)
+        sys.exit(2)
+    if shard is None:
+        return selected
+    try:
+        index, count = shard.split("/", 1)
+        index, count = int(index), int(count)
+    except ValueError:
+        print(f"--shard wants I/N, not {shard!r}", file=sys.stderr)
+        sys.exit(2)
+    if count < 1 or not 1 <= index <= count:
+        print(f"--shard {shard!r} is out of range: I must be within 1..N", file=sys.stderr)
+        sys.exit(2)
+    return [entry for position, entry in enumerate(selected) if position % count == index - 1]
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="list the mutations and exit")
     parser.add_argument("--only", help="run just the mutation whose name contains this")
+    parser.add_argument(
+        "--shard",
+        help="run one deterministic partition of the sweep, written I/N (CI runs all N in parallel)",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="show the failing output")
     arguments = parser.parse_args()
 
@@ -328,10 +485,16 @@ def main() -> int:
             print(f"{name}\n    {path} -> {', '.join(packages)}")
         return 0
 
-    selected = [entry for entry in MUTATIONS if not arguments.only or arguments.only in entry[0]]
-    if not selected:
-        print(f"no mutation matches {arguments.only!r}", file=sys.stderr)
+    if arguments.only and arguments.shard:
+        # The two answer different questions ("does this one decision hold?" and
+        # "which part of the sweep am I?"), and combining them would make a
+        # command whose coverage depends on arithmetic nobody reads back.
+        print("--only and --shard are alternatives, not a combination", file=sys.stderr)
         return 2
+
+    selected = select(MUTATIONS, arguments.only, arguments.shard)
+    if arguments.shard:
+        print(f"shard {arguments.shard}: {len(selected)} of {len(MUTATIONS)} mutations")
 
     survivors: list[str] = []
     for name, path, original, mutated, packages in selected:
@@ -381,7 +544,8 @@ def main() -> int:
     if survivors:
         print(f"\n{len(survivors)} mutation(s) survived or were invalid: the suite does not pin them", file=sys.stderr)
         return 1
-    print(f"\nall {len(selected)} mutations were caught")
+    scope = f" in shard {arguments.shard}" if arguments.shard else ""
+    print(f"\nall {len(selected)} mutations{scope} were caught")
     return 0
 
 

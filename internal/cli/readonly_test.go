@@ -1,8 +1,12 @@
 package cli
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -69,6 +73,136 @@ func TestReportingCommandsLeaveNoTrace(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestReportingCommandsLeaveTheTreeUnchanged runs every reporting command inside
+// a tree that already holds a settings document, and asserts the whole tree is
+// byte-identical afterwards.
+//
+// The test above asserts that two paths stayed absent; this one asserts the
+// stronger property the README promises — a read-only command writes nowhere —
+// over every path the run could touch: the working directory, the state
+// directory and the throwaway home at once. The document matters: a command that
+// rewrites the operator's config.json in place, or drops a lock file beside it,
+// leaves the absence checks green, and an in-place rewrite is exactly the shape
+// of a "read-only" regression that survives a smoke test.
+func TestReportingCommandsLeaveTheTreeUnchanged(t *testing.T) {
+	const document = "{\n  \"repoDir\": \"/pre-existing\",\n  \"port\": 3080\n}\n"
+	cases := [][]string{
+		{"status"},
+		{"status", "--json"},
+		{"url"},
+		{"logs"},
+		{"logs", "--build"},
+		{"doctor"},
+		{"doctor", "--json"},
+		{"version"},
+		{"version", "--json"},
+		{"--help"},
+		{"-v", "status"},
+	}
+	for _, args := range cases {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			root := t.TempDir()
+			stateDir := filepath.Join(root, "state")
+			// The home is created here rather than by the runner helper: it has
+			// to exist before the snapshot, or the snapshot would report the
+			// fixture's own directory as the command's doing.
+			for _, directory := range []string{stateDir, filepath.Join(root, "home")} {
+				if err := os.MkdirAll(directory, 0o700); err != nil {
+					t.Fatalf("mkdir %s: %v", directory, err)
+				}
+			}
+			documentPath := filepath.Join(stateDir, "config.json")
+			if err := os.WriteFile(documentPath, []byte(document), 0o600); err != nil {
+				t.Fatalf("write the settings document: %v", err)
+			}
+
+			before := treeSnapshot(t, root)
+			result := runBinaryIn(t, root, nil, args...)
+			// The exit code belongs to the sibling test, which pins it per
+			// command; this one is about what the run left behind, so it only
+			// rules out a crash that would make the comparison meaningless.
+			if result.code == 2 {
+				t.Fatalf("%v exit = 2, which is a usage error, not a reporting run (stderr = %s)", args, result.stderr)
+			}
+			if diff := firstTreeDifference(before, treeSnapshot(t, root)); diff != "" {
+				t.Fatalf("%v changed the tree it ran in:\n%s", args, diff)
+			}
+			// The document is checked by content as well as by hash: the
+			// failure has to say what the command did to it, not only that a
+			// digest moved.
+			contents, err := os.ReadFile(documentPath)
+			if err != nil {
+				t.Fatalf("the settings document is gone after %v: %v", args, err)
+			}
+			if string(contents) != document {
+				t.Fatalf("%v rewrote the settings document:\ngot  %q\nwant %q", args, contents, document)
+			}
+		})
+	}
+}
+
+// treeSnapshot renders every entry under root as a comparable line, so two
+// snapshots can be compared without a directory-diff dependency.
+func treeSnapshot(t *testing.T, root string) []string {
+	t.Helper()
+	var lines []string
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		line := relative + " " + info.Mode().String()
+		if !entry.IsDir() {
+			contents, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			line += " " + strconv.Itoa(len(contents)) + " " + digest(contents)
+		}
+		lines = append(lines, line)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("snapshotting %s: %v", root, err)
+	}
+	sort.Strings(lines)
+	return lines
+}
+
+// firstTreeDifference describes the first way two snapshots disagree, or returns
+// an empty string when they are identical.
+func firstTreeDifference(before, after []string) string {
+	seen := map[string]bool{}
+	for _, line := range before {
+		seen[line] = true
+	}
+	for _, line := range after {
+		if !seen[line] {
+			return "  appeared or changed: " + line
+		}
+		delete(seen, line)
+	}
+	for _, line := range before {
+		if seen[line] {
+			return "  disappeared or changed: " + line
+		}
+	}
+	return ""
+}
+
+// digest is a short content hash, enough to notice any rewrite.
+func digest(contents []byte) string {
+	sum := sha256.Sum256(contents)
+	return hex.EncodeToString(sum[:8])
 }
 
 // TestMutatingCommandsDoProvision pins the other side of the boundary, so the

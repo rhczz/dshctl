@@ -732,6 +732,11 @@ func newFixture(t *testing.T) *fixture {
 		},
 		poll:  time.Millisecond,
 		grace: 20 * time.Millisecond,
+		// A fictional machine yields a start time immediately or never, so the
+		// production budget would only ever be spent by the test that has to
+		// exhaust it. The budget's own generosity is pinned separately, in
+		// TestFingerprintTimeoutIsGenerous.
+		fingerprint: 20 * time.Millisecond,
 	}
 	return &fixture{Service: svc, host: h, root: root, repo: repoDir, state: stateDir, out: out, errOut: errOut}
 }
@@ -807,6 +812,31 @@ func TestFakeHostNeverReusesAPid(t *testing.T) {
 			}
 			seen[process.pid] = process.role
 		}
+	}
+}
+
+// TestReserveFreePortDoesNotHandOutAPortTwice pins the fixture's own identity
+// rule for ports: one port, one role.
+//
+// It asserts against the registry rather than against a run of draws. The
+// kernel normally answers with a different ephemeral port every time, so a test
+// that only compared its answers could pass without any bookkeeping at all; the
+// registry is what makes the promise hold when it does not.
+func TestReserveFreePortDoesNotHandOutAPortTwice(t *testing.T) {
+	f := newFixture(t)
+	handed := map[int]bool{f.Settings.Port: true}
+	if !portWasHandedOut(f.Settings.Port) {
+		t.Fatalf("port %d is not registered, want every handed-out port remembered", f.Settings.Port)
+	}
+	for draw := 0; draw < 32; draw++ {
+		port := reserveFreePort(t)
+		if handed[port] {
+			t.Fatalf("port %d was handed out twice, want every draw to be a port of its own", port)
+		}
+		if !portWasHandedOut(port) {
+			t.Fatalf("port %d is not registered, want every handed-out port remembered", port)
+		}
+		handed[port] = true
 	}
 }
 
@@ -974,19 +1004,55 @@ func hermeticGitEnv(dir string) []string {
 	)
 }
 
-// reserveFreePort returns a TCP port that was free a moment ago.
+// reserveFreePort returns a TCP port that was free a moment ago and that no
+// earlier call in this process has handed out.
+//
+// The tests that start several servers give each port a role that must not
+// collide, and the fixture's own configured port is one of those roles: a
+// second call returning it would make every assertion about it vacuous, and on
+// a machine where the kernel hands a just-released ephemeral port back the
+// failure it produces reads like a dshctl defect. Remembering every answer
+// costs nothing and removes the possibility.
 func reserveFreePort(t *testing.T) int {
 	t.Helper()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("reserve a port: %v", err)
+	reservedPorts.Lock()
+	defer reservedPorts.Unlock()
+	for attempt := 0; attempt < 64; attempt++ {
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("reserve a port: %v", err)
+		}
+		port := listener.Addr().(*net.TCPAddr).Port
+		if err := listener.Close(); err != nil {
+			t.Fatalf("release the port: %v", err)
+		}
+		if reservedPorts.handed[port] {
+			continue
+		}
+		if reservedPorts.handed == nil {
+			reservedPorts.handed = map[int]bool{}
+		}
+		reservedPorts.handed[port] = true
+		return port
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
-	if err := listener.Close(); err != nil {
-		t.Fatalf("release the port: %v", err)
-	}
-	return port
+	t.Fatal("no unused port could be reserved")
+	return 0
 }
+
+// portWasHandedOut reports whether reserveFreePort already gave this port to a
+// test. See reserveFreePort.
+func portWasHandedOut(port int) bool {
+	reservedPorts.Lock()
+	defer reservedPorts.Unlock()
+	return reservedPorts.handed[port]
+}
+
+// reservedPorts holds every port reserveFreePort has already returned. See
+// reserveFreePort.
+var reservedPorts = struct {
+	sync.Mutex
+	handed map[int]bool
+}{}
 
 // nodeSignature creates a fake node installation and returns its binary path.
 func nodeSignature(t *testing.T, root string) string {

@@ -52,6 +52,10 @@ setInterval(() => {}, 1000);
 	f.Spawn = nil
 	f.LookPath = run.LookPath
 	f.Host = host.NewWithLookPath(run.LookPath)
+	// The real host answers a real child's start time, so this test keeps the
+	// production budget instead of the shortened one the fixture gives the
+	// fictional machine.
+	f.fingerprint = fingerprintTimeout
 	f.Node = &nodejs.Resolver{LookPath: run.LookPath, Glob: filepath.Glob, Stat: os.Stat}
 	f.Dial = nil // the server really listens
 	f.Settings.StartTimeout = 20 * time.Second
