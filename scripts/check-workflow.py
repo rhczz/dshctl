@@ -213,12 +213,18 @@ def check_hermetic_gates(text: str) -> None:
 
 
 def check_mutation_gate(text: str) -> None:
-    """The mutation sweep has to keep running somewhere.
+    """The mutation sweep has to keep running, and keep covering everything.
 
     It is the only gate that decides whether the tests would notice a broken
     decision, and it is the slowest one, so the temptation to drop it is real.
     The project keeps it off developers' machines, so a workflow that stops
     running it retires the gate without anybody noticing.
+
+    It runs as a shard matrix, which buys wall clock at the price of a new
+    failure mode: a shard list that covers four of six partitions, or a `--shard
+    I/N` whose N disagrees with the matrix, silently drops mutations while every
+    job stays green. Both are checked here, so the sharded sweep is provably the
+    same gate as the serial one.
     """
     block = job_block(text, "mutation")
     if not block:
@@ -233,6 +239,135 @@ def check_mutation_gate(text: str) -> None:
         fail("the mutation job has no timeout-minutes, so a hang would hold a runner for hours")
     if "needs:" in block:
         fail("the mutation job waits on another job, which puts the slowest gate on the critical path")
+
+    shards = re.search(r"^\s+shard:\s*\[([^\]]*)\]", block, re.MULTILINE)
+    if not shards:
+        fail(
+            "the mutation job has no shard matrix: the sweep must run in parallel shards, "
+            "each covering one deterministic partition of scripts/mutation-check.py"
+        )
+    listed = [entry.strip() for entry in shards.group(1).split(",")]
+    if not all(entry.isdigit() for entry in listed):
+        fail(f"the mutation shard matrix is not a list of numbers (shard: {listed})")
+    numbers = [int(entry) for entry in listed]
+    if sorted(numbers) != list(range(1, len(numbers) + 1)):
+        fail(
+            f"the mutation shard matrix is not 1..N without gaps or repeats (shard: {listed}): "
+            "a hole means some mutations never run"
+        )
+    # The index must come from the matrix, not from a literal: six copies of
+    # `--shard 1/6` would be six green jobs covering one sixth of the sweep.
+    argument = re.search(r"--shard\s+\$\{\{\s*matrix\.shard\s*\}\}/(\d+)", commands)
+    if not argument:
+        fail(
+            "the mutation job does not run the sweep with `--shard ${{ matrix.shard }}/N`, so it "
+            "is not partitioned across the shard matrix"
+        )
+    if int(argument.group(1)) != len(numbers):
+        fail(
+            f"the mutation job runs `--shard I/{argument.group(1)}` but the matrix has "
+            f"{len(numbers)} shards, so some partitions are never executed"
+        )
+
+
+def check_toolchain_pins(text: str, path: Path) -> None:
+    """The toolchain and the actions are pinned, not floating.
+
+    Every gate in this repository is deterministic on purpose — the govulncheck
+    version is pinned for exactly this reason — but a floating `1.25.x` picks a
+    different compiler patch every week, so the same commit can pass in one week
+    and fail in another without anything changing. A movable action tag has the
+    same effect. Both are checked here; bumping either is a deliberate commit.
+    """
+    for number, line in enumerate(text.splitlines(), start=1):
+        if line.lstrip().startswith("#"):
+            continue
+        version = re.search(r"go-version:\s*\"?([^\"\s]+)\"?", line)
+        if version:
+            value = version.group(1)
+            if not re.fullmatch(r"\d+\.\d+\.\d+", value):
+                fail(
+                    f"{path}:{number}: go-version {value!r} is not an exact patch release; "
+                    "write X.Y.Z so the same commit always builds with the same toolchain"
+                )
+        if re.search(r"check-latest:\s*true", line):
+            fail(
+                f"{path}:{number}: check-latest: true lets the toolchain move under a fixed "
+                "go-version; the version is the pin"
+            )
+        uses = re.search(r"uses:\s*([^\s#]+)", line)
+        if uses:
+            reference = uses.group(1)
+            if "@" not in reference:
+                fail(f"{path}:{number}: {reference!r} has no version at all")
+            revision = reference.rsplit("@", 1)[1]
+            if not re.fullmatch(r"[0-9a-f]{40}", revision):
+                fail(
+                    f"{path}:{number}: {reference!r} rides a movable tag; pin the action to the "
+                    "commit SHA and keep the human-readable version in a trailing comment"
+                )
+
+
+def check_floor_gate(text: str) -> None:
+    """The minimum toolchain the README promises is the one CI exercises.
+
+    `go vet` under the pinned toolchain compiles a call to a standard library
+    function that did not exist in the version go.mod declares, so the promise
+    is only checked by asking for the floor toolchain by name. The name is
+    derived from go.mod, so bumping the module's requirement without moving this
+    line fails here rather than in a user's terminal.
+    """
+    block = job_block(text, "floor")
+    if not block:
+        fail("the floor job is missing, so nothing verifies the minimum toolchain the README promises")
+    module = Path("go.mod").read_text(encoding="utf-8")
+    declared = re.search(r"^go\s+(\d+\.\d+)", module, re.MULTILINE)
+    if not declared:
+        fail("go.mod has no `go` directive, so the minimum toolchain is undefined")
+    wanted = f"go{declared.group(1)}.0"
+    if f"GOTOOLCHAIN: {wanted}" not in block:
+        fail(
+            f"the floor job does not run with GOTOOLCHAIN: {wanted}, the version go.mod "
+            f"declares as the minimum (found: {[l.strip() for l in block.splitlines() if 'GOTOOLCHAIN' in l] or 'nothing'})"
+        )
+    if not re.search(r"^\s*(GOTOOLCHAIN=\S+\s+)?go (vet|build)\b", block, re.MULTILINE):
+        fail("the floor job does not compile the tree with the floor toolchain")
+
+
+def check_build_targets(text: str) -> None:
+    """Every platform the tool ships for is still compiled by the pipeline."""
+    for target in RELEASE_TARGETS:
+        goos, goarch = target.split("/")
+        includes = re.search(rf"\{{\s*goos:\s*{goos},\s*goarch:\s*{goarch}\s*\}}", text)
+        pair = re.search(rf"\b{goos}/{goarch}\b", text)
+        if not includes and not pair:
+            fail(f"the build job no longer compiles {target}")
+
+
+def check_makefile_parity(text: str) -> None:
+    """What the Makefile defines as a gate is what CI runs.
+
+    The Makefile is documented as the single entry point for the gates, but the
+    workflow runs the commands inline — so the two can drift, and a gate that
+    stays in `make ci` while disappearing from the pipeline is exactly the
+    failure this whole file exists to prevent. Each gate command the Makefile
+    defines must appear in ci.yml; `$(TEST_TIMEOUT)` is expanded with the
+    Makefile's own default so the comparison is literal.
+    """
+    makefile = Path("Makefile").read_text(encoding="utf-8")
+    default_timeout = re.search(r"^TEST_TIMEOUT\s*\?=\s*(\S+)", makefile, re.MULTILINE)
+    timeout = default_timeout.group(1) if default_timeout else "600s"
+    for target in ("vet", "test", "test-race"):
+        recipe = re.search(rf"^{re.escape(target)}:\n((?:\t.*\n)+)", makefile, re.MULTILINE)
+        if not recipe:
+            fail(f"the Makefile no longer defines a `{target}` gate")
+        for raw in recipe.group(1).splitlines():
+            command = raw.strip().replace("$(TEST_TIMEOUT)", timeout)
+            if command and command not in text:
+                fail(
+                    f"ci.yml does not run `{command}`, which the Makefile defines as the "
+                    f"`{target}` gate: the pipeline and the documented entry point disagree"
+                )
 
 
 def check_ci(text: str) -> None:
@@ -252,7 +387,7 @@ def check_ci(text: str) -> None:
     if not jobs:
         fail(f"{CI}: no jobs were found")
 
-    for name in ("test", "hermetic", "mutation", "build"):
+    for name in ("test", "hermetic", "mutation", "floor", "build"):
         if name not in jobs:
             fail(f"{CI}: job {name!r} is missing")
 
@@ -275,6 +410,9 @@ def check_ci(text: str) -> None:
     check_platform_matrix(text)
     check_hermetic_gates(text)
     check_mutation_gate(text)
+    check_floor_gate(text)
+    check_build_targets(text)
+    check_makefile_parity(text)
 
     return jobs
 
@@ -340,6 +478,8 @@ def main() -> None:
 
     check_expression_literals(ci_text, CI)
     check_expression_literals(release_text, RELEASE)
+    check_toolchain_pins(ci_text, CI)
+    check_toolchain_pins(release_text, RELEASE)
 
     ci_jobs = check_ci(ci_text)
     release_jobs = check_release(release_text)

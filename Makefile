@@ -31,11 +31,11 @@ vet:
 
 ## test: run unit tests
 test:
-	go test -timeout $(TEST_TIMEOUT) ./...
+	go test -count=1 -timeout $(TEST_TIMEOUT) ./...
 
 ## test-race: run unit tests under the race detector
 test-race:
-	go test -race -timeout $(TEST_TIMEOUT) ./...
+	go test -race -count=1 -timeout $(TEST_TIMEOUT) ./...
 
 ## hermetic: prove the tests create no state outside their temp directories
 hermetic:
@@ -85,12 +85,13 @@ cross:
 check: fmt-check conventions vet test
 
 ## ci: what the pipeline runs on every commit
-ci: workflow-check fmt-check conventions vet coverage
-	go test -race -count=1 -timeout $(TEST_TIMEOUT) ./...
+ci: workflow-check fmt-check conventions vet coverage test-race
 
 ## mutation: break each Node decision and require the suite to notice
+# ARGS reaches the script: `make mutation ARGS="--shard 2/6"` runs one shard of
+# the sweep, which is how the CI matrix covers all of it in parallel.
 mutation:
-	@python3 scripts/mutation-check.py
+	@python3 scripts/mutation-check.py $(ARGS)
 
 ## install: copy the built binary onto PATH
 install: build

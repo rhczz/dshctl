@@ -11,13 +11,20 @@ name: CI
 #     state outside their own temporary directories, no test skips silently, and
 #     the Node resolution stays covered statement by statement. All three read
 #     one run; running the suite once per property tripled the job without
-#     asserting anything more.
+#     asserting anything more. It is also the platform's no-race execution
+#     regime: the ubuntu `test` entry runs the suite under the race detector, and
+#     this run is the same suite without it.
 #   * mutation: every decision the tests claim to pin is broken one at a time,
 #     and the suite has to go red for each. "The tests pass" is not evidence that
 #     they would notice a wrong decision, and this job is the slowest here by
 #     design — which is exactly why it runs on the runner rather than on a
 #     developer's machine. Its verdict is about the strength of the test suite,
-#     not about the binary, so the build job does not wait for it.
+#     not about the binary, so the build job does not wait for it. The sweep is
+#     partitioned across a shard matrix: every mutation still runs, exactly once,
+#     and the wall clock is divided by the number of shards.
+#   * floor: the toolchain the README promises as the minimum compiles the tree.
+#     Nothing else verifies that promise, and a stdlib call newer than go.mod's
+#     `go` directive would build happily on the pinned toolchain.
 #   * build (six targets): only from a commit whose tests and hermetic checks
 #     passed. That is the whole point of putting both in one pipeline.
 #   * vulncheck: the toolchain's own advisories, with the tool pinned so an
@@ -67,15 +74,16 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          # Pinned rather than taken from go.mod: the standard library advisory
-          # GO-2026-4602 is fixed in 1.25.8, and an older toolchain must not be
-          # selected silently.
-          go-version: "1.25.x"
-          check-latest: true
+          # An exact patch, not `1.25.x` with `check-latest`: the toolchain
+          # decides whether an unchanged commit still passes, and 1.25.8 is the
+          # release that fixes the standard library advisory GO-2026-4602. A bump
+          # is a deliberate `ci:` commit that says why — the same rule the
+          # govulncheck pin below follows.
+          go-version: "1.25.14"
           # The module has no dependencies, so there is no go.sum to key a
           # dependency cache on: the cache step could only fail, and did.
           cache: false
@@ -118,12 +126,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version: "1.25.x"
-          check-latest: true
+          go-version: "1.25.14"
           cache: false
 
       - name: Workflow file is valid
@@ -196,30 +203,65 @@ jobs:
             --report internal/service
 
   mutation:
-    name: the tests notice a broken decision
+    name: the tests notice a broken decision (${{ matrix.shard }}/6)
     runs-on: ubuntu-latest
-    # 36 decisions, each one a package-level test run of its own: this is the
-    # long pole of the pipeline, and the reason it belongs on the runner. The
-    # bound is generous because a cold build cache pays for a compile per
-    # mutation; a hang would be a defect in the script, not a slow decision.
-    timeout-minutes: 60
+    # The sweep is split across this many shards, so it costs a fraction of the
+    # wall clock while every mutation still runs, exactly once: the script
+    # partitions by index, and `check-workflow.py` refuses a workflow whose shard
+    # count and `--shard I/N` argument disagree or whose shard list has a hole.
+    # A hang would be a defect in the script, so the bound stays generous — a
+    # cold build cache on a loaded runner is slower than a decision, not a stuck
+    # one.
+    timeout-minutes: 30
+    strategy:
+      # One shard going red must not cancel the other five: the failing mutation
+      # is named in that shard's log, and the rest of the verdict is still worth
+      # having.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version: "1.25.x"
-          check-latest: true
+          go-version: "1.25.14"
           cache: false
 
-      - name: Break each pinned decision and require a red test
+      - name: Break each pinned decision in this shard and require a red test
         # Every entry in scripts/mutation-check.py replaces one literal decision,
         # runs the packages that own it, and restores the file. `ALIVE` means the
         # suite accepted a broken rule, `INVALID` means the mutation did not even
         # compile, and both are failures. A mutation added together with the fix
         # it guards is only a gate if something runs it, and running it here is
         # what keeps a 40-minute sweep off the machines that write the code.
-        run: python3 scripts/mutation-check.py
+        run: python3 scripts/mutation-check.py --shard ${{ matrix.shard }}/6
+
+  floor:
+    name: the published minimum toolchain builds the tree
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: "1.25.14"
+          cache: false
+
+      - name: Build and vet with the floor toolchain
+        # README promises Go 1.24+, and only this step checks it: `go vet` with
+        # the pinned toolchain happily compiles a call to a standard library
+        # function that did not exist in 1.24. setup-go keeps GOTOOLCHAIN=local,
+        # so the floor toolchain is asked for by name here, and a matching
+        # `check-workflow.py` rule fails when go.mod's `go` directive moves
+        # without this line moving with it.
+        env:
+          GOTOOLCHAIN: go1.24.0
+        run: |
+          set -euo pipefail
+          go version
+          go vet ./...
 
   build:
     name: build ${{ matrix.goos }}/${{ matrix.goarch }}
@@ -237,12 +279,11 @@ jobs:
           - { goos: windows, goarch: amd64 }
           - { goos: windows, goarch: arm64 }
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version: "1.25.x"
-          check-latest: true
+          go-version: "1.25.14"
           cache: false
 
       - name: Build
@@ -280,7 +321,7 @@ jobs:
           ./dshctl_linux_amd64 doctor --json > /tmp/doctor.json || true
           python3 -c "import json,sys; json.load(open('/tmp/doctor.json'))"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dshctl_${{ matrix.goos }}_${{ matrix.goarch }}
           path: dshctl_${{ matrix.goos }}_${{ matrix.goarch }}*
@@ -292,12 +333,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
-          go-version: "1.25.x"
-          check-latest: true
+          go-version: "1.25.14"
           cache: false
 
       - name: govulncheck
