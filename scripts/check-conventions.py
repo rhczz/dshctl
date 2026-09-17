@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import pathlib
 import re
+import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -126,6 +127,21 @@ REMOTE_LINK = re.compile(r"^(?:[a-z][a-z0-9+.-]*:|#|//)", re.IGNORECASE)
 # that points at a file nobody wrote is worse than one that says nothing.
 PATH_LIKE = re.compile(r"^(?:references/|\.{2}/)")
 
+# A constant that names an environment variable, as internal/paths declares them:
+# the declaration and the literal an operator types.
+ENV_CONSTANT = re.compile(r"^\s*(Env[A-Za-z0-9]+)\s*=\s*\"([^\"]+)\"", re.MULTILINE)
+
+# Generated files that must never enter the history: they change with the
+# toolchain that produced them, so every unrelated commit would carry noise, and
+# a byte-code cache records the absolute paths of the machine that wrote it.
+TRACKED_ARTIFACTS = (
+    re.compile(r"(^|/)__pycache__/"),
+    re.compile(r"\.pyc$"),
+    re.compile(r"^bin/"),
+    re.compile(r"^dist/"),
+    re.compile(r"\.test$"),
+)
+
 RULES: dict[str, str] = {
     "agents-md": "AGENTS.md 存在、不超过预算、带每个必写小节，且 Skill 路由表与 skill 目录一一对应",
     "skills": "每个 SKILL.md 的 frontmatter、命名、描述长度、体积与相对链接",
@@ -133,6 +149,9 @@ RULES: dict[str, str] = {
     "go-comments": f"Go 注释不超过 {MAX_COMMENT_COLUMNS} 列",
     "go-forbidden": "非测试 Go 文件里没有 panic 与 init",
     "go-imports": "零第三方依赖，且内部 import 只沿允许的层方向",
+    "readme-env": "internal/paths 里的每个环境变量都被 README 记录",
+    "package-map": "internal/ 下的每个包都出现在 AGENTS.md 的包地图里",
+    "tracked-artifacts": "被 git 跟踪的文件里没有生成的产物（bin/、dist/、__pycache__、*.pyc、*.test）",
     "trailing-newline": "文本文件恰好以一个换行结尾",
 }
 
@@ -422,6 +441,84 @@ def check_go_imports() -> list[str]:
     return problems
 
 
+def check_readme_env() -> list[str]:
+    """Every environment variable the tool reads is in the operator contract.
+
+    The Go test that guards the README iterates a hand-copied list, so a new
+    `paths.Env*` constant would work, stay undocumented, and leave the test green:
+    the person who needs the documentation most is the one who cannot read the
+    source to find it. The list is derived from the source here instead.
+    """
+    problems: list[str] = []
+    readme = ROOT / "README.md"
+    if not readme.is_file():
+        return [fail("readme-env", "README.md 不存在")]
+    documented = read(readme)
+    for path in sorted((ROOT / "internal" / "paths").glob("*.go")):
+        if is_test(path):
+            continue
+        for name, value in ENV_CONSTANT.findall(read(path)):
+            if value not in documented:
+                problems.append(
+                    fail("readme-env", f"{rel(path)}: 环境变量 {name}={value} 没有被 README 记录")
+                )
+    return problems
+
+
+def check_package_map() -> list[str]:
+    """Every package in the tree appears in the map an agent reads first.
+
+    The map is where a new package's reason to exist is stated, and nothing else
+    compares it with the tree: a package can appear under `internal/` and stay
+    invisible to every reader of AGENTS.md while each individual gate stays
+    green.
+    """
+    problems: list[str] = []
+    agents = ROOT / "AGENTS.md"
+    if not agents.is_file():
+        return [fail("package-map", "AGENTS.md 不存在")]
+    text = read(agents)
+    internal = ROOT / "internal"
+    if not internal.is_dir():
+        return problems
+    for directory in sorted(path for path in internal.iterdir() if path.is_dir()):
+        if not any(directory.glob("*.go")):
+            continue
+        if f"`{directory.name}`" not in text and f"internal/{directory.name}" not in text:
+            problems.append(
+                fail("package-map", f"internal/{directory.name} 没有出现在 AGENTS.md 的包地图里")
+            )
+    return problems
+
+
+def check_tracked_artifacts() -> list[str]:
+    """No generated file is part of the history.
+
+    .gitignore only stops a file from being *added*; one that was added before
+    the rule stays tracked and keeps rewriting itself, so the promise "no build
+    output in the repository" is checked against the index rather than assumed.
+    The check needs git, which is not optional here: the Makefile stamps the
+    version from `git describe`, so a tree without git cannot be built anyway.
+    """
+    problems: list[str] = []
+    result = subprocess.run(
+        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        return [fail("tracked-artifacts", "git ls-files 失败，无法确认生成的产物没有被跟踪")]
+    for path in result.stdout.splitlines():
+        for pattern in TRACKED_ARTIFACTS:
+            if pattern.search(path):
+                problems.append(
+                    fail(
+                        "tracked-artifacts",
+                        f"{path} 是被跟踪的生成产物: 用 `git rm --cached` 移出索引并写进 .gitignore",
+                    )
+                )
+                break
+    return problems
+
+
 def check_trailing_newline() -> list[str]:
     """Exactly one final newline, or every later diff carries a stray blank line."""
     problems: list[str] = []
@@ -449,6 +546,9 @@ CHECKS = {
     "go-comments": check_go_comments,
     "go-forbidden": check_go_forbidden,
     "go-imports": check_go_imports,
+    "readme-env": check_readme_env,
+    "package-map": check_package_map,
+    "tracked-artifacts": check_tracked_artifacts,
     "trailing-newline": check_trailing_newline,
 }
 

@@ -8,6 +8,10 @@ dshctl.exe
 *.out
 coverage.html
 
+# Python byte-code caches: `scripts/` checks are run, not imported from the repo
+__pycache__/
+*.pyc
+
 # Editor and OS noise
 .DS_Store
 .vscode/
