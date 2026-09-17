@@ -26,6 +26,11 @@ import (
 // with it.
 func TestStopEndsTheRecordedServerBehindAStranger(t *testing.T) {
 	f := newFixture(t)
+	// The port stays taken by a stranger, so the stop waits out its whole budget
+	// before giving up. That wait is not what this test asserts: a short budget
+	// keeps it (and the same wait under the deadline mutation) proportional to
+	// what is being pinned.
+	f.Settings.StopTimeout = 100 * time.Millisecond
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
 	f.host.serving(6666, "/usr/sbin/nginx -g daemon off;")
 	if err := f.Record.Save(state.Record{

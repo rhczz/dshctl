@@ -2,6 +2,7 @@ package logfile
 
 import (
 	"context"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -45,6 +46,30 @@ func waitForText(t *testing.T, sink *syncBuffer, text string) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for %q in %q", text, sink.String())
+}
+
+// renameOnto renames one file onto another, tolerating a transient refusal.
+//
+// The follower keeps the log open for the length of one read and closes it again
+// before the next poll — that is what stops `dshctl logs -f` from pinning a
+// Windows rotation — but during that read Windows can answer a rename with a
+// permission error. A test that replaces the log while a follower runs has to
+// tolerate the window, exactly as an operator's rotation script does; without
+// the retry the test fails whenever the follower happened to be reading at that
+// instant, which says nothing about replacement handling.
+func renameOnto(t *testing.T, source, target string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		err := os.Rename(source, target)
+		if err == nil {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("rename %s to %s: %v", source, target, err)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 // awaitSettled makes the follower report when its first pass has fixed the

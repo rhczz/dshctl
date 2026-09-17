@@ -3,6 +3,7 @@ package cli
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -87,7 +88,6 @@ func TestReportingCommandsLeaveNoTrace(t *testing.T) {
 // leaves the absence checks green, and an in-place rewrite is exactly the shape
 // of a "read-only" regression that survives a smoke test.
 func TestReportingCommandsLeaveTheTreeUnchanged(t *testing.T) {
-	const document = "{\n  \"repoDir\": \"/pre-existing\",\n  \"port\": 3080\n}\n"
 	cases := [][]string{
 		{"status"},
 		{"status", "--json"},
@@ -113,6 +113,11 @@ func TestReportingCommandsLeaveTheTreeUnchanged(t *testing.T) {
 					t.Fatalf("mkdir %s: %v", directory, err)
 				}
 			}
+			// The document names a path inside this fixture rather than a
+			// literal: a settings document whose repoDir is not absolute is
+			// rejected as a usage error, and "absolute" is spelled differently
+			// on Windows.
+			document := fmt.Sprintf("{\n  \"repoDir\": %q,\n  \"port\": 3080\n}\n", filepath.Join(root, "repo"))
 			documentPath := filepath.Join(stateDir, "config.json")
 			if err := os.WriteFile(documentPath, []byte(document), 0o600); err != nil {
 				t.Fatalf("write the settings document: %v", err)

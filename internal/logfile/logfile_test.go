@@ -525,9 +525,7 @@ func TestStreamFollowsAReplacedFile(t *testing.T) {
 	}
 	waitForText(t, sink, "live")
 
-	if err := os.Rename(path, path+".old"); err != nil {
-		t.Fatalf("rename: %v", err)
-	}
+	renameOnto(t, path, path+".old")
 	if err := os.WriteFile(path, []byte("replacement\n"), 0o600); err != nil {
 		t.Fatalf("write replacement: %v", err)
 	}
@@ -567,9 +565,7 @@ func TestStreamFromConsumesItsPositionOnce(t *testing.T) {
 	if err := os.WriteFile(temp, []byte(replacement), 0o600); err != nil {
 		t.Fatalf("write replacement: %v", err)
 	}
-	if err := os.Rename(temp, path); err != nil {
-		t.Fatalf("rename: %v", err)
-	}
+	renameOnto(t, temp, path)
 	waitForText(t, sink, replacement)
 
 	cancel()

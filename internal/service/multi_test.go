@@ -120,15 +120,24 @@ func configuredPort(t *testing.T, f *fixture, port int) {
 func rebuildSettings(t *testing.T, f *fixture, port int) {
 	t.Helper()
 	checkout := f.Settings.RepoDir
+	// The wait budgets are pacing for the fictional machine rather than policy,
+	// and a test may have shortened them on the fixture it owns: carry them over
+	// rather than resetting them here, so a caller's budget survives the rebuild.
+	startTimeout, stopTimeout := f.Settings.StartTimeout, f.Settings.StopTimeout
 	f.Settings = config.Default(f.root)
 	f.Settings.RepoDir = checkout
 	f.Settings.StateDir = f.state
 	f.Settings.ConfigPath = filepath.Join(f.state, "config.json")
 	f.Settings.LogPath = filepath.Join(f.state, "dsh-web.log")
 	f.Settings.Port = port
-	// The wait budgets are pacing for the fictional machine rather than policy.
-	f.Settings.StartTimeout = 2 * time.Second
-	f.Settings.StopTimeout = 2 * time.Second
+	if startTimeout <= 0 {
+		startTimeout = 2 * time.Second
+	}
+	if stopTimeout <= 0 {
+		stopTimeout = 2 * time.Second
+	}
+	f.Settings.StartTimeout = startTimeout
+	f.Settings.StopTimeout = stopTimeout
 	f.rebind()
 	f.Repo.Dir = checkout
 }
@@ -376,6 +385,11 @@ func TestStopEndsEveryInstanceThatIsRunning(t *testing.T) {
 // and a script that stops a machine and moves on has to be able to tell.
 func TestStopAllLeavesAForeignListenerAloneAcrossPorts(t *testing.T) {
 	f := newFixture(t)
+	// The stop budget is not what this test asserts, and the instance it
+	// cannot end keeps the port past the deadline: a short budget keeps the
+	// wait (and the same wait under the deadline mutation) proportional to
+	// what is being pinned.
+	f.Settings.StopTimeout = 100 * time.Millisecond
 	// The second instance is discovered rather than named, which is the model
 	// under test: a bare stop covers every port this state directory knows.
 	other := reserveFreePort(t)

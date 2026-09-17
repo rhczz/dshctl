@@ -83,9 +83,7 @@ func TestStreamFromReadsAShorterReplacementFromItsBeginning(t *testing.T) {
 				if err := os.WriteFile(temp, []byte(content), 0o600); err != nil {
 					t.Fatalf("write replacement: %v", err)
 				}
-				if err := os.Rename(temp, path); err != nil {
-					t.Fatalf("rename: %v", err)
-				}
+				renameOnto(t, temp, path)
 			},
 		},
 		{
