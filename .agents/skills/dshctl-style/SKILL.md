@@ -21,7 +21,7 @@ description: 按 dshctl 的书写规范改代码与注释：gofmt -s、注释讲
 
 5. **每个导出标识符都要有文档注释，字段用 `// X is …` 句式**。范例：`internal/run` 的 `Result`/`ExitError`、`internal/exitcode` 的 `Error`、`internal/service` 的 `StartResult`/`StopResult`、`internal/state` 的 `Record`。
 
-6. **语言分工：人读的中文，码读的英文**。错误文案、命令 `Help`、测试失败信息用中文；标识符、注释、包文档用英文。
+6. **语言分工：操作者读的中文，开发者读的英文**。错误文案、命令 `Help`、README 用中文；测试失败信息、标识符、注释、包文档用英文。判据是读者：终端前的操作者读中文，改代码的人读英文——测试失败信息是给后者的。树里遗留的中文失败信息不是门禁问题，改动那个文件时顺手改成英文即可。
 
 7. **错误包装**：`fmt.Errorf("中文描述: %w", err)`；命令、参数、路径加反引号或 `%q`/`%s`；句尾不加句号。范例：`internal/detach` 的 `无法启动 %s: %w`、`internal/nodejs` 的 `` 无法执行 `%s -v`: %w ``。退出码与分类只用 `internal/exitcode` 的 `New`/`Wrap`，不自己造码。
 

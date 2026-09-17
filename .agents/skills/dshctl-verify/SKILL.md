@@ -7,14 +7,14 @@ description: 决定 dshctl 一次改动该跑哪些门禁（本地只跑快检�
 
 ## 概要
 
-`make` 是门禁的唯一入口（`../../../Makefile`）。分工是硬规则：本地只跑快检与定点复现，**全量门禁只在 CI 跑，本地不执行 `make ci`**。快检是本机实测约 2 分钟的 `make check` 里的前三项（`fmt-check`、`conventions`、`vet`）加受影响包的 `go test`，全量（全套测试、race、覆盖率、hermetic、变异、交叉编译）由 GitHub Actions 在三平台矩阵上跑——上游 DSH 仓库从不默认跑全量，本仓库现在同样。完整门禁表、耗时基线（CI 预算用）与失败定位见 `references/gates.md`；用行为探针回归 skill 与 AGENTS.md 的改动见 `references/effectiveness-probes.md`。
+`make` 是门禁的命令清单（`../../../Makefile`），不是 CI 的调用入口：CI 的每个 job 直接跑同样的命令，`scripts/check-workflow.py` 的 `check_makefile_parity` 强制两者一致。分工是硬规则：本地只跑快检与定点复现，**全量门禁只在 CI 跑，本地不执行 `make ci`**。快检是 `make fmt-check conventions vet`（秒级静态检查，改 `.github/` 时加 `make workflow-check`）加受影响包的 `go test ./internal/<pkg>/ -count=1`；全量（三平台 race 套件、覆盖率与 hermetic、变异分片、六个交叉目标、下限工具链）由 GitHub Actions 跑。完整门禁表、耗时基线（CI 预算用）与失败定位见 `references/gates.md`；用行为探针回归 skill 与 AGENTS.md 的改动见 `references/effectiveness-probes.md`。
 
 ## 规则
 
 ### 1. 按改动选检，全量交给 CI
 
 - 本地（快检）：`make fmt-check conventions vet`（改 `.github/` 加 `make workflow-check`），加受影响包的 `go test ./internal/<pkg>/ -count=1`；需要证明某条守卫会红、某个变异会被抓住时，只跑那一条（`-run NAME`、`python3 scripts/mutation-check.py --only NAME`）。
-- 本地不跑全量：`make check`、`make ci`、全量 `make test`、`make test-race`、`make mutation`、`make coverage`、`make hermetic`、`make cross` 一律由 CI 执行（`../../../.github/workflows/ci.yml`），本地跑它们只是把 CI 的时间花两遍。
+- 本地不跑全量：`make check`、`make ci`、全量 `make test`、`make test-race`、`make mutation`、`make coverage`、`make hermetic`、`make cross` 覆盖的那些命令一律由 CI 执行（`../../../.github/workflows/ci.yml` 里逐条对应、由 `check-workflow.py` 校验一致），本地跑它们只是把 CI 的时间花两遍。
 - 改到哪类代码，就在 CI 上看哪个门禁的结论：改 `internal/nodejs` 或配置层决策看 `mutation` 与 `coverage`；改 `.github/` 本地跑 `make workflow-check`（静态检查，秒级），CI 的 hermetic job 也会再跑一遍；碰平台文件（`_unix`/`_windows`/`_darwin`/`_linux`/`_other`）看 `cross` 与三平台 `test`；改测试隔离或新增 skip 看 `hermetic`。CI 里没有对应 job 时，先补 workflow 再推（`dshctl-verify` 的"改门禁本身"）。
 - 为什么受影响的包绿了也要等 CI：跨包契约由测试钉住（如 `internal/service/contracts_test.go` 的三包路径契约），单包绿不代表契约没被别处踩坏；而且平台差异只有三平台矩阵能看见。
 
@@ -34,7 +34,8 @@ description: 决定 dshctl 一次改动该跑哪些门禁（本地只跑快检�
 
 - `test` job 在三平台跑 `go vet` 与 `go test -race -count=1 -timeout 600s ./...`；无 race 的复跑与格式化检查只在 ubuntu：race 运行时更慢、调度不同，只在其中一种下通过的测试是值得知道的缺陷。
 - `hermetic` job 把多个属性压在一次套件执行上：workflow 结构与书写约定检查、在一次性 HOME 里带覆盖率跑整套、拒绝白名单之外的 `--- SKIP`、以及 `internal/nodejs` 的覆盖率门禁。新增 skip 必须同步 `../../../.github/workflows/ci.yml` 的白名单并说明理由。
-- `mutation` job 跑整套 `scripts/mutation-check.py`（36 条决策逐条破坏，要求套件变红）。它是流水线上最慢的 job，且刻意不串行、不被 `build` 依赖：结论只关乎测试强度，`scripts/check-workflow.py` 会检查这个 job 还在、还在跑脚本、有超时、没有 `needs`。没有它，"测试会注意到破坏吗"就没人回答——这正是它从本地搬到 CI 的原因。
+- `mutation` job 把整套 `scripts/mutation-check.py` 分 6 个分片并行跑（条数以 `--list` 为准，别抄数字），每条决策逐条破坏并要求套件变红。它刻意不被 `build` 依赖：结论只关乎测试强度。`scripts/check-workflow.py` 会检查这个 job 还在、还在跑脚本、有超时、没有 `needs`，并且分片矩阵是 1..N 无洞、`--shard ${{ matrix.shard }}/N` 的 N 与矩阵长度一致——分片把墙钟除以 6，而全部变异仍然各跑一次。没有它，"测试会注意到破坏吗"就没人回答。
+- `floor` job 用 `go.mod` 声明的下限工具链（`GOTOOLCHAIN=go1.24.0`）跑 `go vet ./...`：README 承诺的 `1.24+` 只有这一处验证，`check-workflow.py` 把 `go.mod` 的 `go` 指令与这一行绑在一起。工具链、action 与 govulncheck 都按确切值锁定（该检查拒绝 `1.25.x`、`check-latest: true` 与按 tag 引用的 action）；升级它们是独立的 `ci:` 提交，提交信息说明为什么现在升。
 - `build` job 有 `needs: [test, hermetic]`：测试不过就不会产出 6 个平台的二进制；`vulncheck` 固定 govulncheck 版本，避免扫描器更新让一个没变的提交变红。
 
 ### 5. 提交、PR 与发布

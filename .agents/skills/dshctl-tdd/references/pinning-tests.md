@@ -4,7 +4,7 @@
 
 ## 五种形态，按决策的类别选
 
-**表驱动 + 子测试**：同一决策的多个取值。仓库里 78 处 `t.Run` 说明这是默认形态。
+**表驱动 + 子测试**：同一决策的多个取值，这是仓库的默认形态（数量随代码变，要引用就现场 `grep`）。
 
 ```go
 cases := []struct {
@@ -31,7 +31,7 @@ for _, testCase := range cases {
 
 1. **先跑一次**。写完测试、实现还没改时跑它，确认红，并且红在**期望的那条断言**上（不是编译错误、不是别的用例带崩）。
 2. **临时撤回实现**。实现已经写完才发现该补测试时，用 `git stash push <实现文件>` 把实现撤掉再跑一次；确认红，然后 `git stash pop`。先确认测试只依赖被测行为、不依赖新实现才有的符号，否则 stash 后红的是编译错误而不是断言。
-3. **交给 `make mutation`**。改动 `internal/nodejs` 或配置层决策时不必手工做：`scripts/mutation-check.py` 会逐条做字面替换、跑相关包、要求失败、再还原。它当前覆盖 36 条决策（权威清单是 `python3 scripts/mutation-check.py --list`），其中包括：
+3. **交给 `make mutation`**。改动 `internal/nodejs` 或配置层决策时不必手工做：`scripts/mutation-check.py` 会逐条做字面替换、跑相关包、要求失败、再还原。它覆盖的条数以 `python3 scripts/mutation-check.py --list` 为准（别抄数字；CI 把它切成 6 个分片跑，`check-workflow.py` 保证分片无洞），其中包括：
 
    - 下限判定是开区间还是闭区间
    - 已测试的大版本是否必须一致

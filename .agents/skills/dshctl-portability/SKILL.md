@@ -20,7 +20,7 @@ dshctl 支持 darwin/linux/windows × amd64/arm64，平台差异只允许出现�
 
 2. **测试同样按平台拆。** 例：`internal/host/netstat_darwin_test.go`、`internal/host/netstat_linux_test.go`、`internal/host/ports_windows_layout_test.go`、`internal/run/signal_windows_test.go`、`internal/config/config_permissions_unix_test.go`。为什么：平台代码只有在自己的平台上被执行才算被测过，合并成一个文件就必然有一半分支永远不跑。
 
-3. **`internal/host` 是唯一直接和操作系统对话的包，平台差异只用 build tag 表达，上层不出现 `if windows`。** 为什么：`internal/host/host.go` 的包文档承诺"lifecycle code above this package never contains an `if windows`"；一条平台分支漏到上层，就会在另一个平台以最难复现的方式失败。
+3. **`internal/host` 是唯一直接和操作系统对话的包，平台差异只用 build tag 表达，上层不出现 `if windows`。** 为什么：`internal/host/host.go` 的包文档承诺"lifecycle code above this package never contains an `if windows`"；一条平台分支漏到上层，就会在另一个平台以最难复现的方式失败。两处已声明的例外是 `runtime.GOOS` 直接出现在非 build tag 文件里，判据是"差异只是一个值，不是一段逻辑"，拆文件只会把同一段代码抄两遍：`internal/config` 的 `quoteGlob`（Windows 的 `filepath.Match` 关掉反斜杠转义，通配符要写成字符类）与 `internal/buildinfo`（只回报 `runtime.GOOS`/`GOARCH`，供版本输出与平台测试替换）。新增例外要同时改这一条与 `dshctl-review` 的清单。
 
 4. **上层通过窄接口获得平台能力**：`service.OsHost`（`Listening`/`Inspect`/`Alive`/`Signal`/`DescendsFrom`/`GroupExists`/`SignalGroup`/`KillGroup`）与 `run` 的 `Executor`/`Capturer`/`Outputer`。为什么：这些接口存在的唯一理由是让整个生命周期跑在虚构机器上（`internal/service/host.go` 的接口文档与 `internal/service/fake_test.go`）；把平台判断挪到上层会同时废掉这套测试能力。
 
@@ -38,11 +38,11 @@ dshctl 支持 darwin/linux/windows × amd64/arm64，平台差异只允许出现�
 
 7. **skip 只允许"向真实可选工具提问"的测试在工具缺失时发生**，白名单是 `.github/workflows/ci.yml` 里 "Fail on unexpected skips" 步骤的列表；新增 skip 必须同步它。为什么：静默跳过等于未测，hermetic job 会因此变红。
 
-8. **`make cross` 的六个目标必须全过**（`Makefile` 的 `PLATFORMS`：darwin/linux/windows × amd64/arm64）。交叉编译时 Go 在没配置交叉 C 工具链的 runner 上默认关闭 cgo，CI 的 build job 与 release 又显式 `CGO_ENABLED: "0"`——本仓库没有 cgo 依赖，关掉它什么也不会失去。
+8. **六个交叉目标必须全过**（CI 的 `build` job；本地可用 `make cross` 复现。`Makefile` 的 `PLATFORMS` 与 ci.yml 的矩阵由 `check-workflow.py` 校验一致：darwin/linux/windows × amd64/arm64）。交叉编译时 Go 在没配置交叉 C 工具链的 runner 上默认关闭 cgo，CI 的 build job 与 release 又显式 `CGO_ENABLED: "0"`——本仓库没有 cgo 依赖，关掉它什么也不会失去。
 
 ## 验证
 
-- `make cross`（六个交叉目标）在 CI 上跑，本地不跑——本地能验的是类型检查与受影响包。
+- 六个交叉目标由 CI 的 `build` job 以等价的 `go build` 矩阵覆盖（`make cross` 只是同一批目标的本地别名，本地不跑）；本地能验的是类型检查与受影响包。
 - `GOOS=windows go vet ./...`（在本机对 Windows 做类型检查）。
 - 受影响包 `go test -count=1`；平台专属分支中只有本平台那部分在本机真正执行，其余以 CI 三平台矩阵为准。
 

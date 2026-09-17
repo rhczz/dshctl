@@ -43,7 +43,7 @@ func TestStopReportsAProcessThatSurvivesTheForceSignal(t *testing.T) {
 
 | 想学什么 | 看哪里 |
 |---|---|
-| 虚构机器怎么建、异常路径怎么表达 | `internal/service/fake_test.go`（1418 行的虚构进程表） |
+| 虚构机器怎么建、异常路径怎么表达 | `internal/service/fake_test.go`（虚构进程表，读它的 `newFixture` 与 `fakeHost`） |
 | 跨包字面量的契约钉法 | `internal/service/contracts_test.go` |
 | 真实二进制的只读承诺 | `internal/cli/readonly_test.go` |
 | README 与设置常量/配置键的同步 | `internal/cli/documentation_test.go` |

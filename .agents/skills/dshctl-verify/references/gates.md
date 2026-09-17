@@ -19,14 +19,14 @@
 | `make coverage` | **CI**：改 `internal/nodejs` 或配置层决策 | hermetic 跑一次带 `-coverprofile`，再交 `../../../../scripts/check-coverage.py` | `internal/nodejs` 100% 硬门禁；`internal/config`、`internal/service` 只报告 | `FAIL internal/nodejs: xx.x% (要求 100%，a/b 条语句)` 加 `未覆盖:` 行 |
 | `make mutation` | **CI**（`ci.yml` 的 `mutation` job）：改 `internal/nodejs` 或配置层决策 | `../../../../scripts/mutation-check.py`，逐条破坏决策并要求测试失败 | "测试真的会注意到破坏吗" | `ALIVE`/`INVALID`/`BLOCKED` 任一行 + `mutation(s) survived` |
 | `make workflow-check` | 本地快检：改 `.github/`（静态检查，秒级；CI 的 hermetic job 也跑一遍） | `../../../../scripts/check-workflow.py` | workflow 结构属性（触发、平台矩阵、构建门禁、产物、表达式引号） | `workflow check failed: …` |
-| `make cross` | **CI**：平台代码改动；发布前 | 6 个 `GOOS/GOARCH` 交叉编译到 `dist/` | darwin/linux/windows × amd64/arm64 都能编译 | 某个目标的编译错误 |
+| `make cross` | **CI**：平台代码改动；发布前 | 6 个 `GOOS/GOARCH` 交叉编译到 `dist/`；CI 的 `build` job 用等价的 6 个 `go build` 目标覆盖（`check-workflow.py` 校验六个目标都在） | darwin/linux/windows × amd64/arm64 都能编译 | 某个目标的编译错误 |
 | `make conventions` | 本地快检：改注释、依赖、skill 或 `AGENTS.md` | `../../../../scripts/check-conventions.py` | AGENTS.md 与 skill 的完整性、注释宽度、`panic`/`init`、零依赖与分层、结尾换行 | `检查失败: <rule>: …`，逐条见下 |
-| `make check` | **CI**（本地只跑它的前三项） | `fmt-check` + `conventions` + `vet` + `test` | 上面四项 | 见各行 |
-| `make ci` | **CI**（本地不执行） | `workflow-check` + `fmt-check` + `conventions` + `vet` + `coverage` + `go test -race -count=1 -timeout 600s ./...` | 全套门禁 | 见各行 |
+| `make check` | **CI**（本地等价物是快检三项加受影响包测试） | `fmt-check` + `conventions` + `vet` + `test` | 这四项 | 见各行 |
+| `make ci` | **CI**（本地不执行） | `workflow-check` + `fmt-check` + `conventions` + `vet` + `coverage` + `test-race` | 全套门禁 | 见各行 |
 | `make build` | 需要真实二进制做端到端验证 | `go build -ldflags … -o bin/dshctl ./cmd/dshctl` | 产物本身 | 编译错误 |
 | `make help` | 忘了目标名 | 列出所有带 `## ` 说明的目标 | — | — |
 
-辅助命令：`python3 scripts/mutation-check.py --list` 列出全部变异（当前 36 条），`--only <name>` 只跑一条（本地证明"这条变异会被抓住"就用它），`-v` 打印失败输出；`python3 scripts/check-conventions.py --list` 列出约定检查的规则；`python3 scripts/check-coverage.py <profile> --report all` 看每个包的覆盖率。
+辅助命令：`python3 scripts/mutation-check.py --list` 列出全部变异（条数用它数，别抄数字），`--only <name>` 只跑一条（本地证明"这条变异会被抓住"就用它），`--shard i/6` 只跑 CI 六个分片中的一片（分片只用于并行，不是本地门禁的替代品），`-v` 打印失败输出；`python3 scripts/check-conventions.py --list` 列出约定检查的规则；`python3 scripts/check-coverage.py <profile> --report all` 看每个包的覆盖率。
 
 ## 耗时基线
 
@@ -35,7 +35,8 @@
 - `make check` 整体 `real 1m56s`（含 `fmt-check`、`conventions`、`vet` 与测试）。
 - `make ci` 整体 `real 3m57s`：在 `check` 之上再跑一次带覆盖率的 hermetic 套件与 `-race` 套件。
 - 单包（约数，随机器波动）：`internal/cli` 约 110s、`internal/service` 约 106s、`internal/host` 约 21s、`internal/repo` 约 7s、`internal/lock` 约 6s、`internal/detach` 约 6s、`internal/logfile` 约 6s、`internal/nodejs` 约 5s、`internal/paths` 约 4s、`internal/exitcode` 约 4s、`internal/buildinfo` 约 3s、`internal/version` 约 3s、`internal/run` 约 3s、`internal/state` 约 3s、`internal/atomically` 约 2s、`internal/config` 约 2s、`cmd/dshctl` 约 1s。
-- 冷构建缓存会额外付出编译时间；`make mutation` 比 `make ci` 更重（36 条变异，每条跑一次指定包），预算按十分钟量级准备。
+- 冷构建缓存会额外付出编译时间；`make mutation` 比 `make ci` 更重（每条变异都跑一次它所属的包）。CI 把它切成 6 个分片后，单个分片的墙钟是分钟级（约 2–4 分钟），整套的算力不变。
+- CI 上还有两个 Makefile 里没有的 job：`floor`（用下限工具链 `go vet ./...`，验证 README 的 `1.24+`）与 `vulncheck`（固定版本的 govulncheck）。两者都与 `test`/`hermetic` 并行，不在关键路径上。
 
 `make test` 不带 `-count=1`：Go 会复用上一次通过的结果（输出 `(cached)`）。要确认某次修复真的重新执行过，用 `go test ./internal/<pkg>/ -count=1`。
 
@@ -46,9 +47,9 @@
 3. `tests created files in a real home directory:` + 路径 → 测试写了真实 HOME / 状态目录 / 全局配置 → 改用 `t.TempDir()` 与 `t.Setenv()`，环境变量的清理走 helper（`dshctl-testing`）。
 4. `unexpected skips:` + 名单 → 出现白名单之外的 `--- SKIP`（子测试的 skip 也会被抓到）→ 要么去掉 skip（缺工具就让测试 Fatal），要么在 `../../../../.github/workflows/ci.yml` 的白名单里加上并说明为什么这个 skip 合理。
 5. `FAIL internal/nodejs: xx.x% (要求 100%，a/b 条语句)` + `未覆盖:` 行 → 该包有语句没被执行 → 给新分支补测试；这是硬门禁，不接受报告了事。
-6. `<profile> 里没有本模块的覆盖率数据` → profile 不是本模块的（或没带 `-coverprofile`）→ 用 `make coverage` 生成的那份。
+6. `<profile> 里没有本模块的覆盖率数据` → profile 不是本模块的（或没带 `-coverprofile`）→ 用 `./scripts/hermetic-check.sh -coverprofile=/tmp/cov.out` 生成一份（CI 的同一条命令），再 `python3 scripts/check-coverage.py /tmp/cov.out --require internal/nodejs=100`。
 7. `ALIVE   <name> — the suite did not notice` → 变异没被任何测试发现，说明这条决策没被钉住 → 加一个会因它失败的测试。
-8. `INVALID <name> — the mutation did not compile, so it proves nothing` → 变异锚点在源码里不再唯一匹配或改坏了编译 → 更新 `scripts/mutation-check.py` 里的原文字面量。
+8. `INVALID <name> — the mutation did not compile, so it proves nothing` → 变异锚点在源码里不再唯一匹配或改坏了编译 → 更新 `scripts/mutation-check.py` 里的原文字面量。分类顺序：构建失败先判 `INVALID`；其余非零退出里，`--- FAIL`、`panic:`、超时、包级 `FAIL` 与 `signal:` 都算 `caught`——变异把整个测试二进制打死，同样是套件注意到了。
 9. `BLOCKED <name> — the toolchain could not use its build cache; set GOCACHE` → 运行环境用不了 Go 构建缓存（沙箱/权限）→ 换一个可写的 `GOCACHE` 再跑。
 10. `mutation(s) survived or were invalid: the suite does not pin them` → 上面两类任一条出现后的汇总 → 逐条处理，不要只看总数。
 11. `workflow check failed: …` → workflow 的结构属性被破坏（少了一个平台、构建丢了 `needs`、`mutation` job 不见了或不再跑脚本、表达式里的裸词没加引号）→ 按提示改 `../../../../.github/workflows/` 下的文件。

@@ -51,8 +51,10 @@
   `hermetic`、`build`：三平台测试与产物仍在一两分钟内出结果，变异结论随后补上。
 - 以后新增门禁时，第一问变成「它在 CI 的哪个 job 里跑」；如果答案是「本地手跑」，那
   这条门禁就不存在——`check_mutation_gate` 是这条规则的第一份可执行形式。
-- `scripts/mutation-check.py` 的条数（当前 36）成了文档里的数字，增删变异要同步
-  `references/gates.md` 与 `pinning-tests.md`。
+- `scripts/mutation-check.py` 的条数不再写进文档：引用时用 `--list` 数。
+- 本记录中"CI 跑 `make check`/`make ci`/`make cross`"的说法已被
+  [2026-09-17-ci-wall-clock.md](2026-09-17-ci-wall-clock.md) 取代：CI 直接跑同样的
+  命令，两者由 `check-workflow.py` 的一致性检查绑定。
 - 本地少了 4 分钟的 `make ci`，代价是「本机全绿」不再等于「CI 全绿」：报告必须区分
   「本地快检跑过」与「CI 判定过」，或者干脆等 CI 出结论再宣布完成。
 

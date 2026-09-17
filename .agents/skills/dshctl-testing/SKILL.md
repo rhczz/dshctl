@@ -29,9 +29,9 @@ description: 在 dshctl 写或改测试：hermetic 隔离、真实入口路径�
 
 9. **缺工具时 Skip 还是 Fatal，按测试的性质决定。** 可选真实工具（`lsof`/`ss`/`netstat`/`ps`）不在时允许 skip——这类测试是在问真实工具一个问题，工具缺席时它没有可断言的东西；CI 里允许的 skip 是一个**明确的白名单**（`.github/workflows/ci.yml` 的 "Fail on unexpected skips" 步骤，共 8 个测试名，含子测试），新增 skip 必须同时加进白名单，否则 CI 会红。反过来，覆盖 dshctl 最具破坏性的那一半（清理残留 checkout 目录）的测试在缺 git 时用 `t.Fatalf`：静默跳过会让这段逻辑在绿灯下无人验证。
 
-10. **命名与失败信息要让人一眼看懂。** 测试名是句子（`TestLoadRejectsWrongJSONTypes`、`FuzzParseVersionNeverInventsARelease`），子测试名是被测输入或场景。失败信息用中文，第一句说清"期望什么、实际什么"，带上关键输入；断言里用 `t.Fatalf("…: got %q, want %q", got, want)` 而不是只打印 `got`。
+10. **命名与失败信息要让人一眼看懂。** 测试名是句子（`TestLoadRejectsWrongJSONTypes`、`FuzzParseVersionNeverInventsARelease`），子测试名是被测输入或场景。失败信息用英文（与标识符、注释一致；中文留给面向操作者的产品文案），第一句说清"期望什么、实际什么"，带上关键输入；断言里用 `t.Fatalf("…: got %q, want %q", got, want)` 而不是只打印 `got`。
 
-11. **`t.Helper()` 与表驱动是默认做法。** 仓库里 140 处 `t.Helper()`、78 处 `t.Run`；辅助函数不加 `t.Helper()` 会让失败行号指向辅助函数而不是调用点。
+11. **`t.Helper()` 与表驱动是默认做法。** 两者在树里都是默认形态（数量随代码变，要引用就现场 `grep -rc`，别抄数字）；辅助函数不加 `t.Helper()` 会让失败行号指向辅助函数而不是调用点。
 
 12. **覆盖率是必要条件，不是充分条件。** `make coverage` 里 `internal/nodejs` 要求 100%（它决定用哪个运行时跑服务），`config`/`service` 只报告。没被覆盖的行往往是死代码或缺少用例，两种情况都值得看一眼；但覆盖率不能替代第 5 条——100% 覆盖的测试仍然可以什么都没断言。
 

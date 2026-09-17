@@ -6,10 +6,11 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 命令
 
-- 本地只跑快检与定点复现：`make fmt-check conventions vet`（改 `.github/` 时加 `make workflow-check`，都是秒级静态检查），加上受影响包的 `go test ./internal/<pkg>/ -count=1`；要证明某条守卫会红、某个变异会被抓住时，只跑那一条（`-run NAME`、`python3 scripts/mutation-check.py --only NAME`）。
+- 本地只跑快检与定点复现：`make fmt-check conventions vet`（改 `.github/` 时加 `make workflow-check`，都是秒级静态检查），加上受影响包的 `go test ./internal/<pkg>/ -count=1`；要证明某条守卫会红、某个变异会被抓住时，只跑那一条（`-run NAME`、`python3 scripts/mutation-check.py --only NAME`）。先跑前两项，再跑 `vet` 与包测试。
 - 全量门禁只在 CI 跑，本地不执行：`make check`、`make ci`、全量 `make test`、`make test-race`、`make mutation`、`make coverage`、`make hermetic`、`make cross`。改动推送后以 GitHub Actions 的结论为准；不要用本地全量替 CI 复现，也不要没跑快检就推。
-- `make check` = gofmt -s 检查 + 约定检查 + `go vet` + 测试，`make ci` 在前面再加 workflow 形状检查、覆盖率与 race 全量：两者是 CI 的入口，不是本地迭代手段。
-- 需要 Go 1.24+（CI 锁 1.25.x）与 python3（`scripts/` 下的检查）。
+- `make` 只是门禁命令清单，CI 直接跑同样的命令，`check-workflow.py` 强制一致；`make check`/`make ci` 是本地别名。
+- 版本一律锁死：Go 写确切补丁 `X.Y.Z`，action 按 commit SHA，govulncheck 固定版本；升级是独立的 `ci:` 提交。
+- 需要 Go 1.24+（CI 的 `floor` job 验证下限）与 python3（`scripts/` 下的检查）。
 
 ## 包地图与依赖方向
 
@@ -34,13 +35,14 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 - "探测不了"绝不当作"没有"；绝不结束不是自己启动的进程（`internal/service` 包文档三条不变量）。
 - 校验只在四处边界：CLI 参数、配置文件、状态与日志文件、外部命令输出。
 - 状态文件 0600、状态目录 0700、写入原子替换。
-- README 是唯一对外契约，`internal/cli/documentation_test.go` 强制环境变量与配置键都被记录。
-- 人读的文案中文，标识符与注释英文。
+- README 是唯一对外契约，`internal/cli/documentation_test.go` 强制环境变量、配置键、命令表、退出码表与默认值都被记录。
+- 面向操作者的文案（错误、帮助、README）中文；测试失败信息、标识符与注释英文。
 
 ## TDD
 
 - 先写会失败的测试再写实现；bug 先写复现测试，并证明它在修复前是红的。
-- 守卫只有在回归能让它变红时才是守卫：引入回归 → 看红 → 还原；`make mutation` 是这条规则的可执行形式（整套在 CI 上跑，本地只用 `--only <名字>` 证明单条会被抓住）。
+- 守卫只有在回归能让它变红时才是守卫：引入回归 → 看红 → 还原；`make mutation` 是这条规则的可执行形式（整套在 CI 上分片跑，本地只证明单条）。
+- 新增被钉住的决策要同时加一条 `MUTATIONS` 字面替换，并证明它会被抓住。
 - 禁止先实现后补测试、禁止放宽或删除断言、禁止新增 skip（CI 的 skip 白名单要同步）。
 - 测试描述行为而不是"正确性"；行为过时就连测试一起改，并在提交里说明。
 
@@ -54,7 +56,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 架构
 
-- 跨层调用只经 `service`；平台差异只出现在 build tag 文件里，上层不得有 `if windows`。
+- 跨层调用只经 `service`；平台差异只出现在 build tag 文件里，上层不得有 `if windows`（两处已声明例外见 `dshctl-portability`）。
 - 接口只为可测性存在（当前只有 `run.Executor`/`Capturer`/`Outputer` 与 `service.OsHost`），文档要写明它买到了什么。
 - 新不变量同时写进包文档与一个测试；新包需"独立不变量 + 可独立测试 + 不引入反向依赖"三条同时成立。
 - 契约性决定连同被否决的方案与后果写进 `.agents/notes/`，与代码同一提交。
@@ -70,7 +72,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 ## 完成定义
 
 - [ ] `make fmt-check conventions vet`（改 `.github/` 加 `make workflow-check`）与受影响包测试通过；全量门禁以 CI 的结论为准（本地不跑）。
-- [ ] 按改动确认 `mutation` / `cross` / `hermetic` / `coverage` 已由 CI 覆盖，并等它出结论。
+- [ ] 按改动确认 `mutation` / `cross` / `hermetic` / `coverage` 已由 CI 覆盖，并等它出结论；新增被钉住的决策同时补了 `MUTATIONS` 条目。
 - [ ] 新增或改变的行为有会失败的测试，新不变量有反向用例。
 - [ ] README 与包文档同步；契约性决定已写进 `.agents/notes/`。
 - [ ] 没有新增依赖、没有削弱断言、没有新增 skip、没有触碰 `bin/` 与 `dist/`。
