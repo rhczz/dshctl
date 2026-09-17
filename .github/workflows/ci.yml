@@ -12,6 +12,12 @@ name: CI
 #     the Node resolution stays covered statement by statement. All three read
 #     one run; running the suite once per property tripled the job without
 #     asserting anything more.
+#   * mutation: every decision the tests claim to pin is broken one at a time,
+#     and the suite has to go red for each. "The tests pass" is not evidence that
+#     they would notice a wrong decision, and this job is the slowest here by
+#     design — which is exactly why it runs on the runner rather than on a
+#     developer's machine. Its verdict is about the strength of the test suite,
+#     not about the binary, so the build job does not wait for it.
 #   * build (six targets): only from a commit whose tests and hermetic checks
 #     passed. That is the whole point of putting both in one pipeline.
 #   * vulncheck: the toolchain's own advisories, with the tool pinned so an
@@ -188,6 +194,32 @@ jobs:
             --require internal/nodejs=100 \
             --report internal/config \
             --report internal/service
+
+  mutation:
+    name: the tests notice a broken decision
+    runs-on: ubuntu-latest
+    # 36 decisions, each one a package-level test run of its own: this is the
+    # long pole of the pipeline, and the reason it belongs on the runner. The
+    # bound is generous because a cold build cache pays for a compile per
+    # mutation; a hang would be a defect in the script, not a slow decision.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.x"
+          check-latest: true
+          cache: false
+
+      - name: Break each pinned decision and require a red test
+        # Every entry in scripts/mutation-check.py replaces one literal decision,
+        # runs the packages that own it, and restores the file. `ALIVE` means the
+        # suite accepted a broken rule, `INVALID` means the mutation did not even
+        # compile, and both are failures. A mutation added together with the fix
+        # it guards is only a gate if something runs it, and running it here is
+        # what keeps a 40-minute sweep off the machines that write the code.
+        run: python3 scripts/mutation-check.py
 
   build:
     name: build ${{ matrix.goos }}/${{ matrix.goarch }}

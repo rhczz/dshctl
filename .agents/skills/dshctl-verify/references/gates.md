@@ -17,8 +17,8 @@
 | `make test-race` | **CI** | `go test -race -timeout 600s ./...` | 同上加数据竞争检测 | 竞争报告含两段 goroutine 栈 |
 | `make hermetic` | **CI**：改测试隔离、新增 skip、碰 HOME/环境变量 | `../../../../scripts/hermetic-check.sh` | 一次性 HOME 下跑全套，断言临时目录之外零残留 | `tests created files in a real home directory:` 加路径 |
 | `make coverage` | **CI**：改 `internal/nodejs` 或配置层决策 | hermetic 跑一次带 `-coverprofile`，再交 `../../../../scripts/check-coverage.py` | `internal/nodejs` 100% 硬门禁；`internal/config`、`internal/service` 只报告 | `FAIL internal/nodejs: xx.x% (要求 100%，a/b 条语句)` 加 `未覆盖:` 行 |
-| `make mutation` | **CI**：改 `internal/nodejs` 或配置层决策 | `../../../../scripts/mutation-check.py`，逐条破坏决策并要求测试失败 | "测试真的会注意到破坏吗" | `ALIVE`/`INVALID`/`BLOCKED` 任一行 + `mutation(s) survived` |
-| `make workflow-check` | **CI**：改 `.github/` | `../../../../scripts/check-workflow.py` | workflow 结构属性（触发、平台矩阵、构建门禁、产物、表达式引号） | `workflow check failed: …` |
+| `make mutation` | **CI**（`ci.yml` 的 `mutation` job）：改 `internal/nodejs` 或配置层决策 | `../../../../scripts/mutation-check.py`，逐条破坏决策并要求测试失败 | "测试真的会注意到破坏吗" | `ALIVE`/`INVALID`/`BLOCKED` 任一行 + `mutation(s) survived` |
+| `make workflow-check` | 本地快检：改 `.github/`（静态检查，秒级；CI 的 hermetic job 也跑一遍） | `../../../../scripts/check-workflow.py` | workflow 结构属性（触发、平台矩阵、构建门禁、产物、表达式引号） | `workflow check failed: …` |
 | `make cross` | **CI**：平台代码改动；发布前 | 6 个 `GOOS/GOARCH` 交叉编译到 `dist/` | darwin/linux/windows × amd64/arm64 都能编译 | 某个目标的编译错误 |
 | `make conventions` | 本地快检：改注释、依赖、skill 或 `AGENTS.md` | `../../../../scripts/check-conventions.py` | AGENTS.md 与 skill 的完整性、注释宽度、`panic`/`init`、零依赖与分层、结尾换行 | `检查失败: <rule>: …`，逐条见下 |
 | `make check` | **CI**（本地只跑它的前三项） | `fmt-check` + `conventions` + `vet` + `test` | 上面四项 | 见各行 |
@@ -51,7 +51,7 @@
 8. `INVALID <name> — the mutation did not compile, so it proves nothing` → 变异锚点在源码里不再唯一匹配或改坏了编译 → 更新 `scripts/mutation-check.py` 里的原文字面量。
 9. `BLOCKED <name> — the toolchain could not use its build cache; set GOCACHE` → 运行环境用不了 Go 构建缓存（沙箱/权限）→ 换一个可写的 `GOCACHE` 再跑。
 10. `mutation(s) survived or were invalid: the suite does not pin them` → 上面两类任一条出现后的汇总 → 逐条处理，不要只看总数。
-11. `workflow check failed: …` → workflow 的结构属性被破坏（少了一个平台、构建丢了 `needs`、表达式里的裸词没加引号）→ 按提示改 `../../../../.github/workflows/` 下的文件。
+11. `workflow check failed: …` → workflow 的结构属性被破坏（少了一个平台、构建丢了 `needs`、`mutation` job 不见了或不再跑脚本、表达式里的裸词没加引号）→ 按提示改 `../../../../.github/workflows/` 下的文件。
 12. `检查失败: go-comments: <file>:<line>: 注释 N 列，超过 88` → 注释超宽 → 折行（`dshctl-style`）。
 13. `检查失败: go-imports: <file>: 引入第三方模块 …` → 破坏了零第三方依赖 → 用标准库实现。
 14. `检查失败: go-imports: <file>: <包> 依赖 <包>，不在允许的层方向内` → 依赖方向反了或新增了跨层边 → 把逻辑放回上层，或经 `internal/service` 中转（`dshctl-decisions`）。

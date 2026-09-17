@@ -6,8 +6,8 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 命令
 
-- 本地只跑快检与定点复现：`make fmt-check vet conventions`，加上受影响包的 `go test ./internal/<pkg>/ -count=1`；要证明某条守卫会红、某个变异会被抓住时，只跑那一条（`-run NAME`、`python3 scripts/mutation-check.py --only NAME`）。
-- 全量门禁只在 CI 跑，本地不执行：`make check`、`make ci`、全量 `make test`、`make test-race`、`make mutation`、`make coverage`、`make hermetic`、`make cross`、`make workflow-check`。改动推送后以 GitHub Actions 的结论为准；不要用本地全量替 CI 复现，也不要没跑快检就推。
+- 本地只跑快检与定点复现：`make fmt-check conventions vet`（改 `.github/` 时加 `make workflow-check`，都是秒级静态检查），加上受影响包的 `go test ./internal/<pkg>/ -count=1`；要证明某条守卫会红、某个变异会被抓住时，只跑那一条（`-run NAME`、`python3 scripts/mutation-check.py --only NAME`）。
+- 全量门禁只在 CI 跑，本地不执行：`make check`、`make ci`、全量 `make test`、`make test-race`、`make mutation`、`make coverage`、`make hermetic`、`make cross`。改动推送后以 GitHub Actions 的结论为准；不要用本地全量替 CI 复现，也不要没跑快检就推。
 - `make check` = gofmt -s 检查 + 约定检查 + `go vet` + 测试，`make ci` 在前面再加 workflow 形状检查、覆盖率与 race 全量：两者是 CI 的入口，不是本地迭代手段。
 - 需要 Go 1.24+（CI 锁 1.25.x）与 python3（`scripts/` 下的检查）。
 
@@ -69,8 +69,8 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 完成定义
 
-- [ ] `make fmt-check vet` 与受影响包测试通过；全量门禁以 CI 的结论为准（本地不跑）。
-- [ ] 按改动确认 `mutation` / `workflow-check` / `cross` / `hermetic` / `coverage` 已由 CI 覆盖，并等它出结论。
+- [ ] `make fmt-check conventions vet`（改 `.github/` 加 `make workflow-check`）与受影响包测试通过；全量门禁以 CI 的结论为准（本地不跑）。
+- [ ] 按改动确认 `mutation` / `cross` / `hermetic` / `coverage` 已由 CI 覆盖，并等它出结论。
 - [ ] 新增或改变的行为有会失败的测试，新不变量有反向用例。
 - [ ] README 与包文档同步；契约性决定已写进 `.agents/notes/`。
 - [ ] 没有新增依赖、没有削弱断言、没有新增 skip、没有触碰 `bin/` 与 `dist/`。

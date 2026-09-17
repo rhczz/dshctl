@@ -212,6 +212,29 @@ def check_hermetic_gates(text: str) -> None:
             fail(f"the hermetic job no longer runs {description} ({needle!r})")
 
 
+def check_mutation_gate(text: str) -> None:
+    """The mutation sweep has to keep running somewhere.
+
+    It is the only gate that decides whether the tests would notice a broken
+    decision, and it is the slowest one, so the temptation to drop it is real.
+    The project keeps it off developers' machines, so a workflow that stops
+    running it retires the gate without anybody noticing.
+    """
+    block = job_block(text, "mutation")
+    if not block:
+        fail("the mutation job is missing, so nothing breaks a decision to test the suite")
+    # Comments in this job talk about the script, so the needle has to be looked
+    # for in the commands: a job that documents the sweep and runs `echo` is a
+    # retired gate with a convincing comment.
+    commands = "\n".join(line for line in block.splitlines() if not line.lstrip().startswith("#"))
+    if "mutation-check.py" not in commands:
+        fail("the mutation job no longer runs scripts/mutation-check.py")
+    if not re.search(r"^\s*timeout-minutes:\s*\d+\s*$", block, re.MULTILINE):
+        fail("the mutation job has no timeout-minutes, so a hang would hold a runner for hours")
+    if "needs:" in block:
+        fail("the mutation job waits on another job, which puts the slowest gate on the critical path")
+
+
 def check_ci(text: str) -> None:
     """The continuous integration workflow."""
     for required in ("name:", "on:", "jobs:"):
@@ -229,7 +252,7 @@ def check_ci(text: str) -> None:
     if not jobs:
         fail(f"{CI}: no jobs were found")
 
-    for name in ("test", "hermetic", "build"):
+    for name in ("test", "hermetic", "mutation", "build"):
         if name not in jobs:
             fail(f"{CI}: job {name!r} is missing")
 
@@ -251,6 +274,7 @@ def check_ci(text: str) -> None:
             fail(f"{CI}: the workflow no longer mentions {platform!r}")
     check_platform_matrix(text)
     check_hermetic_gates(text)
+    check_mutation_gate(text)
 
     return jobs
 
