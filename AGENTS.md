@@ -6,9 +6,9 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 命令
 
-- `make check` = gofmt -s 检查 + 约定检查 + `go vet` + 测试；`make ci` 在前面再加 workflow 形状检查、覆盖率与 race 全量。
-- `make test` 本机约 2 分钟（包间并行；单包最慢是 `internal/cli` 与 `internal/service`，各约 110s），`make ci` 约 4 分钟：迭代中跑受影响包，提交前跑全量。
-- 按改动追加：`make mutation`（改 Node 或配置决策）、`make hermetic`、`make coverage`、`make cross`、`make workflow-check`。
+- 本地只跑快检与定点复现：`make fmt-check vet conventions`，加上受影响包的 `go test ./internal/<pkg>/ -count=1`；要证明某条守卫会红、某个变异会被抓住时，只跑那一条（`-run NAME`、`python3 scripts/mutation-check.py --only NAME`）。
+- 全量门禁只在 CI 跑，本地不执行：`make check`、`make ci`、全量 `make test`、`make test-race`、`make mutation`、`make coverage`、`make hermetic`、`make cross`、`make workflow-check`。改动推送后以 GitHub Actions 的结论为准；不要用本地全量替 CI 复现，也不要没跑快检就推。
+- `make check` = gofmt -s 检查 + 约定检查 + `go vet` + 测试，`make ci` 在前面再加 workflow 形状检查、覆盖率与 race 全量：两者是 CI 的入口，不是本地迭代手段。
 - 需要 Go 1.24+（CI 锁 1.25.x）与 python3（`scripts/` 下的检查）。
 
 ## 包地图与依赖方向
@@ -40,7 +40,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 ## TDD
 
 - 先写会失败的测试再写实现；bug 先写复现测试，并证明它在修复前是红的。
-- 守卫只有在回归能让它变红时才是守卫：引入回归 → 看红 → 还原；`make mutation` 是这条规则的可执行形式。
+- 守卫只有在回归能让它变红时才是守卫：引入回归 → 看红 → 还原；`make mutation` 是这条规则的可执行形式（整套在 CI 上跑，本地只用 `--only <名字>` 证明单条会被抓住）。
 - 禁止先实现后补测试、禁止放宽或删除断言、禁止新增 skip（CI 的 skip 白名单要同步）。
 - 测试描述行为而不是"正确性"；行为过时就连测试一起改，并在提交里说明。
 
@@ -64,13 +64,13 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 1. 定位真源：包文档、pinning 测试、README、`.agents/notes`。
 2. 定夺该固定还是该可配、代码属于哪一层。
 3. 写失败测试，再实现。
-4. 按改动选门禁，提交前跑全量。
+4. 按改动选门禁：本地只跑快检与定点复现，全量交给 CI。
 5. 提交信息 `<type>: <小写英文句子描述行为变化>`，type 用 feat/fix/test/docs/ci；PR 面向 main 且 CI 三平台必绿；发布只打 `v*` tag，版本由 ldflags 注入。
 
 ## 完成定义
 
-- [ ] `make fmt-check vet` 与受影响包测试通过，提交前 `make test` 全绿。
-- [ ] 按改动补跑 `mutation` / `workflow-check` / `cross` / `hermetic` / `coverage`。
+- [ ] `make fmt-check vet` 与受影响包测试通过；全量门禁以 CI 的结论为准（本地不跑）。
+- [ ] 按改动确认 `mutation` / `workflow-check` / `cross` / `hermetic` / `coverage` 已由 CI 覆盖，并等它出结论。
 - [ ] 新增或改变的行为有会失败的测试，新不变量有反向用例。
 - [ ] README 与包文档同步；契约性决定已写进 `.agents/notes/`。
 - [ ] 没有新增依赖、没有削弱断言、没有新增 skip、没有触碰 `bin/` 与 `dist/`。

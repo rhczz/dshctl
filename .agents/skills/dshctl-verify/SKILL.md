@@ -1,21 +1,22 @@
 ---
 name: dshctl-verify
-description: 决定 dshctl 一次改动在提交前必须跑哪些门禁、按什么顺序、失败了怎么定位，以及提交/PR/发布的机械约束与报告纪律。用于改完代码准备提交或开 PR、CI 变红、或判断某个 make 目标是否适用于本次改动时。
+description: 决定 dshctl 一次改动该跑哪些门禁（本地只跑快检与定点复现，全量门禁一律交给 CI）、CI 变红怎么定位，以及提交/PR/发布的机械约束与报告纪律。用于改完代码准备提交或开 PR、CI 变红、判断某个 make 目标是否适用于本次改动、或打算在本机跑 `make check`/`make ci`/`make mutation` 等全量门禁时。
 ---
 
 # dshctl 门禁、提交与发布
 
 ## 概要
 
-`make` 是门禁的唯一入口（`../../../Makefile`）。迭代中按改动选检，提交前跑全量：本机实测 `make check` 约 2 分钟（`real 1m56s`，含 `vet` 与约定检查；包并行运行，最慢的 `internal/cli` 与 `internal/service`（各约 110s）决定下限），而单机没有 CI 的三平台矩阵可依赖，全量是本地唯一能替代它的证据——这一点与上游 DSH 仓库"从不默认跑全量"的做法相反，因为那边有别的成本结构。完整门禁表、耗时基线与失败定位见 `references/gates.md`；用行为探针回归 skill 与 AGENTS.md 的改动见 `references/effectiveness-probes.md`。
+`make` 是门禁的唯一入口（`../../../Makefile`）。分工是硬规则：本地只跑快检与定点复现，**全量门禁只在 CI 跑，本地不执行 `make ci`**。快检是本机实测约 2 分钟的 `make check` 里的前三项（`fmt-check`、`conventions`、`vet`）加受影响包的 `go test`，全量（全套测试、race、覆盖率、hermetic、变异、交叉编译、workflow 形状）由 GitHub Actions 在三平台矩阵上跑——上游 DSH 仓库从不默认跑全量，本仓库现在同样。完整门禁表、耗时基线（CI 预算用）与失败定位见 `references/gates.md`；用行为探针回归 skill 与 AGENTS.md 的改动见 `references/effectiveness-probes.md`。
 
 ## 规则
 
-### 1. 按改动选检，提交前跑全量
+### 1. 按改动选检，全量交给 CI
 
-- 迭代中：`make fmt-check vet` 加受影响包的 `go test ./internal/<pkg>/ -count=1`；提交前 `make check`（fmt-check + conventions + vet + test）必须绿，最终确认再跑 `make ci`。
-- 改到哪就追加哪个门禁：改 `internal/nodejs` 或配置层决策加 `make mutation`、`make coverage`；改 `.github/` 加 `make workflow-check`；碰平台文件（`_unix`/`_windows`/`_darwin`/`_linux`/`_other`）加 `make cross` 与本机对应平台测试；改测试隔离或新增 skip 加 `make hermetic`。
-- 为什么不能只跑受影响包就提交：跨包契约由测试钉住（如 `internal/service/contracts_test.go` 的三包路径契约），单包绿不代表契约没被别处踩坏。
+- 本地（快检）：`make fmt-check conventions vet`，加受影响包的 `go test ./internal/<pkg>/ -count=1`；需要证明某条守卫会红、某个变异会被抓住时，只跑那一条（`-run NAME`、`python3 scripts/mutation-check.py --only NAME`）。
+- 本地不跑全量：`make check`、`make ci`、全量 `make test`、`make test-race`、`make mutation`、`make coverage`、`make hermetic`、`make cross`、`make workflow-check` 一律由 CI 执行（`../../../.github/workflows/ci.yml`），本地跑它们只是把 CI 的时间花两遍。
+- 改到哪类代码，就在 CI 上看哪个门禁的结论：改 `internal/nodejs` 或配置层决策看 `mutation` 与 `coverage`；改 `.github/` 看 `workflow-check`；碰平台文件（`_unix`/`_windows`/`_darwin`/`_linux`/`_other`）看 `cross` 与三平台 `test`；改测试隔离或新增 skip 看 `hermetic`。CI 里没有对应 job 时，先补 workflow 再推（`dshctl-verify` 的"改门禁本身"）。
+- 为什么受影响的包绿了也要等 CI：跨包契约由测试钉住（如 `internal/service/contracts_test.go` 的三包路径契约），单包绿不代表契约没被别处踩坏；而且平台差异只有三平台矩阵能看见。
 
 ### 2. 让测试真的重新执行
 
@@ -27,7 +28,7 @@ description: 决定 dshctl 一次改动在提交前必须跑哪些门禁、按�
 
 - `make hermetic`（`../../../scripts/hermetic-check.sh`）：在一次性 HOME 里跑整套测试，并要求测试不在自己的临时目录之外留下任何东西。它红说明某个测试写了真实 HOME、真实状态目录或全局配置——这正是"测试不碰环境"从声明变成被检查属性的地方。
 - `make coverage`（`../../../scripts/check-coverage.py`）：`internal/nodejs` 是 100% 硬门禁（这个包决定长跑服务用哪个 Node 运行时），`internal/config`、`internal/service` 只报告不设阈值。给 nodejs 加分支必须同时加测试，否则 CI 直接红。
-- `make mutation`（`../../../scripts/mutation-check.py`）：逐条破坏 Node 与配置决策，要求测试失败。输出 `ALIVE`（没被发现）、`INVALID`（变异没编译，什么也没证明）、`BLOCKED`（工具链用不了构建缓存）都算失败。改这些决策必须跑，因为"测试通过"本身不能证明测试会注意到破坏。
+- `make mutation`（`../../../scripts/mutation-check.py`）：逐条破坏 Node 与配置决策，要求测试失败。输出 `ALIVE`（没被发现）、`INVALID`（变异没编译，什么也没证明）、`BLOCKED`（工具链用不了构建缓存）都算失败。改这些决策必须让它跑（整套在 CI，本地只用 `--only` 证明单条），因为"测试通过"本身不能证明测试会注意到破坏。
 
 ### 4. CI 上额外跑什么
 
@@ -43,13 +44,14 @@ description: 决定 dshctl 一次改动在提交前必须跑哪些门禁、按�
 ### 6. 报告纪律
 
 - 只报告真正跑过的命令与它们的输出；没跑的写 pending，不写"应该没问题"。
-- 不把 CI 当第一次执行，"推上去赌 CI"等于让复核替你发现失败。
+- 区分"本地快检跑过"与"CI 判定过"：推之前必须有快检结果，推之后必须等 CI 出结论再宣布完成，不能替 CI 下结论，也不能用本地全量替它复现。
 - 失败先定位到包、测试与行号，再谈归因；报告里给出复现命令。
 
 ## 验证
 
-- 提交前：`make check`；一次到位或改动了门禁本身：`make ci`。
-- 改过 skill 或 AGENTS.md 后：按 `references/effectiveness-probes.md` 的 10 个探针回归。
+- 本地：`make fmt-check conventions vet` 与受影响包的 `go test ./internal/<pkg>/ -count=1`。
+- 全量（`make check`、`make ci` 及同级的 race/覆盖率/hermetic/变异/交叉编译）看 CI：推送后读 GitHub Actions 的结论，本地不跑。
+- 改过 skill 或 AGENTS.md 后：按 `references/effectiveness-probes.md` 的探针回归（新增了约束就同时加一条探针）。
 
 ## 相关文件
 

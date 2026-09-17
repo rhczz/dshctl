@@ -39,8 +39,8 @@ description: 评审 dshctl 的改动或 PR：按本仓库不变量与防御模�
 ## 验证
 
 ```sh
-make check                                              # 可疑时按受影响范围重跑，或 make ci
-go test ./internal/<pkg>/ -run <Test> -count=1          # 单点核实
+gh run list --workflow CI                                # 全量门禁的结论看 CI，本地不重跑 make check/ci
+go test ./internal/<pkg>/ -run <Test> -count=1           # 可疑时单点核实，别顺手跑全量
 ```
 
 ## 相关文件

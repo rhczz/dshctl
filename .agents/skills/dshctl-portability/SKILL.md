@@ -42,7 +42,7 @@ dshctl 支持 darwin/linux/windows × amd64/arm64，平台差异只允许出现�
 
 ## 验证
 
-- `make cross`（六个交叉目标）。
+- `make cross`（六个交叉目标）在 CI 上跑，本地不跑——本地能验的是类型检查与受影响包。
 - `GOOS=windows go vet ./...`（在本机对 Windows 做类型检查）。
 - 受影响包 `go test -count=1`；平台专属分支中只有本平台那部分在本机真正执行，其余以 CI 三平台矩阵为准。
 

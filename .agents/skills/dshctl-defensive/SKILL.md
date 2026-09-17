@@ -53,10 +53,10 @@ description: 改 dshctl 的生命周期、并发、子进程、超时或清理�
 
 ```sh
 go test ./internal/service/ ./internal/host/ ./internal/run/ -count=1
-make test-race
+make test-race   # CI：本地不跑，race 只在 CI 的三平台矩阵上有意义
 ```
 
-改到等待循环或信号路径时，另外证明守卫会红：引入回归 → 看测试变红 → 还原。`make mutation` 是这条规则在 Node 与配置决策上的可执行形式（见 [scripts/mutation-check.py](../../../scripts/mutation-check.py)）。
+改到等待循环或信号路径时，另外证明守卫会红：引入回归 → 看测试变红 → 还原。`make mutation` 是这条规则在 Node 与配置决策上的可执行形式（见 [scripts/mutation-check.py](../../../scripts/mutation-check.py)）：整套在 CI 上跑，本地只按需用 `--only <name>` 证明某一条会被抓住。
 
 ## 相关文件
 

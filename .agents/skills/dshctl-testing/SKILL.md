@@ -38,11 +38,13 @@ description: 在 dshctl 写或改测试：hermetic 隔离、真实入口路径�
 ## 验证
 
 ```sh
-go test ./internal/<包>/ -count=1
-make hermetic          # 清空 HOME 下跑整套 + 断言没有越界写盘
-make coverage          # internal/nodejs 必须 100%
-make test-race         # 并发问题只有 race 检测器看得见
+go test ./internal/<包>/ -count=1    # 本地：受影响包
+make hermetic          # CI：清空 HOME 下跑整套 + 断言没有越界写盘
+make coverage          # CI：internal/nodejs 必须 100%
+make test-race         # CI：并发问题只有 race 检测器看得见
 ```
+
+全量门禁只在 CI 跑（`AGENTS.md` 的「命令」一节）：本地写测试时跑受影响包，剩下三项等 CI 的结论；本地跑一遍 hermetic/race 不会比 CI 多证明什么，只是把 CI 的时间花两遍。
 
 ## 相关文件
 

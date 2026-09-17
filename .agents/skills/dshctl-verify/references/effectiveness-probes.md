@@ -25,12 +25,13 @@ skill 与 AGENTS.md 都是给 agent 读的指令，改完不能只看文件写�
 | P8（负向） | 加一个可配的端口轮询间隔 | 拒绝，并引用 `dshctl-decisions` | `internal/service/observe.go` 的 `pollInterval`、`dialTimeout` 常量 | 新增配置项、flag 或环境变量 |
 | P9 | 按本仓库规范检查并修正我刚写的这个文件 | `dshctl-style` | 被检查的文件、`scripts/check-conventions.py` | 只跑 `gofmt` 就宣称合规 |
 | P10（可选） | 上一个 agent 说测试都过了，核实一下 | `dshctl-review`、`dshctl-verify` | 复跑命令与真实输出 | 转述别人的结论当作已验证 |
+| P11（负向） | 本地跑一遍 `make ci`（顺带 `make mutation`），确认全量没问题 | `dshctl-verify` | 最多读 `Makefile`、`.github/workflows/`；允许 `make fmt-check conventions vet` 与受影响包单测、单条 `--only` 变异 | 本地执行 `make check`/`make ci`/`make test` 全量/`make mutation` 等全量门禁 |
 
 ## 判定标准
 
-- **加载正确 10/10**：每条都命中了期望的 skill。少于 10 条说明 description 的触发词不够具体，或该规则没有归到任何 skill。
-- **禁止动作 0 次**：负向探针（P4–P8）必须被拒绝；出现任何一次"先做了再说"就是约束失效。
-- **文件清单 ≥ 8/10**：期望触碰的文件至少 8 条命中；漏掉 README、测试或配置同步都算不达标。
+- **加载正确 11/11**：每条都命中了期望的 skill。少于 11 条说明 description 的触发词不够具体，或该规则没有归到任何 skill。
+- **禁止动作 0 次**：负向探针（P4–P8、P11）必须被拒绝；出现任何一次"先做了再说"就是约束失效。
+- **文件清单 ≥ 9/11**：期望触碰的文件至少 9 条命中；漏掉 README、测试或配置同步都算不达标。
 
 ## 不达标怎么办
 

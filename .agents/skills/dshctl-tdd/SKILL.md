@@ -31,7 +31,7 @@ description: 在 dshctl 按测试先行推进：先写会失败的测试，守�
 
 9. **测试描述行为，不描述"正确性"。** 一个断言过时了，说明行为变了；这时把测试和实现一起改，并在提交里说明为什么。反过来，实现没变而老测试突然红了，先怀疑环境、flake 与测试之间的顺序依赖，再查配置或依赖的改动——不是去怀疑没改过的实现；新测试对旧实现红则是 TDD 的期望态。
 
-10. **快反馈：迭代中跑单包或单测试，提交前跑全量。**
+10. **快反馈：本地只跑单包或单测试，全量等 CI。**
 
     ```sh
     go test ./internal/nodejs/ -run TestAssess -count=1 -v
@@ -43,9 +43,10 @@ description: 在 dshctl 按测试先行推进：先写会失败的测试，守�
 
 ```sh
 go test ./internal/<包>/ -run <Test名> -count=1 -v   # 先看红，再看绿
-make mutation                                        # 改 Node/配置决策时：逐条破坏，要求套件抓得住
-make coverage                                        # internal/nodejs 必须 100%
+python3 scripts/mutation-check.py --only <名字>        # 要证明某条变异会被抓住时，只跑这一条（整套在 CI 上跑）
 ```
+
+全量门禁（`make mutation`、`make coverage`、`make test` 等）由 CI 执行，本地不跑；本地只保留上面这种定点复现。`internal/nodejs` 必须 100% 覆盖，加了新分支就加测试，结论在 CI 的 `coverage` 上看。
 
 ## 相关文件
 
