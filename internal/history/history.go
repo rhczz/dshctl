@@ -96,8 +96,15 @@ func (s Store) Load() (File, bool, error) {
 	if err != nil {
 		return File{}, false, fmt.Errorf("无法读取更新历史 %s: %w", s.Path, err)
 	}
-	if len(bytes.TrimSpace(data)) == 0 {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 {
 		return File{}, false, fmt.Errorf("%w: %s 内容为空", ErrCorrupt, s.Path)
+	}
+	// The document is an object. A top-level null decodes into an empty value
+	// without an error, which would turn a mangled file into "no history" —
+	// exactly the answer that lets a rollback guess.
+	if trimmed[0] != '{' {
+		return File{}, false, fmt.Errorf("%w: %s 不是 JSON 对象", ErrCorrupt, s.Path)
 	}
 	// Unknown fields are accepted on purpose. The file is written by one build
 	// of dshctl and read by another — after an upgrade or a downgrade — so a
@@ -106,27 +113,50 @@ func (s Store) Load() (File, bool, error) {
 	if err := json.Unmarshal(data, &file); err != nil {
 		return File{}, false, fmt.Errorf("%w: %s: %v", ErrCorrupt, s.Path, err)
 	}
+	seen := make(map[string]struct{}, len(file.Repos))
 	for _, group := range file.Repos {
 		if group.Repo == "" {
 			return File{}, false, fmt.Errorf("%w: %s 有一组没有仓库路径", ErrCorrupt, s.Path)
 		}
+		if _, duplicate := seen[group.Repo]; duplicate {
+			// Two groups for one checkout would make "where can it roll back
+			// to" depend on which group a caller happened to read.
+			return File{}, false, fmt.Errorf("%w: %s 中 %s 出现了两组", ErrCorrupt, s.Path, group.Repo)
+		}
+		seen[group.Repo] = struct{}{}
+		positions := make(map[string]struct{}, len(group.Records))
 		for _, record := range group.Records {
 			if record.Commit == "" {
 				return File{}, false, fmt.Errorf("%w: %s 中 %s 有一条没有 commit 的位置",
 					ErrCorrupt, s.Path, group.Repo)
 			}
+			if _, duplicate := positions[record.Commit]; duplicate {
+				// Two entries for one position would make the step arithmetic
+				// ambiguous, and a valid stack never repeats a commit.
+				return File{}, false, fmt.Errorf("%w: %s 中 %s 的位置 %s 出现了两次",
+					ErrCorrupt, s.Path, group.Repo, record.Commit)
+			}
+			positions[record.Commit] = struct{}{}
 		}
 	}
 	return file, true, nil
 }
 
 // Save writes the history atomically with owner-only permissions.
+//
+// A document too large to be read back is refused rather than written: the
+// reader's bound is the writer's bound, or a caller could produce a file that
+// its own Load reports as corrupt.
 func (s Store) Save(file File) error {
 	data, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
 		return fmt.Errorf("无法序列化更新历史: %w", err)
 	}
-	return atomically.WriteFile(s.Path, append(data, '\n'), 0o600)
+	payload := append(data, '\n')
+	if len(payload) > maxFileBytes {
+		return fmt.Errorf("更新历史过大 (%d 字节)，拒绝写入 %s", len(payload), s.Path)
+	}
+	return atomically.WriteFile(s.Path, payload, 0o600)
 }
 
 // Records returns one checkout's positions, newest first, or nil when this
@@ -161,19 +191,33 @@ func (f File) With(repo string, records []Record) File {
 
 // Visit returns the stack with position on top. A position the stack already
 // holds truncates everything newer than it; a new one is prepended. The result
-// is capped at MaxRecords.
+// never repeats a commit — a stack that (through hand editing) does is
+// deduplicated — and is capped at MaxRecords.
 func Visit(records []Record, position Record) []Record {
-	for index, existing := range records {
+	index := -1
+	for at, existing := range records {
 		if existing.Commit == position.Commit {
-			records = records[index+1:]
+			index = at
 			break
 		}
 	}
-	records = append([]Record{position}, records...)
-	if len(records) > MaxRecords {
-		records = records[:MaxRecords]
+	kept := make([]Record, 0, len(records)+1)
+	kept = append(kept, position)
+	seen := map[string]struct{}{position.Commit: {}}
+	for at, existing := range records {
+		if at <= index {
+			continue
+		}
+		if _, duplicate := seen[existing.Commit]; duplicate {
+			continue
+		}
+		seen[existing.Commit] = struct{}{}
+		kept = append(kept, existing)
 	}
-	return records
+	if len(kept) > MaxRecords {
+		kept = kept[:MaxRecords]
+	}
+	return kept
 }
 
 // Step returns the n-th position back from current, counting current as step

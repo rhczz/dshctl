@@ -270,6 +270,167 @@ func TestSaveWritesExactlyOneFinalNewline(t *testing.T) {
 	}
 }
 
+// TestLoadRejectsANonObjectDocument pins that only the one document shape Save
+// writes is accepted. A top-level null decodes into an empty value without an
+// error, which would turn a truncated or hand-mangled file into "no history" —
+// exactly the answer that lets a rollback guess.
+func TestLoadRejectsANonObjectDocument(t *testing.T) {
+	for _, document := range []string{"null", "[]", `"repos"`, "42", "true"} {
+		t.Run(document, func(t *testing.T) {
+			box := store(t)
+			writeFile(t, box.Path, document)
+			_, ok, err := box.Load()
+			if ok {
+				t.Fatal("a non-object document is not a history")
+			}
+			if !errors.Is(err, ErrCorrupt) {
+				t.Fatalf("Load error = %v, want ErrCorrupt", err)
+			}
+		})
+	}
+}
+
+// TestLoadRejectsDuplicateCheckoutGroups pins that one checkout has exactly one
+// stack: with two groups the answer to "where can this checkout roll back to"
+// would depend on which one a caller happened to read.
+func TestLoadRejectsDuplicateCheckoutGroups(t *testing.T) {
+	box := store(t)
+	document := `{"repos":[
+	  {"repo":"/a","records":[{"commit":"c1","at":1}]},
+	  {"repo":"/a","records":[{"commit":"c2","at":2}]}
+	]}`
+	writeFile(t, box.Path, document)
+	_, ok, err := box.Load()
+	if ok {
+		t.Fatal("a file with two groups for one checkout is not a history")
+	}
+	if !errors.Is(err, ErrCorrupt) {
+		t.Fatalf("Load error = %v, want ErrCorrupt", err)
+	}
+}
+
+// TestFileRecordsReturnsACopy pins that a caller cannot reach into a loaded
+// value and change what a later read of it sees.
+func TestFileRecordsReturnsACopy(t *testing.T) {
+	file := File{Repos: []Group{{Repo: "/a", Records: []Record{record("c1", "", 1)}}}}
+	records := file.Records("/a")
+	records[0].Commit = "mutated"
+	if again := file.Records("/a"); again[0].Commit != "c1" {
+		t.Fatalf("the file changed through a returned slice: %+v", again)
+	}
+}
+
+// TestVisitRefreshesAnExistingTop pins that returning to the position that is
+// already on top updates what is recorded about it: the move just happened, so
+// its selector and time are the new ones.
+func TestVisitRefreshesAnExistingTop(t *testing.T) {
+	records := []Record{record("b", "", 1), record("a", "", 1)}
+	got := Visit(records, record("b", "-n 1", 9))
+	want := []Record{record("b", "-n 1", 9), record("a", "", 1)}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Visit = %+v, want %+v", got, want)
+	}
+}
+
+// TestVisitOnAnEmptyStack pins the first deployment: the position is the whole
+// stack.
+func TestVisitOnAnEmptyStack(t *testing.T) {
+	got := Visit(nil, record("a", "latest", 1))
+	want := []Record{record("a", "latest", 1)}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Visit = %+v, want %+v", got, want)
+	}
+}
+
+// TestStepOnAnEmptyStack pins that a checkout with no recorded move has nothing
+// to roll back to, even though the current position exists.
+func TestStepOnAnEmptyStack(t *testing.T) {
+	if _, ok := Step(nil, record("a", "", 1), 1); ok {
+		t.Fatal("an empty history offered a step")
+	}
+}
+
+// TestSaveWritesTheRecordsItIsGiven pins that Save is a writer, not a second
+// place that caps: a silent truncation here would drop positions a caller
+// explicitly built.
+func TestSaveWritesTheRecordsItIsGiven(t *testing.T) {
+	box := store(t)
+	records := make([]Record, MaxRecords+5)
+	for index := range records {
+		records[index] = record(fmt.Sprintf("c%03d", index), "", int64(index))
+	}
+	if err := box.Save(File{Repos: []Group{{Repo: "/a", Records: records}}}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	loaded, _, err := box.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := len(loaded.Records("/a")); got != len(records) {
+		t.Fatalf("records = %d, want all %d", got, len(records))
+	}
+}
+
+// TestLoadRejectsDuplicatePositions pins that one commit has one entry: two
+// entries would make the step arithmetic ambiguous, and a valid stack never
+// repeats a commit.
+func TestLoadRejectsDuplicatePositions(t *testing.T) {
+	box := store(t)
+	document := `{"repos":[{"repo":"/a","records":[
+	  {"commit":"c1","at":1},
+	  {"commit":"c1","at":2}
+	]}]}`
+	writeFile(t, box.Path, document)
+	_, ok, err := box.Load()
+	if ok {
+		t.Fatal("a file repeating a position is not a history")
+	}
+	if !errors.Is(err, ErrCorrupt) {
+		t.Fatalf("Load error = %v, want ErrCorrupt", err)
+	}
+}
+
+// TestVisitDropsARepeatedCommit pins the hand-edited-file case: even if a stack
+// repeats a commit, the result holds it once, at the top.
+func TestVisitDropsARepeatedCommit(t *testing.T) {
+	records := []Record{record("b", "", 3), record("a", "", 2), record("b", "", 1)}
+	got := Visit(records, record("b", "latest", 4))
+	want := []Record{record("b", "latest", 4), record("a", "", 2)}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Visit = %+v, want %+v", got, want)
+	}
+}
+
+// TestVisitDropsDuplicatesAmongTheSurvivors pins that the no-duplicates rule
+// holds for every commit, not only for the one on top: the file's invariant is
+// what makes the step arithmetic unambiguous. The first occurrence survives,
+// because the stack is ordered newest first.
+func TestVisitDropsDuplicatesAmongTheSurvivors(t *testing.T) {
+	records := []Record{record("b", "", 3), record("a", "", 2), record("a", "", 1), record("x", "", 0)}
+	got := Visit(records, record("b", "latest", 4))
+	want := []Record{record("b", "latest", 4), record("a", "", 2), record("x", "", 0)}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("Visit = %+v, want %+v", got, want)
+	}
+}
+
+// TestSaveRefusesADocumentTooLargeToRead pins the writer's bound: Save must
+// never produce a file its own Load reports as corrupt.
+func TestSaveRefusesADocumentTooLargeToRead(t *testing.T) {
+	box := store(t)
+	records := make([]Record, 0, 4000)
+	for index := 0; index < 4000; index++ {
+		records = append(records, record(fmt.Sprintf("commit-%06d", index), "latest", int64(index)))
+	}
+	err := box.Save(File{Repos: []Group{{Repo: "/a", Records: records}}})
+	if err == nil {
+		t.Fatal("Save wrote a document larger than the reader's bound")
+	}
+	if _, statErr := os.Lstat(box.Path); !os.IsNotExist(statErr) {
+		t.Fatalf("the oversize document reached the disk: %v", statErr)
+	}
+}
+
 // writeFile writes content, creating parent directories.
 func writeFile(t *testing.T, path, content string) {
 	t.Helper()
