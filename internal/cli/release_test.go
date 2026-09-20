@@ -64,6 +64,21 @@ func cliGitEnv() []string {
 	return append(environment, "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1")
 }
 
+// toolPathWithGit returns a PATH that finds the stubbed tools and the real git.
+//
+// stubToolPath alone is enough for commands that never run git, but the version
+// commands do: the stub PATH must carry git's own directory too, or the binary
+// under test fails with "executable file not found" instead of the answer the
+// test is about.
+func toolPathWithGit(t *testing.T, programs ...string) string {
+	t.Helper()
+	gitPath, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatalf("these tests need a real git executable: %v", err)
+	}
+	return filepath.Dir(gitPath) + string(os.PathListSeparator) + stubToolPath(t, programs...)
+}
+
 // seedGitCheckout builds the checkout the binary will manage: a real repository
 // at <root>/repo whose origin/master is one commit and one tag ahead, so every
 // timeline run has something to report.
@@ -254,7 +269,7 @@ func TestUpdateRejectsAnUnknownVersionWithoutStoppingTheService(t *testing.T) {
 	root := t.TempDir()
 	seedGitCheckout(t, root)
 	result := runBinaryIn(t, root, map[string]string{
-		"PATH": stubToolPath(t, "pnpm", "node"),
+		"PATH": toolPathWithGit(t, "pnpm", "node"),
 	}, "update", "no-such-version")
 
 	if result.code != 4 {
@@ -274,7 +289,7 @@ func TestUpdateRejectsASelectorThatLooksLikeAFlag(t *testing.T) {
 	root := t.TempDir()
 	seedGitCheckout(t, root)
 	result := runBinaryIn(t, root, map[string]string{
-		"PATH": stubToolPath(t, "pnpm", "node"),
+		"PATH": toolPathWithGit(t, "pnpm", "node"),
 	}, "update", "--", "--latest")
 
 	if result.code != 2 {
@@ -291,7 +306,7 @@ func TestUpdateRejectsASecondVersionArgument(t *testing.T) {
 	root := t.TempDir()
 	seedGitCheckout(t, root)
 	result := runBinaryIn(t, root, map[string]string{
-		"PATH": stubToolPath(t, "pnpm", "node"),
+		"PATH": toolPathWithGit(t, "pnpm", "node"),
 	}, "update", "latest", "dsh-v0.1.0")
 
 	if result.code != 2 {
@@ -319,7 +334,7 @@ func TestRollbackRejectsBadStepArguments(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			root := t.TempDir()
 			result := runBinaryIn(t, root, map[string]string{
-				"PATH": stubToolPath(t, "pnpm", "node"),
+				"PATH": toolPathWithGit(t, "pnpm", "node"),
 			}, testCase.args...)
 			if result.code != 2 {
 				t.Fatalf("%v exit = %d, want 2 (stderr = %s)", testCase.args, result.code, result.stderr)
@@ -340,7 +355,7 @@ func TestRollbackWithoutHistoryIsAPreflight(t *testing.T) {
 	root := t.TempDir()
 	seedGitCheckout(t, root)
 	result := runBinaryIn(t, root, map[string]string{
-		"PATH": stubToolPath(t, "pnpm", "node"),
+		"PATH": toolPathWithGit(t, "pnpm", "node"),
 	}, "rollback")
 
 	if result.code != 4 {
