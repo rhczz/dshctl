@@ -52,6 +52,7 @@ dshctl stop                   # 停止
 | `build` | 清理已删除包的残留目录后执行 `pnpm run build` |
 | `timeline` | 查看当前版本与 `origin/master` 的差距：落后/领先的提交数、差距内的 tag、最近的提交与部署历史；`--json` 输出结构化结果 |
 | `update` | 更新到指定版本（`latest`/tag/commit，默认 `latest`）：停服 → `git fetch` → 切换 → 清理 → `pnpm install` → 构建 → 恢复启动 |
+| `rollback` | 回退到之前部署过的位置：不带参数退 1 步、`-n <步数>` 退多步、`<tag>/<commit>` 定点回退；不联网 |
 | `doctor` | 只读体检；`--json` 输出结构化结果 |
 | `version` | 版本、提交、构建时间与目标平台；`--json` 输出结构化结果 |
 

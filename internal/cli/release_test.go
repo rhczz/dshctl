@@ -302,6 +302,55 @@ func TestUpdateRejectsASecondVersionArgument(t *testing.T) {
 	}
 }
 
+// TestRollbackRejectsBadStepArguments pins the usage boundary of the step
+// syntax: a flag cannot be combined with a version, and the step count is a
+// positive integer.
+func TestRollbackRejectsBadStepArguments(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"zero steps", []string{"rollback", "-n", "0"}, "必须是正整数"},
+		{"negative steps", []string{"rollback", "-n", "-2"}, "必须是正整数"},
+		{"steps and a version", []string{"rollback", "-n", "2", "dsh-v0.1.0"}, "不能同时使用"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := t.TempDir()
+			result := runBinaryIn(t, root, map[string]string{
+				"PATH": stubToolPath(t, "pnpm", "node"),
+			}, testCase.args...)
+			if result.code != 2 {
+				t.Fatalf("%v exit = %d, want 2 (stderr = %s)", testCase.args, result.code, result.stderr)
+			}
+			if !strings.Contains(result.stderr, testCase.want) {
+				t.Fatalf("stderr = %q, want it to contain %q", result.stderr, testCase.want)
+			}
+			if _, err := os.Stat(filepath.Join(root, "state")); !os.IsNotExist(err) {
+				t.Fatalf("%v created the state directory", testCase.args)
+			}
+		})
+	}
+}
+
+// TestRollbackWithoutHistoryIsAPreflight pins the exit code a script branches
+// on when there is nothing recorded to return to.
+func TestRollbackWithoutHistoryIsAPreflight(t *testing.T) {
+	root := t.TempDir()
+	seedGitCheckout(t, root)
+	result := runBinaryIn(t, root, map[string]string{
+		"PATH": stubToolPath(t, "pnpm", "node"),
+	}, "rollback")
+
+	if result.code != 4 {
+		t.Fatalf("rollback exit = %d, want 4 (stderr = %s)", result.code, result.stderr)
+	}
+	if !strings.Contains(result.stderr, "没有可回退的历史") {
+		t.Fatalf("stderr = %q, want the missing-history message", result.stderr)
+	}
+}
+
 // TestTimelineFailsPreflightOutsideACheckout pins the exit code a script
 // branches on when the configured path is not a repository at all.
 func TestTimelineFailsPreflightOutsideACheckout(t *testing.T) {

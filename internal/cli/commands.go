@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 
@@ -133,6 +134,22 @@ fetch 失败或 git 读取失败。`,
 
 配置里没有写明 repoDir 时，更新成功后会把这个 checkout 写入配置。`,
 			Run: runUpdate,
+		},
+		{
+			Name:    "rollback",
+			Summary: "回退到之前的版本(不联网)",
+			Help: `回退流程与 update 相同(解析目标 → 停服 → git 切换 → 清理 → install →
+构建 → 恢复启动)，但目标来自 dshctl 记录的部署历史或指定的版本，且不联网：
+回到已知位置是救火路径，必须能在断网时工作。
+
+  dshctl rollback            回到上一次 update/rollback 之前所在的位置
+  dshctl rollback -n 3       回退 3 步
+  dshctl rollback <tag>      回到该 tag 所在的提交
+  dshctl rollback <commit>   回到该 commit(支持完整或缩写 hash)
+
+-n 与版本参数不能同时给出。没有历史可退或步数超过历史时以退出码 4 结束。
+工作区有已跟踪文件的未提交修改时拒绝执行(未跟踪文件不受影响)。`,
+			Run: runRollback,
 		},
 		{
 			Name:    "doctor",
@@ -383,6 +400,42 @@ func runUpdate(ctx context.Context, env *Env, args []string) error {
 		return err
 	}
 	return newService(env).RunUpdate(ctx, target)
+}
+
+// runRollback implements `dshctl rollback [<tag>|<sha>] [-n <步数>]`.
+func runRollback(ctx context.Context, env *Env, args []string) error {
+	flags := newFlagSet(env, "rollback")
+	steps := flags.Int("n", 0, "回退的步数(默认 1)")
+	help, rest, err := parseFlagsWithArgs(flags, args)
+	if err != nil {
+		return err
+	}
+	if help {
+		return nil
+	}
+	target, err := versionSelector(rest, flags.Name())
+	if err != nil {
+		return err
+	}
+	given := false
+	flags.Visit(func(flag *flag.Flag) {
+		if flag.Name == "n" {
+			given = true
+		}
+	})
+	if given && target != "" {
+		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("命令 rollback 的 -n 与版本参数不能同时使用"))
+	}
+	if given && *steps < 1 {
+		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("命令 rollback 的 -n 必须是正整数: %d", *steps))
+	}
+	if target != "" {
+		return newService(env).RunRollback(ctx, target, 0)
+	}
+	if !given {
+		*steps = 1
+	}
+	return newService(env).RunRollback(ctx, "", *steps)
 }
 
 // runDoctor implements `dshctl doctor`.
