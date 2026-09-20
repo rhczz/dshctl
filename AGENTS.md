@@ -26,11 +26,11 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 `DEFAULT_*` 常量与测试钩子不是可配置性。配置错误必须在最早可判定点响亮失败：未知键拒绝，缺 pnpm/git/构建产物拒绝启动，绝不降级。
 
-写死的例子（真源在测试里）：退出码、状态目录文件名、`dsh web:` 地址行格式、构建标记路径、Node 下限 `24.12.0`、进程归属 = 运行记录 + 启动时间指纹、轮转截断同一 inode。可配置的例子：`repoDir`、`port`、`nodeVersion`、三个超时、`logRotateBytes`。
+写死的例子（真源在测试里）：退出码、状态目录文件名、`dsh web:` 地址行格式、构建标记路径、Node 下限 `24.12.0`、进程归属 = 运行记录 + 启动时间指纹、轮转截断同一 inode、`latest` = `origin/master`、时间线窗口 10、部署历史每组 50 条。可配置的例子：`repoDir`、`port`、`nodeVersion`、三个超时、`logRotateBytes`。
 
 ## 其他不变量
 
-- 只读命令（`status`/`url`/`logs`/`doctor`/`version`/`help`）零写盘；`internal/cli/readonly_test.go` 跑真实二进制断言。
+- 只读命令（`status`/`url`/`logs`/`doctor`/`version`/`help`）零写盘；`internal/cli/readonly_test.go` 跑真实二进制断言。唯一例外是 `timeline`：它必须 `git fetch` 才能知道远程最新，因此会写 `.git` 的远程跟踪引用（不写状态目录、不改工作区），并且 fetch 失败时以退出码 4 结束、绝不声称"已是最新"。
 - 设置优先级 `flag > env > 文件 > 默认`，`-v` 打印每项来源；解析只在 `config.Load` 一处完成，操作函数内部不得再有隐藏默认。
 - "探测不了"绝不当作"没有"；绝不结束不是自己启动的进程（`internal/service` 包文档三条不变量）。
 - 校验只在四处边界：CLI 参数、配置文件、状态与日志文件、外部命令输出。

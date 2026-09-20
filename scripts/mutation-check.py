@@ -398,6 +398,34 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         "",
         ["./internal/repo/"],
     ),
+    (
+        "the version already deployed is rebuilt and restarted anyway",
+        "internal/service/update.go",
+        "\tif target.commit == current {",
+        "\tif false {",
+        ["./internal/service/"],
+    ),
+    (
+        "a worktree with tracked changes is switched anyway",
+        "internal/service/update.go",
+        "\t} else if dirty {",
+        "\t} else if false && dirty {",
+        ["./internal/service/"],
+    ),
+    (
+        "returning to a visited position no longer truncates the stack",
+        "internal/history/history.go",
+        "\t\tif at <= index {",
+        "\t\tif at <= index && false {",
+        ["./internal/history/", "./internal/service/"],
+    ),
+    (
+        "a failed fetch still reports the timeline as confirmed",
+        "internal/cli/commands.go",
+        "\tif !report.Fetched {",
+        "\tif false {",
+        ["./internal/cli/"],
+    ),
 ]
 
 
