@@ -520,7 +520,7 @@ func TestResolveRevisionRefusesFlagLikeSelectors(t *testing.T) {
 func TestResolveRevisionRefusesJunkSelectors(t *testing.T) {
 	ctx := context.Background()
 	box := newReleaseBox(t)
-	blob := strings.TrimSpace(box.git("hash-object", "-w", box.dir+"/package.json"))
+	blob := strings.TrimSpace(box.git("hash-object", "-w", filepath.Join(box.dir, "package.json")))
 	box.git("tag", "blob-tag", blob)
 
 	for _, selector := range []string{"HEAD^{tree}", "blob-tag", "refs/tags/", "..", "no/such/thing"} {
@@ -678,7 +678,7 @@ func TestTagsSkipTagsThatDoNotPointAtCommits(t *testing.T) {
 	ctx := context.Background()
 	box := newReleaseBox(t)
 	head := box.revParse("HEAD")
-	blob := strings.TrimSpace(box.git("hash-object", "-w", box.dir+"/package.json"))
+	blob := strings.TrimSpace(box.git("hash-object", "-w", filepath.Join(box.dir, "package.json")))
 	tree := strings.TrimSpace(box.git("write-tree"))
 	box.git("tag", "blob-light", blob)
 	box.git("tag", "-a", "blob-annotated", "-m", "msg", blob)
