@@ -1,0 +1,286 @@
+package cli
+
+import (
+	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+	"strings"
+	"testing"
+)
+
+// requireGitForCLI fails the test when the real git binary is missing.
+//
+// The timeline tests run the real binary against a real repository, so a
+// machine without git has nothing to assert here. Skipping instead would leave
+// the fetch boundary unverified behind a green build.
+func requireGitForCLI(t *testing.T) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Fatalf("these tests need a real git executable: %v", err)
+	}
+}
+
+// cliGit runs a git command with the environment neutralised the same way the
+// repo package's fixture does: the test must never inspect, commit into or
+// fetch from a repository the developer's environment points at.
+func cliGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	full := append([]string{"-c", "core.hooksPath="}, args...)
+	cmd := exec.Command("git", full...)
+	cmd.Dir = dir
+	cmd.Env = cliGitEnv()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v failed (%v): %s", args, err, out)
+	}
+	return string(out)
+}
+
+// cliGitEnv returns the sanitised environment for the fixture's git commands.
+func cliGitEnv() []string {
+	blocked := map[string]struct{}{
+		"GIT_DIR":                          {},
+		"GIT_WORK_TREE":                    {},
+		"GIT_INDEX_FILE":                   {},
+		"GIT_COMMON_DIR":                   {},
+		"GIT_OBJECT_DIRECTORY":             {},
+		"GIT_ALTERNATE_OBJECT_DIRECTORIES": {},
+	}
+	environment := make([]string, 0, len(os.Environ())+2)
+	for _, entry := range os.Environ() {
+		name, _, _ := strings.Cut(entry, "=")
+		upper := strings.ToUpper(name)
+		if _, skip := blocked[upper]; skip {
+			continue
+		}
+		if upper == "GIT_CONFIG_COUNT" || strings.HasPrefix(upper, "GIT_CONFIG_KEY_") ||
+			strings.HasPrefix(upper, "GIT_CONFIG_VALUE_") {
+			continue
+		}
+		environment = append(environment, entry)
+	}
+	return append(environment, "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_NOSYSTEM=1")
+}
+
+// seedGitCheckout builds the checkout the binary will manage: a real repository
+// at <root>/repo whose origin/master is one commit and one tag ahead, so every
+// timeline run has something to report.
+func seedGitCheckout(t *testing.T, root string) {
+	t.Helper()
+	requireGitForCLI(t)
+	repoDir := filepath.Join(root, "repo")
+	if err := os.MkdirAll(repoDir, 0o700); err != nil {
+		t.Fatalf("mkdir repo: %v", err)
+	}
+	for name, content := range map[string]string{
+		"package.json":        `{"name":"deepseek-harness"}`,
+		"pnpm-workspace.yaml": "packages:\n  - packages/*/*\n",
+	} {
+		if err := os.WriteFile(filepath.Join(repoDir, name), []byte(content), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	cliGit(t, repoDir, "init", "-q", ".")
+	cliGit(t, repoDir, "symbolic-ref", "HEAD", "refs/heads/master")
+	cliGit(t, repoDir, "config", "user.email", "fixture@example.com")
+	cliGit(t, repoDir, "config", "user.name", "fixture")
+	cliGit(t, repoDir, "config", "commit.gpgsign", "false")
+	cliGit(t, repoDir, "add", "-A")
+	cliGit(t, repoDir, "commit", "-qm", "the first commit")
+
+	remote := filepath.Join(root, "remote.git")
+	cliGit(t, root, "init", "--bare", "-q", remote)
+	cliGit(t, repoDir, "remote", "add", "origin", remote)
+	cliGit(t, repoDir, "push", "-q", "-u", "origin", "master")
+
+	peer := filepath.Join(root, "peer")
+	cliGit(t, root, "clone", "-q", remote, peer)
+	cliGit(t, peer, "config", "user.email", "fixture@example.com")
+	cliGit(t, peer, "config", "user.name", "fixture")
+	cliGit(t, peer, "config", "commit.gpgsign", "false")
+	if err := os.WriteFile(filepath.Join(peer, "next.txt"), []byte("next"), 0o600); err != nil {
+		t.Fatalf("write next.txt: %v", err)
+	}
+	cliGit(t, peer, "add", "-A")
+	cliGit(t, peer, "commit", "-qm", "the upstream commit")
+	cliGit(t, peer, "tag", "dsh-v0.1.0")
+	cliGit(t, peer, "push", "-q", "origin", "master", "--tags")
+}
+
+// worktreeSnapshot renders the checkout without its .git directory: a fetch
+// writes remote-tracking refs there, and that is exactly what timeline is
+// allowed to change.
+func worktreeSnapshot(t *testing.T, repoDir string) []string {
+	t.Helper()
+	gitDir := filepath.Join(repoDir, ".git")
+	var lines []string
+	err := filepath.WalkDir(repoDir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if path == gitDir || strings.HasPrefix(path, gitDir+string(filepath.Separator)) {
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		relative, err := filepath.Rel(repoDir, path)
+		if err != nil {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		line := relative + " " + info.Mode().String()
+		if !entry.IsDir() {
+			contents, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			line += " " + digest(contents)
+		}
+		lines = append(lines, line)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("snapshotting %s: %v", repoDir, err)
+	}
+	sort.Strings(lines)
+	return lines
+}
+
+// TestTimelineLeavesTheWorktreeAndStateDirUntouched pins the boundary the
+// README documents: timeline may write .git's remote-tracking refs and nothing
+// else — not one byte of the working tree, not the state directory.
+func TestTimelineLeavesTheWorktreeAndStateDirUntouched(t *testing.T) {
+	root := t.TempDir()
+	seedGitCheckout(t, root)
+	repoDir := filepath.Join(root, "repo")
+	before := worktreeSnapshot(t, repoDir)
+
+	result := runBinaryIn(t, root, nil, "timeline")
+	if result.code != 0 {
+		t.Fatalf("timeline exit = %d, want 0 (stderr = %s)", result.code, result.stderr)
+	}
+	if diff := firstTreeDifference(before, worktreeSnapshot(t, repoDir)); diff != "" {
+		t.Fatalf("timeline changed the working tree:\n%s", diff)
+	}
+	if _, err := os.Lstat(filepath.Join(root, "state")); !os.IsNotExist(err) {
+		t.Fatalf("timeline created the state directory: %v", err)
+	}
+	// The fetch is the documented exception, and it has to have happened:
+	// without it the report would describe a stale remote.
+	if _, err := os.Stat(filepath.Join(repoDir, ".git", "FETCH_HEAD")); err != nil {
+		t.Fatalf("the fetch did not run: %v", err)
+	}
+	for _, want := range []string{
+		"仓库: " + repoDir,
+		"差距: 落后 1 个提交",
+		"dsh-v0.1.0",
+		"← 远程最新",
+		"← 当前",
+	} {
+		if !strings.Contains(result.stdout, want) {
+			t.Fatalf("stdout = %q, want it to contain %q", result.stdout, want)
+		}
+	}
+}
+
+// TestTimelineJSONIsConsumable pins the machine-readable shape a script reads.
+func TestTimelineJSONIsConsumable(t *testing.T) {
+	root := t.TempDir()
+	seedGitCheckout(t, root)
+	repoDir := filepath.Join(root, "repo")
+
+	result := runBinaryIn(t, root, nil, "timeline", "--json")
+	if result.code != 0 {
+		t.Fatalf("timeline --json exit = %d, want 0 (stderr = %s)", result.code, result.stderr)
+	}
+	var report struct {
+		RepoDir string `json:"repoDir"`
+		Fetched bool   `json:"fetched"`
+		Current struct {
+			Commit string `json:"commit"`
+			Branch string `json:"branch"`
+			Short  string `json:"shortCommit"`
+		} `json:"current"`
+		Remote struct {
+			Commit string `json:"commit"`
+			Name   string `json:"name"`
+		} `json:"remote"`
+		Behind  int `json:"behind"`
+		Ahead   int `json:"ahead"`
+		Commits []struct {
+			Commit  string   `json:"commit"`
+			Subject string   `json:"subject"`
+			Tags    []string `json:"tags"`
+			Current bool     `json:"current"`
+			Remote  bool     `json:"remote"`
+		} `json:"commits"`
+	}
+	if err := json.Unmarshal([]byte(result.stdout), &report); err != nil {
+		t.Fatalf("timeline --json is not JSON: %v\n%s", err, result.stdout)
+	}
+	if report.RepoDir != repoDir || !report.Fetched {
+		t.Fatalf("report = %+v, want the fetched checkout", report)
+	}
+	if report.Current.Commit == "" || report.Current.Short == "" || report.Current.Branch != "master" {
+		t.Fatalf("current = %+v, want a named master commit", report.Current)
+	}
+	if report.Remote.Commit == "" || report.Remote.Name != "origin/master" {
+		t.Fatalf("remote = %+v, want origin/master", report.Remote)
+	}
+	if report.Behind != 1 || report.Ahead != 0 {
+		t.Fatalf("gap = (%d behind, %d ahead), want one behind", report.Behind, report.Ahead)
+	}
+	if len(report.Commits) != 2 {
+		t.Fatalf("commits = %+v, want the upstream commit and the current one", report.Commits)
+	}
+	if !report.Commits[0].Remote || report.Commits[0].Subject != "the upstream commit" {
+		t.Fatalf("first row = %+v, want the remote tip", report.Commits[0])
+	}
+	if !report.Commits[1].Current {
+		t.Fatalf("last row = %+v, want the current position", report.Commits[1])
+	}
+}
+
+// TestTimelineFailsPreflightOutsideACheckout pins the exit code a script
+// branches on when the configured path is not a repository at all.
+func TestTimelineFailsPreflightOutsideACheckout(t *testing.T) {
+	root := t.TempDir()
+	result := runBinaryIn(t, root, nil, "timeline")
+	if result.code != 4 {
+		t.Fatalf("timeline exit = %d, want 4 (stderr = %s)", result.code, result.stderr)
+	}
+	if !strings.Contains(result.stderr, "仓库目录不存在") {
+		t.Fatalf("stderr = %q, want the missing-checkout message", result.stderr)
+	}
+}
+
+// TestTimelineExitsPreflightWhenFetchFails pins the honesty contract at the
+// command line: the locally known report is printed, the remote is named as
+// unknown, "已是最新" never appears, and the exit code says the preflight
+// failed.
+func TestTimelineExitsPreflightWhenFetchFails(t *testing.T) {
+	root := t.TempDir()
+	seedGitCheckout(t, root)
+	repoDir := filepath.Join(root, "repo")
+	cliGit(t, repoDir, "remote", "set-url", "origin", filepath.Join(root, "missing.git"))
+
+	result := runBinaryIn(t, root, nil, "timeline")
+	if result.code != 4 {
+		t.Fatalf("timeline exit = %d, want 4 (stderr = %s)", result.code, result.stderr)
+	}
+	if !strings.Contains(result.stdout, "远程: 无法获取（") {
+		t.Fatalf("stdout = %q, want the unknown-remote header", result.stdout)
+	}
+	if strings.Contains(result.stdout, "已是最新") {
+		t.Fatalf("stdout = %q, must not claim to be up to date", result.stdout)
+	}
+	if !strings.Contains(result.stderr, "无法获取远程更新") {
+		t.Fatalf("stderr = %q, want the fetch warning", result.stderr)
+	}
+}
