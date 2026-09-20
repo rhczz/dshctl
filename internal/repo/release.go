@@ -17,7 +17,8 @@ import (
 const (
 	originRemote = "origin"
 	masterBranch = "master"
-	remoteTipRef = originRemote + "/" + masterBranch
+	// RemoteTipName is the ref `latest` means.
+	RemoteTipName = originRemote + "/" + masterBranch
 )
 
 // Commit is one entry of the first-parent history.
@@ -103,13 +104,13 @@ func (r Repo) HeadName(ctx context.Context) (string, string, error) {
 
 // RemoteTip reports the commit origin/master points at.
 func (r Repo) RemoteTip(ctx context.Context) (string, error) {
-	out, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--verify", remoteTipRef+"^{commit}"))
+	out, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--verify", RemoteTipName+"^{commit}"))
 	if err != nil {
-		return "", fmt.Errorf("无法确定 %s 的位置: %w", remoteTipRef, err)
+		return "", fmt.Errorf("无法确定 %s 的位置: %w", RemoteTipName, err)
 	}
 	sha := strings.TrimSpace(out)
 	if sha == "" {
-		return "", fmt.Errorf("无法确定 %s 的位置: git 没有返回 commit", remoteTipRef)
+		return "", fmt.Errorf("无法确定 %s 的位置: git 没有返回 commit", RemoteTipName)
 	}
 	return sha, nil
 }
@@ -185,6 +186,23 @@ func (r Repo) FirstParentLog(ctx context.Context, from, to string) ([]Commit, er
 	return commits, nil
 }
 
+// CommitInfo describes one revision: the full and short sha and the subject.
+//
+// It exists for the position a range excludes: the timeline shows the current
+// commit as a row of the same shape as the commits ahead of it.
+func (r Repo) CommitInfo(ctx context.Context, revision string) (Commit, error) {
+	const format = "%H%x00%h%x00%s"
+	out, err := r.output().Output(ctx, r.gitCommand("log", "-1", "--format="+format, revision))
+	if err != nil {
+		return Commit{}, fmt.Errorf("无法读取 %s 的信息: %w", revision, err)
+	}
+	fields := strings.Split(strings.TrimSpace(out), "\x00")
+	if len(fields) != 3 {
+		return Commit{}, fmt.Errorf("无法解析 %s 的信息: %q", revision, out)
+	}
+	return Commit{Full: fields[0], Short: fields[1], Subject: fields[2]}, nil
+}
+
 // Tags maps each commit to the tag names pointing at it.
 //
 // Both tag shapes are answered: a lightweight tag points at the commit
@@ -249,8 +267,8 @@ func (r Repo) FastForwardMaster(ctx context.Context, out, errOut io.Writer) erro
 	if err := r.stream(ctx, out, errOut, "checkout", masterBranch); err != nil {
 		return fmt.Errorf("无法切换到 %s 分支: %w", masterBranch, err)
 	}
-	if err := r.stream(ctx, out, errOut, "merge", "--ff-only", remoteTipRef); err != nil {
-		return fmt.Errorf("无法快进到 %s: %w", remoteTipRef, err)
+	if err := r.stream(ctx, out, errOut, "merge", "--ff-only", RemoteTipName); err != nil {
+		return fmt.Errorf("无法快进到 %s: %w", RemoteTipName, err)
 	}
 	return nil
 }
