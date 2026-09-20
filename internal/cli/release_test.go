@@ -247,6 +247,61 @@ func TestTimelineJSONIsConsumable(t *testing.T) {
 	}
 }
 
+// TestUpdateRejectsAnUnknownVersionWithoutStoppingTheService pins the order of
+// checks at the command line: a typo is a preflight failure, reported before
+// anything is stopped or fetched into place.
+func TestUpdateRejectsAnUnknownVersionWithoutStoppingTheService(t *testing.T) {
+	root := t.TempDir()
+	seedGitCheckout(t, root)
+	result := runBinaryIn(t, root, map[string]string{
+		"PATH": stubToolPath(t, "pnpm", "node"),
+	}, "update", "no-such-version")
+
+	if result.code != 4 {
+		t.Fatalf("update exit = %d, want 4 (stderr = %s)", result.code, result.stderr)
+	}
+	if !strings.Contains(result.stderr, "no-such-version") {
+		t.Fatalf("stderr = %q, want it to name the selector", result.stderr)
+	}
+	if strings.Contains(result.stdout, "停止服务") || strings.Contains(result.stdout, "更新完成") {
+		t.Fatalf("stdout = %q, want no deployment attempt", result.stdout)
+	}
+}
+
+// TestUpdateRejectsASelectorThatLooksLikeAFlag pins the boundary against
+// selectors that would otherwise be read by the flag parser or by git.
+func TestUpdateRejectsASelectorThatLooksLikeAFlag(t *testing.T) {
+	root := t.TempDir()
+	seedGitCheckout(t, root)
+	result := runBinaryIn(t, root, map[string]string{
+		"PATH": stubToolPath(t, "pnpm", "node"),
+	}, "update", "--", "--latest")
+
+	if result.code != 2 {
+		t.Fatalf("update exit = %d, want 2 (stderr = %s)", result.code, result.stderr)
+	}
+	if !strings.Contains(result.stderr, "版本参数无效") {
+		t.Fatalf("stderr = %q, want the invalid-selector message", result.stderr)
+	}
+}
+
+// TestUpdateRejectsASecondVersionArgument pins that the command takes one
+// version, not a list.
+func TestUpdateRejectsASecondVersionArgument(t *testing.T) {
+	root := t.TempDir()
+	seedGitCheckout(t, root)
+	result := runBinaryIn(t, root, map[string]string{
+		"PATH": stubToolPath(t, "pnpm", "node"),
+	}, "update", "latest", "dsh-v0.1.0")
+
+	if result.code != 2 {
+		t.Fatalf("update exit = %d, want 2 (stderr = %s)", result.code, result.stderr)
+	}
+	if !strings.Contains(result.stderr, "只接受一个版本参数") {
+		t.Fatalf("stderr = %q, want the extra-argument message", result.stderr)
+	}
+}
+
 // TestTimelineFailsPreflightOutsideACheckout pins the exit code a script
 // branches on when the configured path is not a repository at all.
 func TestTimelineFailsPreflightOutsideACheckout(t *testing.T) {

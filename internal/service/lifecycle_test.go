@@ -1068,7 +1068,7 @@ func TestUpdateSurfacesTheBuildFailure(t *testing.T) {
 		return nil
 	}
 
-	err := f.RunUpdate(context.Background())
+	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Failure)
 	wantContains(t, err, "pnpm run build 失败")
 	if strings.Contains(err.Error(), "尚未构建") {
@@ -1076,22 +1076,22 @@ func TestUpdateSurfacesTheBuildFailure(t *testing.T) {
 	}
 }
 
-// TestUpdateRestoresTheServiceWhenThePullFails pins that the original failure is
-// what the operator sees, and that the old build keeps serving.
-func TestUpdateRestoresTheServiceWhenThePullFails(t *testing.T) {
+// TestUpdateRestoresTheServiceWhenTheSwitchFails pins that the original failure
+// is what the operator sees, and that the old build keeps serving.
+func TestUpdateRestoresTheServiceWhenTheSwitchFails(t *testing.T) {
 	f := newFixture(t)
 	f.startServer(t, 4321, "")
 	f.host.spontaneouslyServed = true
 	f.host.fail = func(cmd run.Command) error {
-		if filepath.Base(cmd.Name) == "git" && hasArgument(cmd, "pull") {
+		if filepath.Base(cmd.Name) == "git" && hasArgument(cmd, "merge", "--ff-only") {
 			return &run.ExitError{Command: cmd.String(), Code: 1}
 		}
 		return nil
 	}
 
-	err := f.RunUpdate(context.Background())
+	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "git pull")
+	wantContains(t, err, "更新失败")
 	// The old server was stopped, then the old build was started again.
 	if signals := f.host.signalsSent(); len(signals) != 1 || signals[0] != (fakeSignal{4321, host.Graceful}) {
 		t.Fatalf("signals = %v, want the old server stopped once", signals)
@@ -1108,16 +1108,16 @@ func TestUpdateRestoresTheServiceWhenThePullFails(t *testing.T) {
 	}
 }
 
-// TestUpdateRefusesWhileAnUnidentifiedServerRuns pins that an update never pulls
-// and rebuilds underneath a process it cannot vouch for.
+// TestUpdateRefusesWhileAnUnidentifiedServerRuns pins that an update never
+// fetches, switches and rebuilds underneath a process it cannot vouch for.
 func TestUpdateRefusesWhileAnUnidentifiedServerRuns(t *testing.T) {
 	f := newFixture(t)
 	f.host.serving(7777, "python3 -m http.server 3080")
 
-	err := f.RunUpdate(context.Background())
+	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Preflight)
 	for _, command := range f.host.commandsRun() {
-		if strings.Contains(command, "pull") || strings.Contains(command, "install") {
+		if strings.Contains(command, "fetch") || strings.Contains(command, "install") {
 			t.Fatalf("the update ran under an unidentified server: %v", f.host.commandsRun())
 		}
 	}
@@ -1135,7 +1135,7 @@ func TestUpdateLeavesTheServiceStoppedWhenInstallFails(t *testing.T) {
 		return nil
 	}
 
-	err := f.RunUpdate(context.Background())
+	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Failure)
 	wantContains(t, err, "保持停止")
 	f.wantNoSpawn(t)
@@ -1147,7 +1147,7 @@ func TestUpdateRestoresTheServiceOnSuccess(t *testing.T) {
 	f.startServer(t, 4321, "")
 	f.host.spontaneouslyServed = true
 
-	if err := f.RunUpdate(context.Background()); err != nil {
+	if err := f.RunUpdate(context.Background(), "latest"); err != nil {
 		t.Fatalf("RunUpdate: %v", err)
 	}
 	record, ok := f.stateRecord(t)

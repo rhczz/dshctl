@@ -325,7 +325,7 @@ func TestAnUpdateRecordsTheCheckoutItUpdated(t *testing.T) {
 	flag := f.repo
 	f.run(t, config.Overrides{RepoDir: &flag})
 
-	if err := f.RunUpdate(context.Background()); err != nil {
+	if err := f.RunUpdate(context.Background(), "latest"); err != nil {
 		t.Fatalf("RunUpdate: %v", err)
 	}
 	f.wantRecordedCheckout(t, f.repo)

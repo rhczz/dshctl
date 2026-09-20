@@ -104,10 +104,10 @@ func TestUpdateRefusesAMissingRepository(t *testing.T) {
 	f.Settings.RepoDir = filepath.Join(f.root, "no-such-repo")
 	f.Repo.Dir = f.Settings.RepoDir
 
-	err := f.RunUpdate(context.Background())
+	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Preflight)
 	wantContains(t, err, "仓库目录不存在")
-	f.wantNoPull(t)
+	f.wantNoCheckoutUpdate(t)
 	f.wantNoSpawn(t)
 }
 
@@ -121,30 +121,29 @@ func TestUpdateRefusesADirectoryThatIsNotAGitRepository(t *testing.T) {
 		t.Fatalf("remove .git: %v", err)
 	}
 
-	err := f.RunUpdate(context.Background())
+	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Preflight)
 	wantContains(t, err, "不是 git 仓库")
-	f.wantNoPull(t)
+	f.wantNoCheckoutUpdate(t)
 	f.wantNoSpawn(t)
 }
 
-// TestUpdateDoesNotRestoreAServiceThatWasNotRunning pins the arm of the pull
-// failure that has nothing to restore: the server was down before the update, so
-// there is no old build to bring back and no reason to start one. Starting a
-// server here would be an update that failed and still changed the machine.
-func TestUpdateDoesNotRestoreAServiceThatWasNotRunning(t *testing.T) {
+// TestUpdateDoesNotStopWhenTheFetchFails pins the failure that happens before
+// anything is touched: latest cannot be resolved without the remote, so the
+// update fails while the service keeps serving — no stop, no restore, no spawn.
+func TestUpdateDoesNotStopWhenTheFetchFails(t *testing.T) {
 	f := newFixture(t)
 	f.host.spontaneouslyServed = true
 	f.host.fail = func(cmd run.Command) error {
-		if filepath.Base(cmd.Name) == "git" && hasArgument(cmd, "pull") {
+		if filepath.Base(cmd.Name) == "git" && hasArgument(cmd, "fetch") {
 			return &run.ExitError{Command: cmd.String(), Code: 1}
 		}
 		return nil
 	}
 
-	err := f.RunUpdate(context.Background())
+	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "git pull 失败")
+	wantContains(t, err, "无法获取远程更新")
 	f.wantNoSpawn(t)
 	f.wantNoSignals(t)
 	if strings.Contains(f.out.String(), "恢复启动旧版本") {
@@ -152,10 +151,10 @@ func TestUpdateDoesNotRestoreAServiceThatWasNotRunning(t *testing.T) {
 	}
 }
 
-// TestUpdateReportsWhenTheRestoreStartFails pins the worst case of the pull
-// failure: the server was stopped for the update, the pull failed, and starting
-// the old build again failed too. The operator has to be told both that the
-// checkout was not changed and that nothing is serving any more.
+// TestUpdateReportsWhenTheRestoreStartFails pins the worst case of a failed
+// switch: the server was stopped for the update, the switch failed, and
+// starting the old build again failed too. The operator has to be told both
+// that the checkout was not changed and that nothing is serving any more.
 func TestUpdateReportsWhenTheRestoreStartFails(t *testing.T) {
 	f := newFixture(t)
 	f.startServer(t, 4321, "")
@@ -164,15 +163,15 @@ func TestUpdateReportsWhenTheRestoreStartFails(t *testing.T) {
 	f.host.spawnErr = errors.New("pnpm: no such file or directory")
 	f.host.mu.Unlock()
 	f.host.fail = func(cmd run.Command) error {
-		if filepath.Base(cmd.Name) == "git" && hasArgument(cmd, "pull") {
+		if filepath.Base(cmd.Name) == "git" && hasArgument(cmd, "merge", "--ff-only") {
 			return &run.ExitError{Command: cmd.String(), Code: 1}
 		}
 		return nil
 	}
 
-	err := f.RunUpdate(context.Background())
+	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "git pull 失败")
+	wantContains(t, err, "更新失败")
 	if !strings.Contains(f.errOut.String(), "恢复启动失败") {
 		t.Fatalf("stderr = %q, want the failed restore reported", f.errOut.String())
 	}
@@ -206,12 +205,12 @@ func TestUpdateRefusesWhileAnotherPortServesTheCheckout(t *testing.T) {
 		t.Fatalf("save the other port's record: %v", err)
 	}
 
-	err := f.RunUpdate(context.Background())
+	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Preflight)
 	if !strings.Contains(err.Error(), strconv.Itoa(otherPort)) {
 		t.Fatalf("error = %v, want it to name the other port %d", err, otherPort)
 	}
-	f.wantNoPull(t)
+	f.wantNoCheckoutUpdate(t)
 	f.wantNoSpawn(t)
 	f.wantNoSignals(t)
 }
@@ -233,7 +232,7 @@ func TestBuildAndUpdateSeeASiblingRecordInAnAwkwardStateDirectory(t *testing.T) 
 		run  func(*fixture) error
 	}{
 		{"build", func(f *fixture) error { return f.RunBuild(context.Background()) }},
-		{"update", func(f *fixture) error { return f.RunUpdate(context.Background()) }},
+		{"update", func(f *fixture) error { return f.RunUpdate(context.Background(), "latest") }},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			f := newFixture(t)
@@ -259,7 +258,7 @@ func TestBuildAndUpdateSeeASiblingRecordInAnAwkwardStateDirectory(t *testing.T) 
 			if !strings.Contains(err.Error(), strconv.Itoa(otherPort)) {
 				t.Fatalf("error = %v, want it to name the other port %d: the guard did not see the sibling record", err, otherPort)
 			}
-			if strings.Contains(f.describeCommands(), "run build") || strings.Contains(f.describeCommands(), "pull") {
+			if strings.Contains(f.describeCommands(), "run build") || strings.Contains(f.describeCommands(), "fetch") {
 				t.Fatalf("the checkout was rewritten despite a live server on another port: %v", f.describeCommands())
 			}
 		})

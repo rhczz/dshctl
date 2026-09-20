@@ -180,7 +180,7 @@ func TestUpdateStopsARecordedServerThatNoLongerListens(t *testing.T) {
 		t.Fatalf("save record: %v", err)
 	}
 
-	if err := f.RunUpdate(context.Background()); err != nil {
+	if err := f.RunUpdate(context.Background(), "latest"); err != nil {
 		t.Fatalf("RunUpdate: %v", err)
 	}
 	if f.host.isAlive(4242) {
@@ -267,12 +267,12 @@ func TestUpdateRefusesWhenItCannotVerifyTheRunningServer(t *testing.T) {
 		t.Fatalf("save record: %v", err)
 	}
 
-	err := f.RunUpdate(context.Background())
+	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Preflight)
 	if !strings.Contains(err.Error(), "无法验证") {
 		t.Fatalf("error = %v, want the unverifiable-identity report", err)
 	}
-	if strings.Contains(f.describeCommands(), "git pull") {
+	if strings.Contains(f.describeCommands(), "git fetch") {
 		t.Fatal("the checkout was updated while a server could not be safely stopped")
 	}
 	if !f.host.isAlive(4242) {

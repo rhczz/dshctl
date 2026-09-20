@@ -298,17 +298,52 @@ func newFlagSet(env *Env, name string) *flag.FlagSet {
 //   - a Usage error when parsing failed or the command was given arguments it
 //     does not accept.
 func parseFlags(flags *flag.FlagSet, args []string) (bool, error) {
-	if err := flags.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return true, nil
-		}
-		return false, exitcode.Wrap(exitcode.Usage, err)
+	help, rest, err := parseFlagsWithArgs(flags, args)
+	if err != nil {
+		return false, err
 	}
-	if flags.NArg() > 0 {
+	if help {
+		return true, nil
+	}
+	if len(rest) > 0 {
 		return false, exitcode.Wrap(exitcode.Usage,
-			fmt.Errorf("命令 %s 不接受位置参数: %s", flags.Name(), strings.Join(flags.Args(), " ")))
+			fmt.Errorf("命令 %s 不接受位置参数: %s", flags.Name(), strings.Join(rest, " ")))
 	}
 	return false, nil
+}
+
+// parseFlagsWithArgs parses a command's flags and hands back the positional
+// arguments, for the commands that take one (a version).
+func parseFlagsWithArgs(flags *flag.FlagSet, args []string) (bool, []string, error) {
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return true, nil, nil
+		}
+		return false, nil, exitcode.Wrap(exitcode.Usage, err)
+	}
+	return false, flags.Args(), nil
+}
+
+// versionSelector validates the one optional positional argument the version
+// commands accept.
+//
+// The selector is never allowed to look like a flag: `update --help` would
+// otherwise be answered by the flag parser, and any future git option spelled
+// like a version would reach git as one.
+func versionSelector(args []string, command string) (string, error) {
+	if len(args) == 0 {
+		return "", nil
+	}
+	if len(args) > 1 {
+		return "", exitcode.Wrap(exitcode.Usage,
+			fmt.Errorf("命令 %s 只接受一个版本参数: %s", command, strings.Join(args, " ")))
+	}
+	selector := strings.TrimSpace(args[0])
+	if selector == "" || strings.HasPrefix(selector, "-") {
+		return "", exitcode.Wrap(exitcode.Usage,
+			fmt.Errorf("命令 %s 的版本参数无效: %q", command, args[0]))
+	}
+	return selector, nil
 }
 
 // printCommandHelp writes one command's help.

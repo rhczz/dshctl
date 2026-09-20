@@ -1,0 +1,208 @@
+package service
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/rhczz/dshctl/internal/exitcode"
+	"github.com/rhczz/dshctl/internal/history"
+	"github.com/rhczz/dshctl/internal/run"
+)
+
+// deploymentHistory reads the fixture's recorded positions for its checkout.
+func (f *fixture) deploymentHistory(t *testing.T) []history.Record {
+	t.Helper()
+	store := history.Store{Path: filepath.Join(f.Settings.StateDir, historyFileName)}
+	file, ok, err := store.Load()
+	if err != nil {
+		t.Fatalf("load history: %v", err)
+	}
+	if !ok {
+		return nil
+	}
+	return file.Records(f.Settings.RepoDir)
+}
+
+// TestUpdateShortCircuitsWhenAlreadyAtTheTarget pins that a no-op update does
+// not stop, rebuild or restart anything: the version is the one the operator
+// asked for, so the only honest answer is "already there".
+func TestUpdateShortCircuitsWhenAlreadyAtTheTarget(t *testing.T) {
+	f := newFixture(t)
+	f.host.gitHead = f.host.gitRemote
+	f.startServer(t, 4321, "")
+
+	if err := f.RunUpdate(context.Background(), "latest"); err != nil {
+		t.Fatalf("RunUpdate: %v", err)
+	}
+	if !strings.Contains(f.out.String(), "无需更新") {
+		t.Fatalf("stdout = %q, want the no-op report", f.out.String())
+	}
+	f.wantNoSignals(t)
+	f.wantNoSpawn(t)
+	for _, forbidden := range []string{"merge", "install", "run build"} {
+		if strings.Contains(f.describeCommands(), forbidden) {
+			t.Fatalf("a no-op update ran %s: %v", forbidden, f.describeCommands())
+		}
+	}
+	if records := f.deploymentHistory(t); len(records) != 0 {
+		t.Fatalf("history = %+v, want a no-op to record nothing", records)
+	}
+}
+
+// TestUpdateSwitchesToATagWithoutMovingMaster pins the detached switch: the
+// checkout lands on the tagged commit, the branch stays where it was, and the
+// move is recorded with the selector the operator typed.
+func TestUpdateSwitchesToATagWithoutMovingMaster(t *testing.T) {
+	f := newFixture(t)
+	head := f.host.gitHead
+	tagged := fakeSHA(500)
+	f.host.gitTags = map[string]string{"dsh-v0.1.0": tagged}
+	master := f.host.gitMaster
+
+	if err := f.RunUpdate(context.Background(), "dsh-v0.1.0"); err != nil {
+		t.Fatalf("RunUpdate: %v", err)
+	}
+	if f.host.gitHead != tagged {
+		t.Fatalf("head = %q, want the tagged commit %q", f.host.gitHead, tagged)
+	}
+	if f.host.gitMaster != master {
+		t.Fatalf("master = %q, want it untouched at %q", f.host.gitMaster, master)
+	}
+	if f.host.gitBranch != "" {
+		t.Fatalf("branch = %q, want a detached head", f.host.gitBranch)
+	}
+	records := f.deploymentHistory(t)
+	if len(records) != 2 {
+		t.Fatalf("history = %+v, want the starting point and the tag", records)
+	}
+	if records[0].Commit != tagged || records[0].Selector != "dsh-v0.1.0" {
+		t.Fatalf("newest record = %+v, want the tag", records[0])
+	}
+	if records[1].Commit != head || records[1].Selector != "" {
+		t.Fatalf("starting point = %+v, want the old head with no selector", records[1])
+	}
+}
+
+// TestUpdateRefusesADirtyWorktreeWithoutStopping pins the boundary the operator
+// keeps hitting: a modified tracked file blocks the switch while the service
+// keeps serving, and the message says what to look at.
+func TestUpdateRefusesADirtyWorktreeWithoutStopping(t *testing.T) {
+	f := newFixture(t)
+	f.startServer(t, 4321, "")
+	f.host.gitStatus = " M pnpm-lock.yaml\n"
+
+	err := f.RunUpdate(context.Background(), "latest")
+	wantCode(t, err, exitcode.Preflight)
+	wantContains(t, err, "未提交修改")
+	f.wantNoSignals(t)
+	f.wantNoSpawn(t)
+	for _, forbidden := range []string{"merge", "install", "run build"} {
+		if strings.Contains(f.describeCommands(), forbidden) {
+			t.Fatalf("a dirty worktree reached %s: %v", forbidden, f.describeCommands())
+		}
+	}
+}
+
+// TestUpdateRefusesAnUnknownVersionWithoutStopping pins that a typo never takes
+// the service down: the target is resolved before anything is stopped.
+func TestUpdateRefusesAnUnknownVersionWithoutStopping(t *testing.T) {
+	f := newFixture(t)
+	f.startServer(t, 4321, "")
+
+	err := f.RunUpdate(context.Background(), "no-such-version")
+	wantCode(t, err, exitcode.Preflight)
+	wantContains(t, err, "no-such-version")
+	f.wantNoSignals(t)
+	f.wantNoSpawn(t)
+}
+
+// TestUpdateResolvesANamedVersionWithoutTheRemote pins the offline path: a tag
+// that exists locally is enough, and the failed fetch is a warning rather than
+// a refusal.
+func TestUpdateResolvesANamedVersionWithoutTheRemote(t *testing.T) {
+	f := newFixture(t)
+	tagged := fakeSHA(500)
+	f.host.gitTags = map[string]string{"dsh-v0.1.0": tagged}
+	f.host.fail = func(cmd run.Command) error {
+		if hasArgument(cmd, "fetch") {
+			return &run.ExitError{Command: cmd.String(), Code: 128}
+		}
+		return nil
+	}
+
+	if err := f.RunUpdate(context.Background(), "dsh-v0.1.0"); err != nil {
+		t.Fatalf("RunUpdate: %v", err)
+	}
+	if f.host.gitHead != tagged {
+		t.Fatalf("head = %q, want the tag despite the failed fetch", f.host.gitHead)
+	}
+	if !strings.Contains(f.errOut.String(), "无法获取远程更新") {
+		t.Fatalf("stderr = %q, want the fetch warning", f.errOut.String())
+	}
+}
+
+// TestUpdateWarnsAboutATargetOutsideOrigin pins the advisory rule: a commit
+// origin/master cannot reach is deployable, but the operator is told.
+func TestUpdateWarnsAboutATargetOutsideOrigin(t *testing.T) {
+	f := newFixture(t)
+	f.host.gitTags = map[string]string{"dsh-v0.1.0-side": fakeSHA(500)}
+	f.host.gitAncestor = false
+
+	if err := f.RunUpdate(context.Background(), "dsh-v0.1.0-side"); err != nil {
+		t.Fatalf("RunUpdate: %v", err)
+	}
+	if !strings.Contains(f.errOut.String(), "不在 origin/master 的历史上") {
+		t.Fatalf("stderr = %q, want the outside-history warning", f.errOut.String())
+	}
+}
+
+// TestUpdateKeepsDeployingWhenTheHistoryCannotBeWritten pins the failure order:
+// the deployment is already a fact on disk when the record is written, so a
+// failed record must not abort the build and restart — it is reported at the
+// end, after the service is back.
+func TestUpdateKeepsDeployingWhenTheHistoryCannotBeWritten(t *testing.T) {
+	f := newFixture(t)
+	f.startServer(t, 4321, "")
+	f.host.spontaneouslyServed = true
+	// A directory where the history file belongs: the record cannot be
+	// replaced, and the move itself must still complete.
+	if err := os.MkdirAll(filepath.Join(f.Settings.StateDir, historyFileName), 0o700); err != nil {
+		t.Fatalf("mkdir history path: %v", err)
+	}
+
+	err := f.RunUpdate(context.Background(), "latest")
+	wantCode(t, err, exitcode.Failure)
+	wantContains(t, err, "更新历史未写入")
+	if !strings.Contains(f.describeCommands(), "install") {
+		t.Fatalf("the deployment stopped at the record: %v", f.describeCommands())
+	}
+	if !strings.Contains(f.out.String(), "更新完成") {
+		t.Fatalf("stdout = %q, want the deployment to have finished", f.out.String())
+	}
+	if record, ok := f.stateRecord(t); !ok || record.PID == 4321 {
+		t.Fatalf("record = %+v (ok=%v), want the restored server", record, ok)
+	}
+}
+
+// TestUpdateRecordsTheMoveBeforeTheBuild pins the write order that makes
+// rollback possible after a failed build: the position is on disk before
+// pnpm runs.
+func TestUpdateRecordsTheMoveBeforeTheBuild(t *testing.T) {
+	f := newFixture(t)
+	f.host.fail = func(cmd run.Command) error {
+		if hasArgument(cmd, "run", "build") {
+			return &run.ExitError{Command: cmd.String(), Code: 1}
+		}
+		return nil
+	}
+
+	err := f.RunUpdate(context.Background(), "latest")
+	wantCode(t, err, exitcode.Failure)
+	records := f.deploymentHistory(t)
+	if len(records) != 2 || records[0].Commit != f.host.gitRemote {
+		t.Fatalf("history = %+v, want the new position recorded before the build failed", records)
+	}
+}

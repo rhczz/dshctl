@@ -368,17 +368,21 @@ func runTimeline(ctx context.Context, env *Env, args []string) error {
 	return nil
 }
 
-// runUpdate implements `dshctl update`.
+// runUpdate implements `dshctl update [latest|<tag>|<sha>]`.
 func runUpdate(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "update")
-	help, err := parseFlags(flags, args)
+	help, rest, err := parseFlagsWithArgs(flags, args)
 	if err != nil {
 		return err
 	}
 	if help {
 		return nil
 	}
-	return newService(env).RunUpdate(ctx)
+	target, err := versionSelector(rest, flags.Name())
+	if err != nil {
+		return err
+	}
+	return newService(env).RunUpdate(ctx, target)
 }
 
 // runDoctor implements `dshctl doctor`.

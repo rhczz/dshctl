@@ -1278,12 +1278,15 @@ func (f *fixture) wantNoRecordOnDisk(t *testing.T) {
 	}
 }
 
-// wantNoPull fails the test when the checkout was updated.
-func (f *fixture) wantNoPull(t *testing.T) {
+// wantNoCheckoutUpdate fails the test when the checkout was touched at all: a
+// refused operation must not have fetched, switched, installed or built.
+func (f *fixture) wantNoCheckoutUpdate(t *testing.T) {
 	t.Helper()
 	for _, command := range f.host.commandsRun() {
-		if strings.Contains(command, "pull") {
-			t.Fatalf("the checkout was updated: %v", f.host.commandsRun())
+		for _, forbidden := range []string{"fetch", "merge", "checkout", "install", "run build"} {
+			if strings.Contains(command, forbidden) {
+				t.Fatalf("the checkout was touched (%s): %v", forbidden, f.host.commandsRun())
+			}
 		}
 	}
 }
