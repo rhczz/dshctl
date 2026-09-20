@@ -14,7 +14,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 包地图与依赖方向
 
-`cmd/dshctl → internal/cli → internal/service → 叶子`，方向不可逆、不得成环、不得引入第三方 import。叶子：`atomically`（崩溃安全的写入）、`buildinfo`、`exitcode`（退出码与类型化错误）、`config`（四层设置解析）、`detach`（后台子进程）、`host`（唯一直接和操作系统对话的包）、`lock`、`logfile`、`nodejs`（Node 解析与版本门槛）、`paths`、`repo`（checkout 检查与清理）、`run`（外部命令）、`state`（运行记录）、`version`。
+`cmd/dshctl → internal/cli → internal/service → 叶子`，方向不可逆、不得成环、不得引入第三方 import。叶子：`atomically`（崩溃安全的写入）、`buildinfo`、`exitcode`（退出码与类型化错误）、`config`（四层设置解析）、`detach`（后台子进程）、`history`（部署位置栈）、`host`（唯一直接和操作系统对话的包）、`lock`、`logfile`、`nodejs`（Node 解析与版本门槛）、`paths`、`repo`（checkout 检查与清理）、`run`（外部命令）、`state`（运行记录）、`version`。
 
 ## 固定 vs 配置
 
