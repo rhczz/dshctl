@@ -240,8 +240,8 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "a build does not record the checkout it built",
         "internal/service/build.go",
-        "\ts.writeBack(s.Settings.RepoDir, \"\")\n\treturn nil\n}\n\n// RunUpdate",
-        "\treturn nil\n}\n\n// RunUpdate",
+        "\ts.writeBack(s.Settings.RepoDir, \"\")\n\treturn nil\n}",
+        "\treturn nil\n}",
         ["./internal/service/"],
     ),
     (

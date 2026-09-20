@@ -1235,7 +1235,7 @@ func TestLogsBuildOnlyReportsAMissingRecord(t *testing.T) {
 	if err := f.Logs(context.Background(), LogsOptions{BuildOnly: true}); err != nil {
 		t.Fatalf("Logs: %v", err)
 	}
-	if !strings.Contains(f.errOut.String(), "没有 build/update 记录") {
+	if !strings.Contains(f.errOut.String(), "没有 build/update/rollback 记录") {
 		t.Fatalf("stderr = %q", f.errOut.String())
 	}
 }

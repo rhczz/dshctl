@@ -590,7 +590,7 @@ func TestLogsBuildSection(t *testing.T) {
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want nothing when there is no build record", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "没有 build/update 记录") {
+	if !strings.Contains(stderr.String(), "没有 build/update/rollback 记录") {
 		t.Fatalf("stderr = %q, want the explanation", stderr.String())
 	}
 }

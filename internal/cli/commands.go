@@ -82,12 +82,12 @@ func Commands() []Command {
 		},
 		{
 			Name:    "logs",
-			Summary: "查看日志(含 build/update 记录)",
+			Summary: "查看日志(含 build/update/rollback 记录)",
 			Help: `查看日志。服务输出、构建输出、更新输出共用同一份日志。
 
   -n <行数>      打印最后 N 行(默认 200，小于 1 视为默认值)
   -f, --follow   持续跟随输出(跨日志轮转继续跟随)
-  --build        只显示最近一次 build/update 记录，用于排查上次构建失败`,
+  --build        只显示最近一次 build/update/rollback 记录，用于排查上次部署`,
 			Run: runLogs,
 		},
 		{
@@ -323,7 +323,7 @@ func runLogs(ctx context.Context, env *Env, args []string) error {
 	follow := flags.Bool("f", false, "持续跟随输出")
 	flags.BoolVar(follow, "follow", false, "持续跟随输出")
 	lines := flags.Int("n", service.DefaultLogLines, "打印最后 N 行")
-	buildOnly := flags.Bool("build", false, "只显示最近一次 build/update 记录")
+	buildOnly := flags.Bool("build", false, "只显示最近一次 build/update/rollback 记录")
 	help, err := parseFlags(flags, args)
 	if err != nil {
 		return err

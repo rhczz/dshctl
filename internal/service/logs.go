@@ -90,11 +90,11 @@ func (s *Service) printBuildSection(lines int) error {
 	}
 	switch outcome {
 	case logfile.NotFound:
-		fmt.Fprintf(s.Err, "日志中没有 build/update 记录: %s\n", s.Settings.LogPath)
+		fmt.Fprintf(s.Err, "日志中没有 build/update/rollback 记录: %s\n", s.Settings.LogPath)
 		return nil
 	case logfile.Truncated:
 		return exitcode.New(exitcode.Failure,
-			"日志文件过大，未能定位最近一次 build/update 记录: %s\n提示: 用 dshctl logs -n <行数> 直接查看尾部",
+			"日志文件过大，未能定位最近一次 build/update/rollback 记录: %s\n提示: 用 dshctl logs -n <行数> 直接查看尾部",
 			s.Settings.LogPath)
 	}
 	if len(body) > lines {

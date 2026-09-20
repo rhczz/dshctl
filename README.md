@@ -48,7 +48,7 @@ dshctl stop                   # 停止
 | `restart` | 在同一把锁内先停后启；不加 `--port` 时重启本状态目录中正在运行的每一个服务 |
 | `status` | 运行状态；不加 `--port` 时报告本状态目录管理的每一个服务；`--json` 输出结构化结果 |
 | `url` | 打印带 token 的访问地址；不加 `--port` 时每个运行中的实例一行；一个地址都没有时退出码 3 |
-| `logs` | 日志；`-n <行数>`（默认 200 行，见 `internal/service.DefaultLogLines`）、`-f/--follow` 跟随、`--build` 只看最近一次构建记录 |
+| `logs` | 日志；`-n <行数>`（默认 200 行，见 `internal/service.DefaultLogLines`）、`-f/--follow` 跟随、`--build` 只看最近一次 build/update/rollback 记录 |
 | `build` | 清理已删除包的残留目录后执行 `pnpm run build` |
 | `timeline` | 查看当前版本与 `origin/master` 的差距：落后/领先的提交数、差距内的 tag、最近的提交与部署历史；`--json` 输出结构化结果 |
 | `update` | 更新到指定版本（`latest`/tag/commit，默认 `latest`）：停服 → `git fetch` → 切换 → 清理 → `pnpm install` → 构建 → 恢复启动 |
@@ -98,7 +98,7 @@ dshctl stop                   # 停止
 - 每个字段都可以省略、删除或写成 `null`，都会退回到该字段的默认值；未知字段会被拒绝（防止把一个拼错的键当成生效配置）。
 - 配置文件必须是普通文件、不超过 64 KiB，内容是单个 JSON 对象；解析失败会明确指出是哪个文件、哪个字段。
 - 只有可变命令（`start`/`stop`/`restart`/`build`/`update`/`rollback`）会创建和写入它；`status`、`url`、`logs`、`doctor`、`version` 不写盘。
-- dshctl 只在自己确有必要时改这个文件：写入它实际用过的 `repoDir`（`start`/`build`/`update`）与 `nodeVersion`（`start`），而且只写这两个键、只在这个文件还没有写明它们的时候写；你在文件里写过的值永远不会被覆盖，其他字段逐字保留。
+- dshctl 只在自己确有必要时改这个文件：写入它实际用过的 `repoDir`（`start`/`build`/`update`/`rollback`）与 `nodeVersion`（`start`），而且只写这两个键、只在这个文件还没有写明它们的时候写；你在文件里写过的值永远不会被覆盖，其他字段逐字保留。
 - 首次执行可变命令时生成的配置里**不含** `repoDir`：默认值只是「按这台机器的主目录猜的路径」，把猜测写进配置就等于把猜错的结果永久固定下来。
 - `dshctl -v <命令>` 会把生效值和每一项的来源（`flag` / `env` / `file` / `default`）打印出来，排查配置时先看它。
 
@@ -188,7 +188,7 @@ dshctl stop                   # 停止本状态目录管理的全部服务
 端口上只是别人的程序、本状态目录从没在那里启动过服务时不算漏，因为那不是这次操作
 要管的东西。点名一个端口时同样不算漏：保留那个占用者正是这次操作要的结果。
 
-`build`/`update` 仍然只看配置里那个 checkout：它们会在替换产物之前检查所有端口，
+`build`/`update`/`rollback` 仍然只看配置里那个 checkout：它们会在替换产物之前检查所有端口，
 任何一个正在用这份 checkout 的服务都会让它拒绝执行，并提示先停掉对应端口。
 
 ## 版本、更新与回退
