@@ -27,6 +27,9 @@ type deployRequest struct {
 	// target is the selector the operator gave: latest, a tag, a sha. Empty
 	// means the target comes from the recorded history instead.
 	target string
+	// steps is how many recorded positions to walk back; used when target is
+	// empty.
+	steps int
 	// fetch asks the remote before resolving. A rollback never does: returning
 	// to a known position has to work without a network.
 	fetch bool
@@ -64,6 +67,20 @@ func (s *Service) RunUpdate(ctx context.Context, target string) error {
 	return s.withLock(ctx, func() error {
 		return s.deployLocked(ctx, deployRequest{
 			verb: "更新", section: "update", target: target, fetch: true,
+		})
+	})
+}
+
+// RunRollback returns the checkout to an earlier deployed position.
+//
+// The target is either the n-th position back in the recorded stack (the
+// default is one step) or a named version. It never fetches: returning to a
+// known position is the firefighting path, and it has to work without a
+// network.
+func (s *Service) RunRollback(ctx context.Context, target string, steps int) error {
+	return s.withLock(ctx, func() error {
+		return s.deployLocked(ctx, deployRequest{
+			verb: "回退", section: "rollback", target: target, steps: steps,
 		})
 	})
 }
@@ -267,6 +284,9 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 
 // resolveDeployTarget turns a request into the commit to move to.
 func (s *Service) resolveDeployTarget(ctx context.Context, request deployRequest) (deployTarget, error) {
+	if request.steps > 0 {
+		return s.rollbackTarget(ctx, request.steps)
+	}
 	if request.target == latestTarget {
 		if err := s.Repo.Fetch(ctx, nil, nil); err != nil {
 			// latest cannot be resolved from local state: the whole point is
@@ -293,6 +313,49 @@ func (s *Service) resolveDeployTarget(ctx context.Context, request deployRequest
 		return deployTarget{}, exitcode.Wrap(exitcode.Preflight, err)
 	}
 	return deployTarget{commit: commit, selector: request.target, name: request.target}, nil
+}
+
+// rollbackTarget resolves the position a step count names.
+//
+// The stack is the recorded positions for this checkout, and the current
+// commit is its top: step 1 is where the previous move started, which is what
+// a bare `dshctl rollback` means. A corrupt history refuses the rollback —
+// unlike an update, there is nothing the operator asked for that could be
+// carried out without it.
+func (s *Service) rollbackTarget(ctx context.Context, steps int) (deployTarget, error) {
+	current, err := s.Repo.HeadCommit(ctx)
+	if err != nil {
+		return deployTarget{}, exitcode.Wrap(exitcode.Preflight, err)
+	}
+	store := history.Store{Path: filepath.Join(s.Settings.StateDir, historyFileName)}
+	file, ok, err := store.Load()
+	if err != nil {
+		return deployTarget{}, exitcode.New(exitcode.Preflight,
+			"更新历史无法读取: %v\n提示: 删除 %s 后可用 dshctl update <版本> 定点切换", err, store.Path)
+	}
+	if !ok {
+		return deployTarget{}, exitcode.New(exitcode.Preflight,
+			"没有可回退的历史: dshctl 还没有记录过这个 checkout 的部署位置\n"+
+				"提示: 用 dshctl timeline 查看版本，用 dshctl update <版本> 定点切换")
+	}
+	records := file.Records(s.Settings.RepoDir)
+	now := history.Record{Commit: current, At: time.Now().Unix()}
+	position, ok := history.Step(records, now, steps)
+	if !ok {
+		return deployTarget{}, exitcode.New(exitcode.Preflight,
+			"没有可回退的位置: 历史里最多还能退 %d 步", len(history.Visit(records, now))-1)
+	}
+	name := "记录中的位置"
+	if tags, err := s.Repo.Tags(ctx); err == nil {
+		if tag := firstTag(tags[position.Commit]); tag != "" {
+			name = tag
+		}
+	}
+	return deployTarget{
+		commit:   position.Commit,
+		selector: fmt.Sprintf("-n %d", steps),
+		name:     name,
+	}, nil
 }
 
 // switchToTarget moves the checkout to the resolved target, streaming git's
