@@ -469,6 +469,20 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         ["./internal/repo/"],
     ),
     (
+        "a language nobody speaks is rendered instead of falling back to English",
+        "internal/i18n/i18n.go",
+        "\t// \"C\" and \"POSIX\" are the absence of a locale, not a language.\n\treturn EN",
+        "\t// \"C\" and \"POSIX\" are the absence of a locale, not a language.\n\treturn ZH",
+        ["./internal/i18n/"],
+    ),
+    (
+        "two layers may claim the same message id",
+        "internal/i18n/catalog.go",
+        "\t\t\tif _, exists := merged[id]; exists {",
+        "\t\t\tif _, exists := merged[id]; false && exists {",
+        ["./internal/i18n/"],
+    ),
+    (
         "a failed fetch still reports the timeline as confirmed",
         "internal/cli/commands.go",
         "\tif !report.Fetched {",

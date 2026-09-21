@@ -573,6 +573,24 @@
     "status": "pending"
   },
   {
+    "name": "a language nobody speaks is rendered instead of falling back to English",
+    "old_path": "internal/i18n/i18n.go",
+    "packages": [
+      "./internal/i18n/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "two layers may claim the same message id",
+    "old_path": "internal/i18n/catalog.go",
+    "packages": [
+      "./internal/i18n/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
     "name": "a failed fetch still reports the timeline as confirmed",
     "old_path": "internal/cli/commands.go",
     "packages": [
