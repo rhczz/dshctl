@@ -283,7 +283,7 @@
       "home/|0755|dir"
     ],
     "stderr": "",
-    "stdout": "dshctl <V> (darwin/arm64, commit <C>, built <B>)\n"
+    "stdout": "dshctl <V> (linux/amd64, commit <C>, built <B>)\n"
   },
   "version-json": {
     "exit": 0,
@@ -292,6 +292,6 @@
       "home/|0755|dir"
     ],
     "stderr": "",
-    "stdout": "{\n  \"version\": \"<V>\",\n  \"commit\": \"<C>\",\n  \"buildDate\": \"<B>\",\n  \"platform\": \"darwin/arm64\"\n}\n"
+    "stdout": "{\n  \"version\": \"<V>\",\n  \"commit\": \"<C>\",\n  \"buildDate\": \"<B>\",\n  \"platform\": \"linux/amd64\"\n}\n"
   }
 }

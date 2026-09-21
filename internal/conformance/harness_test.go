@@ -288,6 +288,13 @@ func (f *fixture) snapshot() []string {
 			return err
 		}
 		slashed := filepath.ToSlash(relative)
+		if strings.HasPrefix(slashed, "bin/") && !entry.IsDir() {
+			// The stub tools are the harness's own furniture. Their bytes are a
+			// property of the machine that compiled them, so the snapshot records
+			// that the tool exists and its mode instead of its hash.
+			entries = append(entries, fmt.Sprintf("%s|%04o|stub", slashed, info.Mode().Perm()))
+			return nil
+		}
 		if entry.IsDir() {
 			entries = append(entries, fmt.Sprintf("%s/|%04o|dir", slashed, info.Mode().Perm()))
 			return nil

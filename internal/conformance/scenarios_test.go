@@ -135,6 +135,12 @@ func TestConformance(t *testing.T) {
 		})
 	}
 	if *update {
+		// Recording under a -run filter would replace the file with the handful
+		// of scenarios that ran, which silently drops every other golden. The
+		// recording is only whole when every declared scenario took part.
+		if len(goldens) != len(scenarios) {
+			t.Fatalf("recorded %d of %d scenarios; re-record without a -run filter", len(goldens), len(scenarios))
+		}
 		saveGoldens(t, goldens)
 		return
 	}
