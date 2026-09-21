@@ -3,7 +3,6 @@ package logging
 import (
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"strings"
@@ -13,14 +12,12 @@ import (
 	"github.com/rhczz/dshctl/internal/logfile"
 )
 
-func newLogger(t *testing.T, level Level) (*Logger, *logfile.Logger, *strings.Builder, string) {
+func newLogger(t *testing.T, level Level) (*Logger, *logfile.Logger, string) {
 	t.Helper()
 	dir := t.TempDir()
 	path := dir + "/dsh-web.log"
 	file := logfile.New(path, 0)
-	var diag strings.Builder
-	logger := New(file, &diag, level)
-	return logger, file, &diag, path
+	return New(file, level), file, path
 }
 
 // read returns the log's contents; a file that was never created reads as empty,
@@ -72,7 +69,7 @@ func TestParseLevelRefusesAnUnknownName(t *testing.T) {
 }
 
 func TestInfoRecordsALineInsideTheCurrentSection(t *testing.T) {
-	logger, _, _, path := newLogger(t, LevelInfo)
+	logger, _, path := newLogger(t, LevelInfo)
 	if err := logger.Section("start"); err != nil {
 		t.Fatalf("section: %v", err)
 	}
@@ -87,40 +84,21 @@ func TestInfoRecordsALineInsideTheCurrentSection(t *testing.T) {
 }
 
 func TestDebugIsSilentUntilTheLevelAsksForIt(t *testing.T) {
-	quiet, _, _, quietPath := newLogger(t, LevelInfo)
+	quiet, _, quietPath := newLogger(t, LevelInfo)
 	quiet.Debug("探测端口 3080")
 	if content := read(t, quietPath); strings.Contains(content, "探测端口") {
 		t.Errorf("a debug line was recorded at info level: %q", content)
 	}
 
-	loud, _, _, loudPath := newLogger(t, LevelDebug)
+	loud, _, loudPath := newLogger(t, LevelDebug)
 	loud.Debug("探测端口 3080")
 	if content := read(t, loudPath); !strings.Contains(content, "探测端口") {
 		t.Errorf("a debug line was dropped at debug level: %q", content)
 	}
 }
 
-func TestWarnReachesStandardErrorAndNotTheLog(t *testing.T) {
-	logger, _, diag, path := newLogger(t, LevelInfo)
-	logger.Warn("无法获取远程更新")
-	if got := diag.String(); got != "警告: 无法获取远程更新\n" {
-		t.Errorf("stderr = %q", got)
-	}
-	if content := read(t, path); strings.Contains(content, "无法获取远程更新") {
-		t.Errorf("a warning was written to the log: %q", content)
-	}
-}
-
-func TestErrorWritesTheFrameTheCallerBuilt(t *testing.T) {
-	logger, _, diag, _ := newLogger(t, LevelInfo)
-	logger.Error("错误: 更新失败: 超时")
-	if got := diag.String(); got != "错误: 更新失败: 超时\n" {
-		t.Errorf("stderr = %q", got)
-	}
-}
-
 func TestStepRecordsWhatItCost(t *testing.T) {
-	logger, _, _, path := newLogger(t, LevelInfo)
+	logger, _, path := newLogger(t, LevelInfo)
 	times := []time.Time{
 		time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		time.Date(2026, 1, 1, 0, 0, 0, 12*int(time.Millisecond), time.UTC),
@@ -143,7 +121,7 @@ func TestStepRecordsWhatItCost(t *testing.T) {
 }
 
 func TestStepKeepsTheOperationError(t *testing.T) {
-	logger, _, _, path := newLogger(t, LevelInfo)
+	logger, _, path := newLogger(t, LevelInfo)
 	failure := fmt.Errorf("切换失败")
 	err := logger.Step("切换版本", func() error { return failure })
 	if err != failure {
@@ -157,7 +135,7 @@ func TestStepKeepsTheOperationError(t *testing.T) {
 
 func TestLogFailureDoesNotMaskTheOperation(t *testing.T) {
 	dir := t.TempDir()
-	logger := New(logfile.New(dir, 0), io.Discard, LevelInfo)
+	logger := New(logfile.New(dir, 0), LevelInfo)
 	failure := fmt.Errorf("切换失败")
 	if err := logger.Step("切换版本", func() error { return failure }); err != failure {
 		t.Fatalf("step returned %v, want the operation's error", err)

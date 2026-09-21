@@ -170,4 +170,8 @@ func TestNormalizeLeavesRealContentAlone(t *testing.T) {
 	if got != `{"pid":<PID>,"version":"<V>"}` {
 		t.Fatalf("volatile fields survive normalization: %s", got)
 	}
+	step := normalize("/tmp/whatever", "步骤 解析目标: 耗时 12ms")
+	if step != "步骤 解析目标: 耗时 <DUR>" {
+		t.Fatalf("a step duration survives normalization: %s", step)
+	}
 }

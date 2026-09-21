@@ -79,6 +79,7 @@ LAYERS = {
     "internal/cli": {
         "internal/config",
         "internal/exitcode",
+        "internal/output",
         "internal/run",
         "internal/service",
         "internal/version",
@@ -93,6 +94,7 @@ LAYERS = {
         "internal/logfile",
         "internal/logging",
         "internal/nodejs",
+        "internal/output",
         "internal/paths",
         "internal/repo",
         "internal/run",

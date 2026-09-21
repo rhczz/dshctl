@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/rhczz/dshctl/internal/exitcode"
+	"github.com/rhczz/dshctl/internal/output"
 	"github.com/rhczz/dshctl/internal/service"
 )
 
@@ -328,7 +329,7 @@ func runStatus(ctx context.Context, env *Env, args []string) error {
 	}
 	report := service.NewStatusReport(statuses)
 	if *asJSON {
-		if err := printJSON(env.Stdout, report); err != nil {
+		if err := output.JSON(env.Stdout, report); err != nil {
 			return err
 		}
 	} else if err := service.PrintStatuses(env.Stdout, env.Stderr, report); err != nil {
@@ -428,7 +429,7 @@ func runTimeline(ctx context.Context, env *Env, args []string) error {
 		return err
 	}
 	if *asJSON {
-		if err := printJSON(env.Stdout, report); err != nil {
+		if err := output.JSON(env.Stdout, report); err != nil {
 			return err
 		}
 	} else if err := service.PrintTimeline(env.Stdout, report); err != nil {
@@ -509,7 +510,7 @@ func runDoctor(ctx context.Context, env *Env, args []string) error {
 	}
 	checks := newService(env).Doctor(ctx)
 	if *asJSON {
-		if err := printJSON(env.Stdout, checks); err != nil {
+		if err := output.JSON(env.Stdout, checks); err != nil {
 			return err
 		}
 	} else if err := service.PrintChecks(env.Stdout, checks); err != nil {
@@ -533,7 +534,7 @@ func runVersion(_ context.Context, env *Env, args []string) error {
 		return nil
 	}
 	if *asJSON {
-		return printJSON(env.Stdout, env.Version)
+		return output.JSON(env.Stdout, env.Version)
 	}
 	_, err = fmt.Fprintln(env.Stdout, env.Version.String())
 	return err

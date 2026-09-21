@@ -354,6 +354,7 @@ var normalizers = []struct {
 	{regexp.MustCompile(`"spawnedPid":(\s*)\d+`), `"spawnedPid":${1}<PID>`},
 	{regexp.MustCompile(`"pid":(\s*)\d+`), `"pid":${1}<PID>`},
 	{regexp.MustCompile(`(?i)\bpid \d+`), "pid <PID>"},
+	{regexp.MustCompile(`耗时 \S+`), "耗时 <DUR>"},
 	{regexp.MustCompile(`dshctl \S+ \(`), "dshctl <V> ("},
 	{regexp.MustCompile(`commit [^,)]+, built [^)]*`), "commit <C>, built <B>"},
 	{regexp.MustCompile(`"version":(\s*)"[^"]*"`), `"version":${1}"<V>"`},

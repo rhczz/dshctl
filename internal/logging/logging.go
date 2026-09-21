@@ -1,14 +1,14 @@
-// Package logging is dshctl's diagnostic channel: one level per line, one sink
-// per audience.
+// Package logging is dshctl's record of what a run did: one level per line, and
+// one sink — the log file.
 //
-// The log file is the operator's record: sections mirror the operations, and a
-// step line carries what the step cost. Standard error is what the operator has
-// to see right now, which is why a warning goes there and does not wait for a
-// reader.
+// Sections mirror the operations, and a step line carries what the step cost.
+// What the operator has to see right now is not here: standard output and
+// standard error belong to internal/output, and keeping the two apart is what
+// lets the file be complete without a warning being printed twice.
 //
 // The file format itself belongs to internal/logfile. This package only decides
-// what a line is called and which sink it reaches, so the bytes an operator has
-// been reading do not change.
+// what a line is called and whether the level asked for it, so the bytes an
+// operator has been reading do not change.
 //
 // It does not use log/slog. The file format is the contract, a handler would
 // have to reproduce it byte for byte, and no consumer here wants records or
@@ -18,7 +18,6 @@ package logging
 
 import (
 	"fmt"
-	"io"
 	"strings"
 	"time"
 
@@ -69,20 +68,19 @@ func ParseLevel(text string) (Level, error) {
 	return LevelInfo, fmt.Errorf("未知的日志级别 %q: 取值是 debug、info、warn、error", text)
 }
 
-// Logger writes diagnostics to the log file and to standard error.
+// Logger records to the log file at one level.
 type Logger struct {
 	// Now is the clock the step lines read. Tests replace it; production uses
 	// time.Now, set by New.
 	Now func() time.Time
 
 	file  *logfile.Logger
-	diag  io.Writer
 	level Level
 }
 
-// New returns a logger that records to file and reports to diag.
-func New(file *logfile.Logger, diag io.Writer, level Level) *Logger {
-	return &Logger{Now: time.Now, file: file, diag: diag, level: level}
+// New returns a logger that records to file.
+func New(file *logfile.Logger, level Level) *Logger {
+	return &Logger{Now: time.Now, file: file, level: level}
 }
 
 // Level reports the threshold this logger filters at.
@@ -108,19 +106,6 @@ func (l *Logger) Debug(msg string) {
 		return
 	}
 	_ = l.file.Line(msg)
-}
-
-// Warn reports a diagnostic that does not stop the operation. It goes to
-// standard error and not to the log file, because a warning is for the operator
-// reading this run, not for whoever reads the file later.
-func (l *Logger) Warn(msg string) {
-	fmt.Fprintf(l.diag, "警告: %s\n", msg)
-}
-
-// Error writes a line to standard error for a caller that frames its own text,
-// so a failure raised inside an operation is not double-prefixed.
-func (l *Logger) Error(msg string) {
-	fmt.Fprintln(l.diag, msg)
 }
 
 // Step runs one named step of an operation, records what it cost, and returns

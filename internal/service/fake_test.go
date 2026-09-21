@@ -21,6 +21,7 @@ import (
 	"github.com/rhczz/dshctl/internal/logfile"
 	"github.com/rhczz/dshctl/internal/logging"
 	"github.com/rhczz/dshctl/internal/nodejs"
+	"github.com/rhczz/dshctl/internal/output"
 	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
@@ -719,7 +720,8 @@ func newFixture(t *testing.T) *fixture {
 			Stat: os.Stat,
 		},
 		LogFile: logfile.New(logPath, settings.LogRotateBytes),
-		Log:     logging.New(logfile.New(logPath, settings.LogRotateBytes), errOut, logging.LevelInfo),
+		Log:     logging.New(logfile.New(logPath, settings.LogRotateBytes), logging.LevelInfo),
+		Report:  output.New(out, errOut),
 		Record:  state.Store{Path: settings.StateFile()},
 		Out:     out,
 		Err:     errOut,
@@ -1460,7 +1462,7 @@ func (f *fixture) run(t *testing.T, overrides config.Overrides) config.Settings 
 func (f *fixture) rebind() {
 	f.Record = state.Store{Path: f.Settings.StateFile()}
 	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
-	f.Log = logging.New(f.LogFile, f.Err, logging.LevelInfo)
+	f.Log = logging.New(f.LogFile, logging.LevelInfo)
 }
 
 // guess is the built-in checkout this machine's home implies.

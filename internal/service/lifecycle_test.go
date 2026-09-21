@@ -15,6 +15,7 @@ import (
 	"github.com/rhczz/dshctl/internal/lock"
 	"github.com/rhczz/dshctl/internal/logfile"
 	"github.com/rhczz/dshctl/internal/logging"
+	"github.com/rhczz/dshctl/internal/output"
 	"github.com/rhczz/dshctl/internal/run"
 	"github.com/rhczz/dshctl/internal/state"
 )
@@ -1008,7 +1009,8 @@ func TestBuildWritesTheSectionBeforeRotating(t *testing.T) {
 	f := newFixture(t)
 	f.Settings.LogRotateBytes = 512
 	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
-	f.Log = logging.New(f.LogFile, f.Err, logging.LevelInfo)
+	f.Log = logging.New(f.LogFile, logging.LevelInfo)
+	f.Report = output.New(f.Out, f.Err)
 	// Fill the log so the next build rotates it.
 	if err := f.LogFile.Line(strings.Repeat("x", 1200)); err != nil {
 		t.Fatalf("seed log: %v", err)

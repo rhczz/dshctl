@@ -43,6 +43,7 @@ import (
 	"github.com/rhczz/dshctl/internal/logfile"
 	"github.com/rhczz/dshctl/internal/logging"
 	"github.com/rhczz/dshctl/internal/nodejs"
+	"github.com/rhczz/dshctl/internal/output"
 	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
@@ -67,9 +68,12 @@ type Service struct {
 	// server writes to, tailing, and rotation.
 	LogFile *logfile.Logger
 
-	// Log is the diagnostic channel: what the operator must see now goes to
-	// standard error, what the run did goes into the file.
+	// Log records what the run did into the log file.
 	Log *logging.Logger
+
+	// Report is the seam to the operator: results on standard output, warnings
+	// and errors on standard error, and the same bytes for every --json value.
+	Report *output.Reporter
 	// Record is the runtime record of the server dshctl started on this port.
 	Record state.Store
 	// Out is the human-facing output stream.
@@ -158,7 +162,8 @@ func New(settings config.Settings, deps Dependencies) *Service {
 		},
 		Node:      nodejs.NewResolver(),
 		LogFile:   logFile,
-		Log:       logging.New(logFile, deps.Err, level),
+		Log:       logging.New(logFile, level),
+		Report:    output.New(deps.Out, deps.Err),
 		Record:    state.Store{Path: settings.StateFile()},
 		Out:       deps.Out,
 		Err:       deps.Err,
@@ -243,12 +248,12 @@ func (s *Service) note(line string) {
 
 // warn writes a diagnostic that does not stop the operation.
 func (s *Service) warn(format string, args ...any) {
-	s.Log.Warn(fmt.Sprintf(format, args...))
+	s.Report.Warnf(format, args...)
 }
 
 // errorf writes an error line that does not stop the operation.
 func (s *Service) errorf(format string, args ...any) {
-	s.Log.Error(fmt.Sprintf(format, args...))
+	s.Report.Errorf(format, args...)
 }
 
 // sleepCtx waits for d or until ctx is cancelled, reporting the cancellation.

@@ -3312,24 +3312,6 @@
     "note": ""
   },
   {
-    "test": "internal/logging/logging_test.go::TestWarnReachesStandardErrorAndNotTheLog",
-    "file": "internal/logging/logging_test.go",
-    "package": "internal/logging",
-    "behavior": "",
-    "disposition": "todo",
-    "evidence": "",
-    "note": ""
-  },
-  {
-    "test": "internal/logging/logging_test.go::TestErrorWritesTheFrameTheCallerBuilt",
-    "file": "internal/logging/logging_test.go",
-    "package": "internal/logging",
-    "behavior": "",
-    "disposition": "todo",
-    "evidence": "",
-    "note": ""
-  },
-  {
     "test": "internal/logging/logging_test.go::TestStepRecordsWhatItCost",
     "file": "internal/logging/logging_test.go",
     "package": "internal/logging",
@@ -3783,6 +3765,51 @@
     "test": "internal/nodejs/probe_test.go::TestProbeFallsBackWhenExecPathIsUnusable",
     "file": "internal/nodejs/probe_test.go",
     "package": "internal/nodejs",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/output/output_test.go::TestResultWritesTheOperatorsResult",
+    "file": "internal/output/output_test.go",
+    "package": "internal/output",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/output/output_test.go::TestWarnfIsFramedAndGoesToStandardError",
+    "file": "internal/output/output_test.go",
+    "package": "internal/output",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/output/output_test.go::TestErrorfCarriesTheCallersOwnFrame",
+    "file": "internal/output/output_test.go",
+    "package": "internal/output",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/output/output_test.go::TestJSONIsIndentedTheWayScriptsParse",
+    "file": "internal/output/output_test.go",
+    "package": "internal/output",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/output/output_test.go::TestJSONReportsAnUnrenderableValue",
+    "file": "internal/output/output_test.go",
+    "package": "internal/output",
     "behavior": "",
     "disposition": "todo",
     "evidence": "",
@@ -7126,5 +7153,23 @@
     "disposition": "todo",
     "evidence": "",
     "note": ""
+  },
+  {
+    "test": "internal/logging/logging_test.go::TestWarnReachesStandardErrorAndNotTheLog",
+    "file": "internal/logging/logging_test.go",
+    "package": "internal/logging",
+    "behavior": "",
+    "disposition": "merged",
+    "evidence": "internal/output/output_test.go::TestWarnfIsFramedAndGoesToStandardError",
+    "note": "行为随 stderr 出口一起搬到 internal/output"
+  },
+  {
+    "test": "internal/logging/logging_test.go::TestErrorWritesTheFrameTheCallerBuilt",
+    "file": "internal/logging/logging_test.go",
+    "package": "internal/logging",
+    "behavior": "",
+    "disposition": "merged",
+    "evidence": "internal/output/output_test.go::TestErrorfCarriesTheCallersOwnFrame",
+    "note": "行为随 stderr 出口一起搬到 internal/output"
   }
 ]

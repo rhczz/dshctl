@@ -7,7 +7,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -380,11 +379,4 @@ func newService(env *Env) *service.Service {
 	application.LookPath = env.LookPath
 	application.Getenv = env.Getenv
 	return application
-}
-
-// printJSON writes a value as indented JSON.
-func printJSON(w io.Writer, value any) error {
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(value)
 }

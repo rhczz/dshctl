@@ -233,6 +233,7 @@
       "repo/pnpm-workspace.yaml|0644|b379483d4293500af8e9d3e8",
       "repo/|0755|dir",
       "state/config.json|0600|a7f00f4e6c9380675bef23f1",
+      "state/dsh-web.log|0600|c94deaa1475a9427b40fa122",
       "state/dshctl.lock|0600|2a279291b478982b95c0f49a",
       "state/|0700|dir"
     ],
