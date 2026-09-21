@@ -398,6 +398,8 @@ var normalizers = []struct {
 	{regexp.MustCompile(`耗时 \S+`), "耗时 <DUR>"},
 	{regexp.MustCompile(`dshctl \S+ \(`), "dshctl <V> ("},
 	{regexp.MustCompile(`commit [^,)]+, built [^)]*`), "commit <C>, built <B>"},
+	// The toolchain is a property of the machine that compiled the candidate.
+	{regexp.MustCompile(`go1\.\d+(?:\.\d+)?`), "<GO>"},
 	{regexp.MustCompile(`"version":(\s*)"[^"]*"`), `"version":${1}"<V>"`},
 	{regexp.MustCompile(`"commit":(\s*)"[^"]*"`), `"commit":${1}"<C>"`},
 	{regexp.MustCompile(`"buildDate":(\s*)"[^"]*"`), `"buildDate":${1}"<B>"`},

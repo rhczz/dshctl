@@ -40,7 +40,7 @@
       "home/|0755|dir"
     ],
     "stderr": "",
-    "stdout": "[警告] 状态目录: <PATH>/state 尚未创建，首次运行会自动创建\n[警告] 配置文件: <PATH>/state/config.json 尚未创建，将写入默认值\n[失败] 仓库目录: <PATH>/home/deepseek-harness 不存在；用 --repo 或环境变量 DSH_REPO_DIR 指定一次，成功运行后会写入 <PATH>/state/config.json\n[失败] 依赖: <PATH>/home/deepseek-harness/node_modules 不存在，请先执行 pnpm install\n[失败] 构建产物: 缺少 <PATH>/home/deepseek-harness/.dsh-build/client-build-environment.json，请运行 dshctl build\n[失败] Node: 找不到可用的 node\n  PATH: 没有 node\n修复(任选一种):\n  nvm:      nvm install 24 && nvm alias default 24\n  fnm:      fnm install 24 && fnm default 24\n  Homebrew: brew install node@24\n  n:        n 24\n  Volta:    volta install node@24\n  asdf:     asdf install nodejs 24.20.0 && asdf global nodejs 24.20.0\n  mise:     mise use -g node@24\n  nodenv:   nodenv install 24.20.0 && nodenv global 24.20.0\n  官方安装包: https://nodejs.org/en/download\n也可以只指定一次: --node <版本> 或 DSH_NODE_VERSION=<版本>(成功后写入配置)\n[失败] pnpm: 找不到 pnpm，请先安装并确保它在 PATH 中\n[OK  ] 端口: 3080 空闲\n[OK  ] 运行记录: 不存在(尚未启动过服务)\n[OK  ] 操作锁: 空闲\n[OK  ] 日志: <PATH>/state/dsh-web.log (0 B)\n[OK  ] 进程分离方式: setsid\n[OK  ] 构建信息: go1.25.14 · github.com/rhczz/dshctl\n"
+    "stdout": "[警告] 状态目录: <PATH>/state 尚未创建，首次运行会自动创建\n[警告] 配置文件: <PATH>/state/config.json 尚未创建，将写入默认值\n[失败] 仓库目录: <PATH>/home/deepseek-harness 不存在；用 --repo 或环境变量 DSH_REPO_DIR 指定一次，成功运行后会写入 <PATH>/state/config.json\n[失败] 依赖: <PATH>/home/deepseek-harness/node_modules 不存在，请先执行 pnpm install\n[失败] 构建产物: 缺少 <PATH>/home/deepseek-harness/.dsh-build/client-build-environment.json，请运行 dshctl build\n[失败] Node: 找不到可用的 node\n  PATH: 没有 node\n修复(任选一种):\n  nvm:      nvm install 24 && nvm alias default 24\n  fnm:      fnm install 24 && fnm default 24\n  Homebrew: brew install node@24\n  n:        n 24\n  Volta:    volta install node@24\n  asdf:     asdf install nodejs 24.20.0 && asdf global nodejs 24.20.0\n  mise:     mise use -g node@24\n  nodenv:   nodenv install 24.20.0 && nodenv global 24.20.0\n  官方安装包: https://nodejs.org/en/download\n也可以只指定一次: --node <版本> 或 DSH_NODE_VERSION=<版本>(成功后写入配置)\n[失败] pnpm: 找不到 pnpm，请先安装并确保它在 PATH 中\n[OK  ] 端口: 3080 空闲\n[OK  ] 运行记录: 不存在(尚未启动过服务)\n[OK  ] 操作锁: 空闲\n[OK  ] 日志: <PATH>/state/dsh-web.log (0 B)\n[OK  ] 进程分离方式: setsid\n[OK  ] 构建信息: <GO> · github.com/rhczz/dshctl\n"
   },
   "help": {
     "exit": 0,
@@ -292,6 +292,6 @@
       "home/|0755|dir"
     ],
     "stderr": "",
-    "stdout": "{\n  \"version\": \"<V>\",\n  \"commit\": \"<C>\",\n  \"buildDate\": \"<B>\",\n  \"platform\": \"darwin/arm64\",\n  \"goVersion\": \"go1.25.14\",\n  \"module\": \"github.com/rhczz/dshctl\"\n}\n"
+    "stdout": "{\n  \"version\": \"<V>\",\n  \"commit\": \"<C>\",\n  \"buildDate\": \"<B>\",\n  \"platform\": \"darwin/arm64\",\n  \"goVersion\": \"<GO>\",\n  \"module\": \"github.com/rhczz/dshctl\"\n}\n"
   }
 }
