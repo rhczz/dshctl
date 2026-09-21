@@ -679,8 +679,8 @@
     "file": "internal/cli/commands_test.go",
     "package": "internal/cli",
     "behavior": "",
-    "disposition": "todo",
-    "evidence": "",
+    "disposition": "new-test",
+    "evidence": "可变命令 --json 输出一份文档（含事件）",
     "note": ""
   },
   {
@@ -688,8 +688,17 @@
     "file": "internal/cli/commands_test.go",
     "package": "internal/cli",
     "behavior": "",
-    "disposition": "todo",
-    "evidence": "",
+    "disposition": "new-test",
+    "evidence": "失败也在同一份文档里，stdout 不混散文",
+    "note": ""
+  },
+  {
+    "test": "internal/cli/commands_test.go::TestLogLevelFlagReachesTheSettings",
+    "file": "internal/cli/commands_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "日志级别 flag 进入设置并由 -v 报出来源",
     "note": ""
   },
   {

@@ -892,3 +892,17 @@ func TestMutatingJSONCarriesTheFailure(t *testing.T) {
 		t.Fatalf("document = %+v, want a failure with its reason", document)
 	}
 }
+
+// TestLogLevelFlagReachesTheSettings pins the flag's own layer: without it the
+// level comes from the environment or the file, and with it the resolved value
+// says so — which is also what a script reading `-v` needs.
+func TestLogLevelFlagReachesTheSettings(t *testing.T) {
+	_, _, stderr, _ := execute(t, "-v", "--log-level", "debug", "status")
+	if !strings.Contains(stderr, "日志级别: debug (flag)") {
+		t.Fatalf("verbose output does not report the flag's level:\n%s", stderr)
+	}
+	_, _, stderr, _ = execute(t, "-v", "status")
+	if !strings.Contains(stderr, "日志级别: ") || strings.Contains(stderr, "(flag)") {
+		t.Fatalf("verbose output reports a flag that was not given:\n%s", stderr)
+	}
+}
