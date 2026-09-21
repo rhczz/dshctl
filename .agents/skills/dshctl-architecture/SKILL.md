@@ -62,6 +62,15 @@ type Emitter interface {
 - 并发模型：`*kernel.Service` 构造后即不可变（共享的只有注入的适配器与文件锁），
   多个前端可以并发调用；互斥由状态目录上的内核锁保证，只读命令不取锁。
 
+## 基础设施只提供机制，产品值定义在拥有契约的层
+
+这是本仓库对"基础设施"的定义，也是评审时要问的问题：
+
+判据：**把这个包拿去给另一个产品用，需要改它的源码吗？** 需要，就说明产品值写死在了机制里。
+机制包不许认识文件名、记录 schema、产品名、上限、工具清单或 env 名；这些值由
+`internal/kernel`/`internal/domain`（拥有契约的层）以常量、参数或类型传入。
+
+机制/资源的完整清单与迁移工作清单见 `references/mechanism-and-resource.md`。
 ## i18n：消息是一条目录项
 
 - **能力与资源分开**：`internal/i18n` 只有能力（`Lang`、`Message`、语言解析、`Catalog`
@@ -83,21 +92,11 @@ type Emitter interface {
 
 ## 重写期的强度机器（不要删，不要绕）
 
-v0.3 分支用三件工具保证"功能不变、强度只增"：
-
-1. **金标 conformance**（`internal/conformance`）：黑盒场景矩阵驱动真实二进制，
-   与 v0.2.5 录下的金标逐字节比对。金标只能 `-update` 重录，且 CI 会从参照 tag
-   重新生成并要求零 diff——**改金标等于改契约**，必须走加法/豁免清单。
-   它显式钉住 `DSHCTL_LANG=zh`，因为金标录的是 v0.2.5 的中文输出。
-2. **账本**（`internal/conformance/accounting/*.json`）：树上每个测试一行，
-   `disposition` 取值 `todo/kept/new-test/conformance/differential/merged/obsolete`；
-   `scripts/check-accounting.py --strict` 是合并闸门（0 个 `todo`）。
-   删测试必须记账：**没有任何一行可以无声消失**。
-3. **决策名册**（`accounting/decisions.json`）：`scripts/mutation-check.py` 里 63 条
-   被钉决策的**名字**是身份；锚点可以随重写换位置换文本，名字不许少，且全部要被抓住。
-
-新增被钉决策 = 补一条 `MUTATIONS` 字面替换 + 在名册里登记；证明会红用
-`python3 scripts/mutation-check.py --only <名字>`。
+v0.3 分支用三件工具保证"功能不变、强度只增"：金标 conformance（`internal/conformance`，
+黑盒场景驱动真实二进制并与 v0.2.5 金标逐字节比对）、账本
+（`internal/conformance/accounting/`，每个测试一行 disposition）、决策名册
+（63+ 条被钉决策的名字不许少、每条都要被抓住）。细则与"删测试必须记账"见
+`../dshctl-testing/references/accounting.md`。
 
 ## 相关文件
 

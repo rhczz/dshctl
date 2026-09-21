@@ -91,6 +91,10 @@ func statusWithConfig(f *fixture) {
 func checkoutWithoutOrigin(f *fixture) {
 	f.checkout()
 	f.setenv("DSH_REPO_DIR", f.repoDir)
+	// The move resolves the runtime before it refuses the selector; pinning the
+	// tools keeps the refusal the only thing the scenario observes.
+	f.stubTool("node")
+	f.stubTool("pnpm")
 }
 
 func TestConformance(t *testing.T) {

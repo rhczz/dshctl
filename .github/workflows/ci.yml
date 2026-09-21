@@ -214,6 +214,34 @@ jobs:
             --report internal/config \
             --report internal/app
 
+  goldens:
+    name: record the conformance goldens
+    # The goldens are per platform: paths, permissions and the platform string
+    # differ, so only a runner of that platform can record them. This job exists
+    # so a missing golden is recorded on purpose rather than skipped at test
+    # time, and it uploads the files for a human to commit.
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: "1.25.14"
+          cache: false
+
+      - name: Record
+        run: go test ./internal/conformance/ -run TestConformance -update -count=1
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: goldens-${{ matrix.os }}
+          path: internal/conformance/testdata/expected-*.json
+
   mutation:
     name: the tests notice a broken decision (${{ matrix.shard }}/6)
     runs-on: ubuntu-latest

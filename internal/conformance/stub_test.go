@@ -33,11 +33,26 @@ func main() {
 		fmt.Println("Proto Recv-Q Send-Q Local Address           Foreign Address         State")
 	case "ps":
 		os.Exit(1)
+	case "node":
+		version("v24.20.0")
+	case "pnpm":
+		version("9.0.0")
+	}
+}
+
+// version answers the probe dshctl makes and stays quiet for anything else.
+func version(release string) {
+	for _, arg := range os.Args[1:] {
+		if arg == "-v" || arg == "--version" {
+			fmt.Println(release)
+			return
+		}
 	}
 }
 `
 
-// stubTools are the names the stub is installed under.
+// stubTools are the names the stub is installed under for every scenario: the
+// probes whose answer would otherwise be a property of the machine.
 var stubTools = []string{"lsof", "ss", "netstat", "ps"}
 
 // buildStubDir compiles the stub once and installs it under every probe name.

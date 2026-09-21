@@ -249,6 +249,17 @@ func (f *fixture) environment(probes, realPATH bool) []string {
 	return append(env, f.extra...)
 }
 
+// stubTool installs a stub of its own into this fixture's bin directory, which
+// is first on PATH. A scenario that needs node or pnpm resolves must not depend
+// on what the machine running the suite happens to have installed.
+func (f *fixture) stubTool(name string) {
+	f.t.Helper()
+	source := filepath.Join(stubDir, stubTools[0]+exeSuffix())
+	if err := copyFile(source, filepath.Join(f.bin, name+exeSuffix())); err != nil {
+		f.t.Fatalf("installing a %s stub: %v", name, err)
+	}
+}
+
 // snapshot records everything the run left under the fixture root: directories
 // (with their permissions), files (with permissions and a hash of their
 // normalized contents). A read-only command that writes anything shows up here.
