@@ -1,0 +1,37 @@
+[
+  {
+    "id": "mutating-json",
+    "surface": "--json on start/stop/restart/build/update/rollback",
+    "consumer": "scripts and operators that drive dshctl from a supervisor",
+    "test": "",
+    "readme": ""
+  },
+  {
+    "id": "log-level",
+    "surface": "--log-level / DSHCTL_LOG_LEVEL",
+    "consumer": "operators diagnosing a failing start without reading the log file",
+    "test": "",
+    "readme": ""
+  },
+  {
+    "id": "log-step-lines",
+    "surface": "step timing lines inside a log section",
+    "consumer": "operators reading why an update took as long as it did",
+    "test": "",
+    "readme": ""
+  },
+  {
+    "id": "version-json-fields",
+    "surface": "version --json carries the toolchain and module",
+    "consumer": "bug reports and the reproducibility check",
+    "test": "",
+    "readme": ""
+  },
+  {
+    "id": "doctor-json-fields",
+    "surface": "doctor --json carries the same build facts",
+    "consumer": "the same, without a second command",
+    "test": "",
+    "readme": ""
+  }
+]

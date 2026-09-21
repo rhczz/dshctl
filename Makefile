@@ -19,7 +19,7 @@ TEST_TIMEOUT ?= 600s
 
 PLATFORMS := darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64
 
-.PHONY: build vet test test-race hermetic coverage workflow-check conventions fmt fmt-check check ci cross mutation install uninstall clean help
+.PHONY: build vet test test-race hermetic coverage workflow-check conventions accounting fmt fmt-check check ci cross mutation install uninstall clean help
 
 ## build: compile the binary into bin/dshctl
 build:
@@ -56,6 +56,11 @@ workflow-check:
 ## conventions: check the writing, structure, and dependency conventions
 conventions:
 	@python3 scripts/check-conventions.py
+	@python3 scripts/check-accounting.py
+
+## accounting: check the rewrite ledger (ARGS=--strict for the merge gate)
+accounting:
+	@python3 scripts/check-accounting.py $(ARGS)
 
 ## fmt: format every source file
 fmt:

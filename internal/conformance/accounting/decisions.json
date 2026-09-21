@@ -1,0 +1,584 @@
+[
+  {
+    "name": "the floor is exclusive instead of inclusive",
+    "old_path": "internal/nodejs/nodejs.go",
+    "packages": [
+      "./internal/nodejs/",
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "any other major version counts as verified",
+    "old_path": "internal/nodejs/nodejs.go",
+    "packages": [
+      "./internal/nodejs/",
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a refused release is no longer given a remedy",
+    "old_path": "internal/nodejs/nodejs.go",
+    "packages": [
+      "./internal/nodejs/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the request is normalized away, so 'latest' means discovery",
+    "old_path": "internal/nodejs/nodejs.go",
+    "packages": [
+      "./internal/nodejs/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a release read from a binary is accepted without looking like one",
+    "old_path": "internal/nodejs/nodejs.go",
+    "packages": [
+      "./internal/nodejs/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the managers are consulted before the release request",
+    "old_path": "internal/nodejs/nodejs.go",
+    "packages": [
+      "./internal/nodejs/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the real interpreter behind a forwarding entry is ignored",
+    "old_path": "internal/nodejs/nodejs.go",
+    "packages": [
+      "./internal/nodejs/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the probe is unbounded",
+    "old_path": "internal/nodejs/nodejs.go",
+    "packages": [
+      "./internal/nodejs/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the --node flag is ignored",
+    "old_path": "internal/config/config.go",
+    "packages": [
+      "./internal/config/",
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the settings document outranks the environment for the release",
+    "old_path": "internal/config/config.go",
+    "packages": [
+      "./internal/config/",
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the --config flag is ignored",
+    "old_path": "internal/config/config.go",
+    "packages": [
+      "./internal/config/",
+      "./internal/cli/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "an undetermined release is written into the document",
+    "old_path": "internal/config/config.go",
+    "packages": [
+      "./internal/config/",
+      "./internal/cli/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the write-back replaces the operator's document with defaults",
+    "old_path": "internal/config/config.go",
+    "packages": [
+      "./internal/config/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the release is recorded even when the document names one",
+    "old_path": "internal/config/config.go",
+    "packages": [
+      "./internal/config/",
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the checkout is recorded even when the document names one",
+    "old_path": "internal/config/config.go",
+    "packages": [
+      "./internal/config/",
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a copy of the built-in guess counts as a decision",
+    "old_path": "internal/config/config.go",
+    "packages": [
+      "./internal/config/",
+      "./internal/service/",
+      "./internal/cli/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "provisioning freezes the checkout guess into the document",
+    "old_path": "internal/config/config.go",
+    "packages": [
+      "./internal/config/",
+      "./internal/cli/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a document that carries an unresolvable checkout is overwritten",
+    "old_path": "internal/config/config.go",
+    "packages": [
+      "./internal/config/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the selection is sorted by number instead of by what the command is about",
+    "old_path": "internal/config/config.go",
+    "packages": [
+      "./internal/config/",
+      "./internal/cli/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a configured timeout is not range-checked before it becomes a duration",
+    "old_path": "internal/config/config.go",
+    "packages": [
+      "./internal/config/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "an override of the configured release is not reported",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "an override of the configured checkout is not reported",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the environment that lost to the document is not reported",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the environment that beat the document's checkout is not reported",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the runtime is left out of the final record",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the checkout is left out of the final record",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the checkout is left out of the record written before the port answers",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "an adopted survivor loses the checkout it was started from",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a start that finds the service running does not reconcile the document",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a build does not record the checkout it built",
+    "old_path": "internal/service/build.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the running instance's checkout is not compared with the configuration",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a sibling server from another checkout blocks a build",
+    "old_path": "internal/service/build.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the record no longer names the checkout it was started from",
+    "old_path": "internal/state/state.go",
+    "packages": [
+      "./internal/state/",
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "an adopted survivor loses the runtime it runs",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the doctor row hides why a release is unverified",
+    "old_path": "internal/service/doctor.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the record no longer names the release it was started with",
+    "old_path": "internal/state/state.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a fingerprint that could not be read is reported as a readable one",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "following a log replays everything already in it",
+    "old_path": "internal/logfile/follow.go",
+    "packages": [
+      "./internal/logfile/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the detached child stays in dshctl's session",
+    "old_path": "internal/detach/detach_unix.go",
+    "packages": [
+      "./internal/detach/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the detachment attribute never reaches the kernel",
+    "old_path": "internal/detach/detach.go",
+    "packages": [
+      "./internal/detach/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a permission refusal is read as the process being gone",
+    "old_path": "internal/host/ports_unix.go",
+    "packages": [
+      "./internal/host/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "probing whether a process exists ends it",
+    "old_path": "internal/host/ports_unix.go",
+    "packages": [
+      "./internal/host/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a directory git still tracks is treated as residue",
+    "old_path": "internal/repo/prune.go",
+    "packages": [
+      "./internal/repo/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "git's tracked paths are read in their quoted form",
+    "old_path": "internal/repo/prune.go",
+    "packages": [
+      "./internal/repo/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a lock that was never won is reported as a generic failure",
+    "old_path": "internal/service/observe.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a multi-instance operation no longer serializes on the state directory",
+    "old_path": "internal/service/observe.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a bare stop covers only the configured instance",
+    "old_path": "internal/service/ports.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the stop deadline is a hundred times more patient than the budget",
+    "old_path": "internal/service/observe.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the fingerprint absorbs no clock granularity",
+    "old_path": "internal/service/observe.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the port fixture hands a role to a port it already used",
+    "old_path": "internal/service/fake_test.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a cancelled run kills only the process it started",
+    "old_path": "internal/run/process_unix.go",
+    "packages": [
+      "./internal/run/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a sibling manifest no longer protects a subtree from pruning",
+    "old_path": "internal/repo/prune.go",
+    "packages": [
+      "./internal/repo/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "the version already deployed is rebuilt and restarted anyway",
+    "old_path": "internal/service/update.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a worktree with tracked changes is switched anyway",
+    "old_path": "internal/service/update.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "returning to a visited position no longer truncates the stack",
+    "old_path": "internal/history/history.go",
+    "packages": [
+      "./internal/history/",
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a local branch name resolves as a version",
+    "old_path": "internal/repo/release.go",
+    "packages": [
+      "./internal/repo/",
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a no-op update forgets the checkout it ran against",
+    "old_path": "internal/service/update.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "latest is fetched without an origin",
+    "old_path": "internal/service/update.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a position without a timestamp is accepted",
+    "old_path": "internal/history/history.go",
+    "packages": [
+      "./internal/history/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "fetch prunes remote-tracking refs the remote no longer has",
+    "old_path": "internal/repo/release.go",
+    "packages": [
+      "./internal/repo/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a sha selector is repeated in the target line",
+    "old_path": "internal/service/update.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "HEAD is refused as a local branch",
+    "old_path": "internal/repo/release.go",
+    "packages": [
+      "./internal/repo/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  },
+  {
+    "name": "a failed fetch still reports the timeline as confirmed",
+    "old_path": "internal/cli/commands.go",
+    "packages": [
+      "./internal/cli/"
+    ],
+    "new_path": null,
+    "status": "pending"
+  }
+]

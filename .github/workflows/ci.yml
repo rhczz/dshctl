@@ -144,6 +144,13 @@ jobs:
         # the other repository-shape check.
         run: python3 scripts/check-conventions.py
 
+      - name: Rewrite ledger
+        # The v0.3 branch replaces the test suite, so the ledger under
+        # internal/conformance/accounting/ is what says what happened to every
+        # test the tree contained. A test that disappears without a disposition
+        # fails here instead of disappearing quietly.
+        run: python3 scripts/check-accounting.py
+
       - name: Run the suite once, in a throwaway HOME, with coverage
         # One execution, three properties: the script asserts that nothing was
         # created outside the tests' own temporary directories, the profile below
