@@ -296,7 +296,7 @@ func TestTimelineCapsTheHistorySection(t *testing.T) {
 	f := newFixture(t)
 	records := make([]history.Record, 0, timelineWindow+2)
 	for index := 0; index < timelineWindow+2; index++ {
-		records = append(records, history.Record{Commit: fakeSHA(100 + index), Selector: "latest", At: int64(index)})
+		records = append(records, history.Record{Commit: fakeSHA(100 + index), Selector: "latest", At: int64(index + 1)})
 	}
 	f.seedHistory(t, history.File{Repos: []history.Group{{Repo: f.repo, Records: records}}})
 
@@ -449,6 +449,25 @@ func TestTimelineTakesTheCurrentPositionFromGit(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "● "+current[:7]) {
 		t.Fatalf("output = %q, want the git position marked as current", out.String())
+	}
+}
+
+// TestTimelineRefusesWhenOriginMasterIsMissing pins the preflight for a
+// checkout whose origin exists but whose master was never fetched: there is no
+// "latest" to compare against, and inventing one would be worse than refusing.
+func TestTimelineRefusesWhenOriginMasterIsMissing(t *testing.T) {
+	f := newFixture(t)
+	f.host.gitRemote = ""
+
+	_, err := f.Timeline(context.Background())
+	if err == nil {
+		t.Fatal("a checkout without origin/master produced a timeline")
+	}
+	if exitcode.Of(err) != exitcode.Preflight {
+		t.Fatalf("exit code = %d, want preflight", exitcode.Of(err))
+	}
+	if !strings.Contains(err.Error(), "origin/master") {
+		t.Fatalf("error = %v, want it to name origin/master", err)
 	}
 }
 

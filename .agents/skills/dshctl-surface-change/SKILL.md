@@ -30,7 +30,7 @@ description: 改 dshctl 面向使用者的表面：命令、flag、环境变量�
 
 7. **退出码只能取 `internal/exitcode` 的常量**：`OK=0`、`Failure=1`、`Usage=2`、`NotRunning=3`、`Preflight=4`、`LockTimeout=5`、`Interrupted=130`；用 `exitcode.Wrap` 带上分类、`exitcode.Of` 还原，命令自己打印错误又要定退出码时用 `SilentExit(code)`。为什么：脚本按码分支而不是解析文案，`internal/cli/readonly_test.go` 连"该返回 3 却返回 1"都算回归。
 
-8. **只读命令零写盘。** `status`/`url`/`logs`/`doctor`/`version` 的改动必须跑 `internal/cli/readonly_test.go`。为什么：`TestReportingCommandsLeaveNoTrace` 用真实二进制跑每个只读命令并断言磁盘零新增（含中间步骤顺手创建的锁文件）——只读承诺曾经就是这样被破坏的。
+8. **只读命令零写盘，例外只有一个且必须具名。** `status`/`url`/`logs`/`doctor`/`version` 的改动必须跑 `internal/cli/readonly_test.go`。`timeline` 是唯一例外：它必须 `git fetch` 才能知道远程最新，因此会写 `.git` 的远程跟踪引用（不写状态目录、不改工作区），fetch 失败退出码 4、绝不声称"已是最新"；例外本身有专属测试（`TestTimelineLeavesTheWorktreeAndStateDirUntouched`）。为什么：只读承诺曾经就是这样被破坏的，而一个没有测试与文档的例外等于没有边界。
 
 9. **输出流分工：`Env.Stdout` 放结果与帮助，`Env.Stderr` 放警告、错误与 `-v` 的配置回显。** 为什么：脚本把 stdout 当数据消费，把回显或警告混进 stdout 会污染管道输出。
 
@@ -39,6 +39,10 @@ description: 改 dshctl 面向使用者的表面：命令、flag、环境变量�
 11. **README 五张表是同一份契约的五个视图**（命令、全局参数、配置项、环境变量、退出码），沿用既有硬折行与列数，只增删必要的行。为什么：README 正文按固定宽度硬折行，整段重排会让 diff 失去可读性，评审看不出真正改了什么。
 
 12. **`--json` 输出沿用 `printJSON`（两空格缩进），字段名与含义同样是契约。** 为什么：`--json` 给脚本消费，改名会让下游静默取到零值。
+
+13. **每条成功路径都履行同一份契约，短路路径也不例外。** `update` 在"目标就是当前版本"时同样回写 `repoDir`（`TestANoOpUpdateRecordsTheCheckoutItRanAgainst`）：短路是为了不重启服务，不是为了少做承诺。"成功"的定义不因走了捷径而缩小。
+
+14. **文档没承诺的输入要么拒绝、要么写明。** `update`/`rollback` 的选择器只承诺 `latest`/tag/commit；本地分支名会被静默解析成指针，所以显式拒绝并指向 `latest`（`TestResolveRevisionRefusesALocalBranch`）。为什么：一个"看起来能跑"的输入会把操作者带到错误的位置，而错误的位置不会报错。
 
 ## 验证
 

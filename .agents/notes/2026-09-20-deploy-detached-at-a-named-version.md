@@ -66,5 +66,6 @@ hash）。解析在停服之前完成，解析失败不动服务；目标等于�
   钉住完整闭环（update → rollback 后 detached → update 回到 master）。
 - `scripts/mutation-check.py`：`the version already deployed is rebuilt and
   restarted anyway`、`a worktree with tracked changes is switched anyway`、
-  `a local branch name resolves as a version`、`a no-op update forgets the
-  checkout it ran against`、`latest is fetched without an origin`。
+  `a local branch name resolves as a version`、`HEAD is refused as a local
+  branch`、`a no-op update forgets the checkout it ran against`、`latest is
+  fetched without an origin`、`a sha selector is repeated in the target line`。

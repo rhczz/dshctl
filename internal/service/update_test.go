@@ -26,6 +26,89 @@ func (f *fixture) deploymentHistory(t *testing.T) []history.Record {
 	return file.Records(f.Settings.RepoDir)
 }
 
+// TestUpdateRefusesALocalBranchWithoutStopping pins that the branch trap is a
+// preflight: `update <branch>` never deploys wherever the local pointer happens
+// to be, and the service keeps serving.
+func TestUpdateRefusesALocalBranchWithoutStopping(t *testing.T) {
+	f := newFixture(t)
+	f.startServer(t, 4321, "")
+
+	err := f.RunUpdate(context.Background(), "main")
+	wantCode(t, err, exitcode.Preflight)
+	wantContains(t, err, "本地分支")
+	f.wantNoSignals(t)
+	f.wantNoSpawn(t)
+}
+
+// TestUpdateHEADIsANoOp pins the other end of the selector rule: HEAD names the
+// commit the checkout is already at, so the update reports it and changes
+// nothing.
+func TestUpdateHEADIsANoOp(t *testing.T) {
+	f := newFixture(t)
+	f.startServer(t, 4321, "")
+
+	if err := f.RunUpdate(context.Background(), "HEAD"); err != nil {
+		t.Fatalf("RunUpdate(HEAD): %v", err)
+	}
+	if !strings.Contains(f.out.String(), "无需更新") {
+		t.Fatalf("stdout = %q, want the no-op report", f.out.String())
+	}
+	f.wantNoSignals(t)
+	f.wantNoSpawn(t)
+}
+
+// TestUpdateRefusesWhenTheWorktreeCannotBeChecked pins the fail-closed rule for
+// the switch: a status query that could not answer is not a clean worktree, so
+// the update refuses before anything is stopped.
+func TestUpdateRefusesWhenTheWorktreeCannotBeChecked(t *testing.T) {
+	f := newFixture(t)
+	f.startServer(t, 4321, "")
+	f.host.fail = func(cmd run.Command) error {
+		if hasArgument(cmd, "status", "--porcelain") {
+			return &run.ExitError{Command: cmd.String(), Code: 128}
+		}
+		return nil
+	}
+
+	err := f.RunUpdate(context.Background(), "latest")
+	wantCode(t, err, exitcode.Preflight)
+	f.wantNoSignals(t)
+	f.wantNoSpawn(t)
+	for _, forbidden := range []string{"merge", "install", "run build"} {
+		if strings.Contains(f.describeCommands(), forbidden) {
+			t.Fatalf("an unanswerable worktree check reached %s: %v", forbidden, f.describeCommands())
+		}
+	}
+}
+
+// TestUpdatePrependsAManualPosition pins the starting point rule: a checkout
+// moved by hand is recorded before the move, so a later rollback can return to
+// it even though dshctl never deployed it.
+func TestUpdatePrependsAManualPosition(t *testing.T) {
+	f := newFixture(t)
+	manual := fakeSHA(700)
+	deployed := fakeSHA(600)
+	f.host.gitHead = manual
+	f.seedDeployments(t, history.Record{Commit: deployed, Selector: "latest", At: 1})
+
+	if err := f.RunUpdate(context.Background(), "latest"); err != nil {
+		t.Fatalf("RunUpdate: %v", err)
+	}
+	records := f.deploymentHistory(t)
+	if len(records) != 3 {
+		t.Fatalf("history = %+v, want the target, the manual position and the deployed one", records)
+	}
+	if records[0].Commit != f.host.gitRemote || records[0].Selector != "latest" {
+		t.Fatalf("newest = %+v, want the target", records[0])
+	}
+	if records[1].Commit != manual || records[1].Selector != "" {
+		t.Fatalf("starting point = %+v, want the manual position", records[1])
+	}
+	if records[2].Commit != deployed {
+		t.Fatalf("oldest = %+v, want the deployed position", records[2])
+	}
+}
+
 // TestUpdateLatestRefusesWithoutOrigin pins the preflight that turns "this
 // checkout has no origin" into a clear answer instead of git's fetch error:
 // latest has no meaning without a remote.
@@ -56,6 +139,35 @@ func TestUpdateANamedVersionWorksWithoutOrigin(t *testing.T) {
 	}
 	if !strings.Contains(f.errOut.String(), "无法获取远程更新") {
 		t.Fatalf("stderr = %q, want the fetch warning", f.errOut.String())
+	}
+}
+
+// TestUpdateNamesAShaTargetOnce pins the target line: a selector that is only
+// an abbreviation of the commit adds nothing, so it is not repeated in
+// parentheses, while a tag or latest is named.
+func TestUpdateNamesAShaTargetOnce(t *testing.T) {
+	f := newFixture(t)
+	target := fakeSHA(500)
+	f.host.gitLog = []fakeGitCommit{fakeCommit(target, "the target")}
+	current := f.host.gitHead
+
+	if err := f.RunUpdate(context.Background(), target[:8]); err != nil {
+		t.Fatalf("RunUpdate: %v", err)
+	}
+	want := "更新: " + current[:7] + " → " + target[:7] + "\n"
+	if !strings.Contains(f.out.String(), want) {
+		t.Fatalf("stdout = %q, want %q", f.out.String(), want)
+	}
+
+	f2 := newFixture(t)
+	f2.host.gitTags = map[string]string{"dsh-v0.1.0": target}
+	current2 := f2.host.gitHead
+	if err := f2.RunUpdate(context.Background(), "dsh-v0.1.0"); err != nil {
+		t.Fatalf("RunUpdate: %v", err)
+	}
+	wantTagged := "更新: " + current2[:7] + " → " + target[:7] + "（dsh-v0.1.0）\n"
+	if !strings.Contains(f2.out.String(), wantTagged) {
+		t.Fatalf("stdout = %q, want %q", f2.out.String(), wantTagged)
 	}
 }
 

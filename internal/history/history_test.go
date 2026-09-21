@@ -118,6 +118,15 @@ func TestLoadRejectsCorruption(t *testing.T) {
 		{"empty commit", func(t *testing.T, path string) {
 			writeFile(t, path, `{"repos":[{"repo":"/a","records":[{"commit":"","at":1}]}]}`)
 		}},
+		{"no time", func(t *testing.T, path string) {
+			writeFile(t, path, `{"repos":[{"repo":"/a","records":[{"commit":"c1"}]}]}`)
+		}},
+		{"negative time", func(t *testing.T, path string) {
+			writeFile(t, path, `{"repos":[{"repo":"/a","records":[{"commit":"c1","at":-1}]}]}`)
+		}},
+		{"empty group", func(t *testing.T, path string) {
+			writeFile(t, path, `{"repos":[{"repo":"/a","records":[]}]}`)
+		}},
 		{"a directory", func(t *testing.T, path string) {
 			if err := os.MkdirAll(path, 0o700); err != nil {
 				t.Fatalf("mkdir: %v", err)
@@ -225,6 +234,35 @@ func TestStepStartsFromWhereTheCurrentPositionSitsInTheStack(t *testing.T) {
 	got, ok := Step(records, record("a", "", 9), 1)
 	if !ok || got.Commit != "x" {
 		t.Fatalf("Step = %+v (ok=%v), want x", got, ok)
+	}
+}
+
+// TestRecordsForAnUnknownCheckoutIsEmpty pins that the answer for a checkout
+// this state directory has never deployed is "nothing", not a neighbouring
+// checkout's stack.
+func TestRecordsForAnUnknownCheckoutIsEmpty(t *testing.T) {
+	file := File{Repos: []Group{{Repo: "/a", Records: []Record{record("c1", "", 1)}}}}
+	if got := file.Records("/b"); len(got) != 0 {
+		t.Fatalf("Records(/b) = %+v, want none", got)
+	}
+	if got := file.Records(""); len(got) != 0 {
+		t.Fatalf("Records(\"\") = %+v, want none", got)
+	}
+}
+
+// TestWithAddsANewCheckout pins that recording a checkout the file has never
+// seen appends its group without touching the others.
+func TestWithAddsANewCheckout(t *testing.T) {
+	file := File{Repos: []Group{{Repo: "/a", Records: []Record{record("a1", "", 1)}}}}
+	updated := file.With("/b", []Record{record("b1", "latest", 2)})
+	if got := updated.Records("/a"); len(got) != 1 || got[0].Commit != "a1" {
+		t.Fatalf("checkout a = %+v, want it untouched", got)
+	}
+	if got := updated.Records("/b"); len(got) != 1 || got[0].Commit != "b1" {
+		t.Fatalf("checkout b = %+v, want the new group", got)
+	}
+	if len(updated.Repos) != 2 {
+		t.Fatalf("groups = %+v, want two", updated.Repos)
 	}
 }
 
@@ -357,7 +395,7 @@ func TestSaveWritesTheRecordsItIsGiven(t *testing.T) {
 	box := store(t)
 	records := make([]Record, MaxRecords+5)
 	for index := range records {
-		records[index] = record(fmt.Sprintf("c%03d", index), "", int64(index))
+		records[index] = record(fmt.Sprintf("c%03d", index), "", int64(index+1))
 	}
 	if err := box.Save(File{Repos: []Group{{Repo: "/a", Records: records}}}); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -420,7 +458,7 @@ func TestSaveRefusesADocumentTooLargeToRead(t *testing.T) {
 	box := store(t)
 	records := make([]Record, 0, 4000)
 	for index := 0; index < 4000; index++ {
-		records = append(records, record(fmt.Sprintf("commit-%06d", index), "latest", int64(index)))
+		records = append(records, record(fmt.Sprintf("commit-%06d", index), "latest", int64(index+1)))
 	}
 	err := box.Save(File{Repos: []Group{{Repo: "/a", Records: records}}})
 	if err == nil {
@@ -428,6 +466,41 @@ func TestSaveRefusesADocumentTooLargeToRead(t *testing.T) {
 	}
 	if _, statErr := os.Lstat(box.Path); !os.IsNotExist(statErr) {
 		t.Fatalf("the oversize document reached the disk: %v", statErr)
+	}
+}
+
+// TestSaveRefusesADocumentItsReaderWouldReject pins the writer's other bound:
+// every shape Load calls corrupt is refused before it reaches the disk, so a
+// caller can never produce a history its own reader cannot use.
+func TestSaveRefusesADocumentItsReaderWouldReject(t *testing.T) {
+	position := func(commit string, at int64) Record { return Record{Commit: commit, At: at} }
+	cases := []struct {
+		name string
+		file File
+	}{
+		{"no repo", File{Repos: []Group{{Records: []Record{position("c1", 1)}}}}},
+		{"empty group", File{Repos: []Group{{Repo: "/a"}}}},
+		{"no commit", File{Repos: []Group{{Repo: "/a", Records: []Record{{At: 1}}}}}},
+		{"no time", File{Repos: []Group{{Repo: "/a", Records: []Record{{Commit: "c1"}}}}}},
+		{"negative time", File{Repos: []Group{{Repo: "/a", Records: []Record{position("c1", -1)}}}}},
+		{"duplicate group", File{Repos: []Group{
+			{Repo: "/a", Records: []Record{position("c1", 1)}},
+			{Repo: "/a", Records: []Record{position("c2", 2)}},
+		}}},
+		{"duplicate position", File{Repos: []Group{{Repo: "/a", Records: []Record{
+			position("c1", 1), position("c1", 2),
+		}}}}},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			box := store(t)
+			if err := box.Save(testCase.file); err == nil {
+				t.Fatal("Save wrote a document its own Load reports as corrupt")
+			}
+			if _, err := os.Lstat(box.Path); !os.IsNotExist(err) {
+				t.Fatalf("the refused document reached the disk: %v", err)
+			}
+		})
 	}
 }
 

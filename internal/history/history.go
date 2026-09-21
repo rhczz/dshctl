@@ -113,41 +113,61 @@ func (s Store) Load() (File, bool, error) {
 	if err := json.Unmarshal(data, &file); err != nil {
 		return File{}, false, fmt.Errorf("%w: %s: %v", ErrCorrupt, s.Path, err)
 	}
-	seen := make(map[string]struct{}, len(file.Repos))
-	for _, group := range file.Repos {
-		if group.Repo == "" {
-			return File{}, false, fmt.Errorf("%w: %s 有一组没有仓库路径", ErrCorrupt, s.Path)
-		}
-		if _, duplicate := seen[group.Repo]; duplicate {
-			// Two groups for one checkout would make "where can it roll back
-			// to" depend on which group a caller happened to read.
-			return File{}, false, fmt.Errorf("%w: %s 中 %s 出现了两组", ErrCorrupt, s.Path, group.Repo)
-		}
-		seen[group.Repo] = struct{}{}
-		positions := make(map[string]struct{}, len(group.Records))
-		for _, record := range group.Records {
-			if record.Commit == "" {
-				return File{}, false, fmt.Errorf("%w: %s 中 %s 有一条没有 commit 的位置",
-					ErrCorrupt, s.Path, group.Repo)
-			}
-			if _, duplicate := positions[record.Commit]; duplicate {
-				// Two entries for one position would make the step arithmetic
-				// ambiguous, and a valid stack never repeats a commit.
-				return File{}, false, fmt.Errorf("%w: %s 中 %s 的位置 %s 出现了两次",
-					ErrCorrupt, s.Path, group.Repo, record.Commit)
-			}
-			positions[record.Commit] = struct{}{}
-		}
+	if err := validate(file); err != nil {
+		return File{}, false, fmt.Errorf("%w: %s: %v", ErrCorrupt, s.Path, err)
 	}
 	return file, true, nil
 }
 
+// validate reports the first shape that is not a history document. Load calls
+// it corruption and Save refuses to write it, so the writer can never produce a
+// file its own reader rejects.
+func validate(file File) error {
+	seen := make(map[string]struct{}, len(file.Repos))
+	for _, group := range file.Repos {
+		if group.Repo == "" {
+			return fmt.Errorf("有一组没有仓库路径")
+		}
+		if _, duplicate := seen[group.Repo]; duplicate {
+			// Two groups for one checkout would make "where can it roll back
+			// to" depend on which group a caller happened to read.
+			return fmt.Errorf("仓库 %s 出现了两组", group.Repo)
+		}
+		seen[group.Repo] = struct{}{}
+		if len(group.Records) == 0 {
+			return fmt.Errorf("仓库 %s 的组没有任何位置", group.Repo)
+		}
+		positions := make(map[string]struct{}, len(group.Records))
+		for _, record := range group.Records {
+			if record.Commit == "" {
+				return fmt.Errorf("仓库 %s 有一条没有 commit 的位置", group.Repo)
+			}
+			if record.At <= 0 {
+				// A position without a time cannot be read back as one: the
+				// view would print 1970 and the record would claim a move that
+				// never happened.
+				return fmt.Errorf("仓库 %s 的位置 %s 没有时间戳", group.Repo, record.Commit)
+			}
+			if _, duplicate := positions[record.Commit]; duplicate {
+				// Two entries for one position would make the step arithmetic
+				// ambiguous, and a valid stack never repeats a commit.
+				return fmt.Errorf("仓库 %s 的位置 %s 出现了两次", group.Repo, record.Commit)
+			}
+			positions[record.Commit] = struct{}{}
+		}
+	}
+	return nil
+}
+
 // Save writes the history atomically with owner-only permissions.
 //
-// A document too large to be read back is refused rather than written: the
-// reader's bound is the writer's bound, or a caller could produce a file that
-// its own Load reports as corrupt.
+// A document the reader would reject is refused rather than written: a caller
+// must not be able to produce a file its own Load reports as corrupt, whether
+// because it is too large or because a position is malformed.
 func (s Store) Save(file File) error {
+	if err := validate(file); err != nil {
+		return fmt.Errorf("拒绝写入更新历史: %w", err)
+	}
 	data, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
 		return fmt.Errorf("无法序列化更新历史: %w", err)

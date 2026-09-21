@@ -17,7 +17,7 @@ description: 在 dshctl 写或改测试：hermetic 隔离、真实入口路径�
 
 3. **只 fake 两个缝，其余用真实实现。** 可 fake 的只有 `service.OsHost`（让整个生命周期跑在虚构机器上）与 `run.Executor`/`Capturer`/`Outputer`（让外部命令可控）。除此之外优先真实实现：真实的 `atomically`、真实的 `lock`、真实的 `logfile`、真实的 `config.Load`。用真实实现买到的是"它和文件系统真的对得上"，用 fake 买到的是"决策逻辑对"——两者都需要，但不要用 fake 去替代后者。只测 mock 的调用序列等于验证自己写的剧本。
 
-4. **CLI 级承诺要跑真实二进制。** `internal/cli/readonly_test.go` 构建真实二进制、以子进程运行、检查它没有写盘；`documentation_test.go` 读真实 README。理由是"只读"这种承诺在单元层无法证明——只有跑起来才知道它碰了什么。
+4. **CLI 级承诺要跑真实二进制。** `internal/cli/readonly_test.go` 构建真实二进制、以子进程运行、检查它没有写盘；`documentation_test.go` 读真实 README。理由是"只读"这种承诺在单元层无法证明——只有跑起来才知道它碰了什么。关键工作流还要跑一次真实闭环（`internal/cli/release_test.go` 的 `update → rollback → timeline`），因为单元测试各自通过、接起来不成立是这类功能的典型失败。
 
 5. **验证世界，而不是被测代码的自述。** 断言要落在外部可观测量上：文件是否存在与内容、权限位、锁文件是否还在、端口是否真的被占用、进程是否真的消失、日志里真的出现了那行。不要断言"函数返回了它自己刚写进去的东西"。
 
@@ -34,6 +34,12 @@ description: 在 dshctl 写或改测试：hermetic 隔离、真实入口路径�
 11. **`t.Helper()` 与表驱动是默认做法。** 两者在树里都是默认形态（数量随代码变，要引用就现场 `grep -rc`，别抄数字）；辅助函数不加 `t.Helper()` 会让失败行号指向辅助函数而不是调用点。
 
 12. **覆盖率是必要条件，不是充分条件。** `make coverage` 里 `internal/nodejs` 要求 100%（它决定用哪个运行时跑服务），`config`/`service` 只报告。没被覆盖的行往往是死代码或缺少用例，两种情况都值得看一眼；但覆盖率不能替代第 5 条——100% 覆盖的测试仍然可以什么都没断言。
+
+13. **写盘文件的读取器与写入器共用同一套校验。** `Load` 拒绝的形状 `Save` 也必须拒绝，反之亦然：否则一个调用方就能造出自己读不回的文件。`internal/history` 的 `validate` 是范例，两侧调用同一个函数，测试成对出现（`TestLoadRejectsCorruption` 的表 + `TestSaveRefusesADocumentItsReaderWouldReject`）。字段的"存在"与"取值范围"分开校验——`at` 只查非空是不够的。
+
+14. **属性测试用 fuzz，找到的反例是回归。** 解析、裁剪、栈这类有代数性质的逻辑写 `Fuzz*` 目标：`go test` 跑种子语料，本地用 `-fuzztime` 探一段（`internal/history/history_fuzz_test.go`）。fuzz 报出来的输入要留在 `testdata/fuzz/` 并修实现，不许放宽断言或跳过；属性要对不可表达的输入显式设界（JSON 不能携带任意字节，非 UTF-8 会被替换成 U+FFFD）。
+
+15. **"无法探测"的每条路径都要有一个让探测失败的用例。** 与 `dshctl-defensive` 的"探测不了不当结论"配对：`git status` 失败时 update 必须拒绝、`git fetch` 失败时 timeline 必须标注远程未确认、端口探测失败时 stop 必须拒绝——每条都要有一个注入失败的测试，证明它没有被折进成功分支。
 
 ## 验证
 
