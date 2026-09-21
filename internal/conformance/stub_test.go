@@ -82,12 +82,7 @@ func buildStubDir(root string) (string, error) {
 
 func buildStub(source, out string) error {
 	build := exec.Command("go", "build", "-o", out, source)
-	build.Env = append(os.Environ(),
-		"GOPROXY=off",
-		"GOFLAGS=-trimpath",
-		"GOTOOLCHAIN=local",
-		"CGO_ENABLED=0",
-	)
+	build.Env = buildEnv()
 	if output, err := build.CombinedOutput(); err != nil {
 		return fmt.Errorf("building the stub: %w\n%s", err, output)
 	}

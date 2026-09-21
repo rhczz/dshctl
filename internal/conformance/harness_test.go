@@ -29,7 +29,26 @@ var update = flag.Bool("update", false, "rewrite the golden files from this run"
 var (
 	candidateBinary string
 	stubDir         string
+	// toolchainDir keeps the nested builds' bookkeeping inside the harness's
+	// own temporary directory. The toolchain creates $HOME/go (its default
+	// GOPATH) for a build, and a test that leaves that in somebody's home
+	// directory is exactly what the hermetic check exists to catch.
+	toolchainDir string
 )
+
+// buildEnv is the environment every nested build runs with: no proxy, the local
+// toolchain, and caches pointed at the harness's own directory.
+func buildEnv() []string {
+	return append(os.Environ(),
+		"GOPROXY=off",
+		"GOFLAGS=-trimpath",
+		"GOTOOLCHAIN=local",
+		"CGO_ENABLED=0",
+		"GOPATH="+filepath.Join(toolchainDir, "gopath"),
+		"GOCACHE="+filepath.Join(toolchainDir, "gocache"),
+		"GOMODCACHE="+filepath.Join(toolchainDir, "gomodcache"),
+	)
+}
 
 func TestMain(m *testing.M) {
 	os.Exit(runMain(m))
@@ -47,6 +66,11 @@ func runMain(m *testing.M) int {
 		return 1
 	}
 	defer os.RemoveAll(dir)
+	toolchainDir = filepath.Join(dir, "toolchain")
+	if err := os.MkdirAll(toolchainDir, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "conformance: %v\n", err)
+		return 1
+	}
 	if stubDir, err = buildStubDir(dir); err != nil {
 		fmt.Fprintf(os.Stderr, "conformance: %v\n", err)
 		return 1
@@ -54,12 +78,7 @@ func runMain(m *testing.M) int {
 	candidateBinary = filepath.Join(dir, "dshctl"+exeSuffix())
 	build := exec.Command("go", "build", "-o", candidateBinary, "./cmd/dshctl")
 	build.Dir = root
-	build.Env = append(os.Environ(),
-		"GOPROXY=off",
-		"GOFLAGS=-trimpath",
-		"GOTOOLCHAIN=local",
-		"CGO_ENABLED=0",
-	)
+	build.Env = buildEnv()
 	if out, err := build.CombinedOutput(); err != nil {
 		fmt.Fprintf(os.Stderr, "conformance: building the candidate failed: %v\n%s", err, out)
 		return 1
