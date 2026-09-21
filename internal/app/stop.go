@@ -41,16 +41,17 @@ func (s *Service) stopLocked(ctx context.Context) (StopResult, error) {
 	// A survivor of an interrupted start is adopted first, so the process that
 	// is actually serving the port becomes the one the record names and the
 	// stop ends it like any other managed server.
-	if observed.status.Survivor {
-		if _, ok := s.adoptSurvivor(ctx, observed); !ok {
-			return StopResult{}, exitcode.New(exitcode.Preflight,
-				"检测到上次启动遗留的服务 (pid=%d)，但无法恢复运行记录;请手动结束它后重试",
-				observed.status.ListenerPID)
-		}
+	verdict, observed, err := s.admitSurvivor(ctx, observed)
+	if err != nil {
+		return StopResult{}, err
+	}
+	if verdict == adoptFailed {
+		return StopResult{}, exitcode.New(exitcode.Preflight,
+			"检测到上次启动遗留的服务 (pid=%d)，但无法恢复运行记录;请手动结束它后重试",
+			observed.status.ListenerPID)
+	}
+	if verdict == adoptDone {
 		fmt.Fprintln(s.Out, "检测到上次启动被中断后仍存活的服务，已恢复管理")
-		if observed, err = s.observe(ctx); err != nil {
-			return StopResult{}, err
-		}
 	}
 
 	// Whatever the port looks like, the command's job is to end the server this
@@ -248,8 +249,7 @@ func (s *Service) Restart(ctx context.Context) (StartResult, error) {
 		if err != nil {
 			return StartResult{}, err
 		}
-		if observed.status.State == StateForeign ||
-			(observed.status.State == StateOrphan && !observed.status.Survivor) {
+		if observed.occupant() {
 			return StartResult{}, exitcode.New(exitcode.Preflight,
 				"端口 %d 被 dshctl 无法确认归属的进程占用 (pid=%d): %s\n提示: 先确认并处理它,再执行重启",
 				s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)

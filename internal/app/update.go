@@ -110,18 +110,19 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 	}
 	// A survivor of an interrupted start is adopted first: a move is not
 	// blocked by a record that simply has not caught up with reality.
-	if observed.status.Survivor {
-		if _, ok := s.adoptSurvivor(ctx, observed); !ok {
-			return exitcode.New(exitcode.Preflight,
-				"检测到上次启动遗留的服务 (pid=%d)，但无法恢复运行记录;请先运行 dshctl stop 或手动处理",
-				observed.status.ListenerPID)
-		}
-		fmt.Fprintln(s.Out, "检测到上次启动被中断后仍存活的服务，已恢复管理")
-		if observed, err = s.observe(ctx); err != nil {
-			return err
-		}
+	verdict, observed, err := s.admitSurvivor(ctx, observed)
+	if err != nil {
+		return err
 	}
-	if observed.status.State == StateForeign || observed.status.State == StateOrphan {
+	if verdict == adoptFailed {
+		return exitcode.New(exitcode.Preflight,
+			"检测到上次启动遗留的服务 (pid=%d)，但无法恢复运行记录;请先运行 dshctl stop 或手动处理",
+			observed.status.ListenerPID)
+	}
+	if verdict == adoptDone {
+		fmt.Fprintln(s.Out, "检测到上次启动被中断后仍存活的服务，已恢复管理")
+	}
+	if observed.occupant() {
 		return exitcode.New(exitcode.Preflight,
 			"端口 %d 被 dshctl 无法确认归属的进程占用 (pid=%d): %s\n提示: 先确认并停止它,再执行%s",
 			s.Settings.Port, observed.status.ListenerPID, observed.status.ListenerCommand, request.verb)

@@ -54,6 +54,20 @@ func (s *Service) startLocked(ctx context.Context) (StartResult, error) {
 	if err != nil {
 		return StartResult{}, err
 	}
+	verdict, observed, err := s.admitSurvivor(ctx, observed)
+	if err != nil {
+		return StartResult{}, err
+	}
+	if verdict == adoptFailed {
+		return StartResult{}, exitcode.New(exitcode.Preflight,
+			"检测到上次启动遗留的服务 (pid=%d)，但无法恢复运行记录;请手动结束它后重试",
+			observed.status.ListenerPID)
+	}
+	if verdict == adoptDone {
+		fmt.Fprintf(s.Out, "检测到上次启动被中断后仍存活的服务，已恢复管理: %s (pid=%d)\n",
+			s.Settings.URL(), observed.status.ListenerPID)
+		return StartResult{Status: observed.status, AlreadyRunning: true}, nil
+	}
 	switch observed.status.State {
 	case StateRunning:
 		fmt.Fprintf(s.Out, "DSH Web 已在运行: %s (pid=%d)\n", s.Settings.URL(), observed.status.ListenerPID)
@@ -67,25 +81,9 @@ func (s *Service) startLocked(ctx context.Context) (StartResult, error) {
 			"端口 %d 被其他程序占用 (pid=%d: %s);请先停止它,或用 --port 换一个端口",
 			s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
 	case StateOrphan:
-		// A start that was killed between writing the wrapper record and the
-		// port answering leaves the server serving with a record that names the
-		// wrapper. The listener is verifiably a descendant of that start, so it
-		// is adopted here instead of telling the operator to kill their own
-		// server by hand.
-		if observed.status.Survivor {
-			if _, ok := s.adoptSurvivor(ctx, observed); ok {
-				final, observeErr := s.observe(ctx)
-				if observeErr != nil {
-					return StartResult{}, observeErr
-				}
-				fmt.Fprintf(s.Out, "检测到上次启动被中断后仍存活的服务，已恢复管理: %s (pid=%d)\n",
-					s.Settings.URL(), final.status.ListenerPID)
-				return StartResult{Status: final.status, AlreadyRunning: true}, nil
-			}
-			return StartResult{}, exitcode.New(exitcode.Preflight,
-				"检测到上次启动遗留的服务 (pid=%d)，但无法恢复运行记录;请手动结束它后重试",
-				observed.status.ListenerPID)
-		}
+		// A survivor was already adopted above, so what is left is a process
+		// whose ownership nothing can establish: telling the operator to end it
+		// by hand is the only safe answer.
 		return StartResult{}, exitcode.New(exitcode.Preflight,
 			"端口 %d 上的进程 (pid=%d) 无法确认是不是 dshctl 启动的服务: %s\n"+
 				"提示: 确认它可以安全停止后手动结束它,再重新启动;dshctl 不会主动结束无法确认归属的进程",

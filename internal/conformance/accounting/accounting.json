@@ -36,6 +36,42 @@
     "note": ""
   },
   {
+    "test": "internal/app/admit_test.go::TestOccupantIsExactlyWhatNoVerbMayActOn",
+    "file": "internal/app/admit_test.go",
+    "package": "internal/app",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/app/admit_test.go::TestAdmitSurvivorAdoptsAndReobserves",
+    "file": "internal/app/admit_test.go",
+    "package": "internal/app",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/app/admit_test.go::TestAdmitSurvivorSaysNothingWhenThereIsNone",
+    "file": "internal/app/admit_test.go",
+    "package": "internal/app",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/app/admit_test.go::TestAdmitSurvivorReportsOneItCannotRecord",
+    "file": "internal/app/admit_test.go",
+    "package": "internal/app",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
     "test": "internal/app/announced_test.go::TestAnnouncedURLFiltersByPort",
     "file": "internal/app/announced_test.go",
     "package": "internal/app",
