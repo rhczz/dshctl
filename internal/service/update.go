@@ -174,8 +174,12 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 	s.reportRepoOverride()
 	env := run.WithPathPrefix(installation.BinDir)
 
-	target, err := s.resolveDeployTarget(ctx, request)
-	if err != nil {
+	var target deployTarget
+	if err := s.Log.Step("解析目标", func() error {
+		resolved, err := s.resolveDeployTarget(ctx, request)
+		target = resolved
+		return err
+	}); err != nil {
 		return err
 	}
 	current, err := s.Repo.HeadCommit(ctx)
@@ -219,12 +223,12 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 
 	// Rotate before the section marker is written, so a marker and its body can
 	// never end up in different files.
-	if rotated, err := s.Log.RotateIfNeeded(); err != nil {
+	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	} else if rotated {
-		fmt.Fprintf(s.Out, "日志已轮转: %s\n", s.Log.BackupPath())
+		fmt.Fprintf(s.Out, "日志已轮转: %s\n", s.LogFile.BackupPath())
 	}
-	if err := s.Log.Section(request.section); err != nil {
+	if err := s.LogFile.Section(request.section); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 
@@ -258,26 +262,32 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 	}
 
 	fmt.Fprintln(s.Out, "--- pnpm install ---")
-	if err := s.stream(ctx, run.Command{
-		Name: pnpm,
-		Args: []string{"install"},
-		Dir:  s.Settings.RepoDir,
-		Env:  env,
-	}); err != nil {
+	installErr := s.Log.Step("pnpm install", func() error {
+		return s.stream(ctx, run.Command{
+			Name: pnpm,
+			Args: []string{"install"},
+			Dir:  s.Settings.RepoDir,
+			Env:  env,
+		})
+	})
+	if installErr != nil {
 		s.note("pnpm install 失败")
-		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("pnpm install 失败: %w\n%s", err, shutdownMessage))
+		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("pnpm install 失败: %w\n%s", installErr, shutdownMessage))
 	}
 	s.note("pnpm install 成功")
 
 	fmt.Fprintln(s.Out, "--- pnpm run build ---")
-	if err := s.stream(ctx, run.Command{
-		Name: pnpm,
-		Args: []string{"run", "build"},
-		Dir:  s.Settings.RepoDir,
-		Env:  env,
-	}); err != nil {
+	buildErr := s.Log.Step("pnpm build", func() error {
+		return s.stream(ctx, run.Command{
+			Name: pnpm,
+			Args: []string{"run", "build"},
+			Dir:  s.Settings.RepoDir,
+			Env:  env,
+		})
+	})
+	if buildErr != nil {
 		s.note("pnpm run build 失败")
-		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("pnpm run build 失败: %w\n%s", err, shutdownMessage))
+		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("pnpm run build 失败: %w\n%s", buildErr, shutdownMessage))
 	}
 	s.note("pnpm run build 成功")
 
@@ -392,7 +402,7 @@ func (s *Service) rollbackTarget(ctx context.Context, steps int) (deployTarget, 
 // switchToTarget moves the checkout to the resolved target, streaming git's
 // words to the console and the log.
 func (s *Service) switchToTarget(ctx context.Context, target deployTarget) error {
-	handle, err := s.Log.OpenAppend()
+	handle, err := s.LogFile.OpenAppend()
 	if err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}

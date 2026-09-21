@@ -14,6 +14,7 @@ import (
 	"github.com/rhczz/dshctl/internal/host"
 	"github.com/rhczz/dshctl/internal/lock"
 	"github.com/rhczz/dshctl/internal/logfile"
+	"github.com/rhczz/dshctl/internal/logging"
 	"github.com/rhczz/dshctl/internal/run"
 	"github.com/rhczz/dshctl/internal/state"
 )
@@ -203,7 +204,7 @@ func TestStartStoresTheAnnouncedURL(t *testing.T) {
 	f := newFixture(t)
 	f.host.spontaneouslyServed = true
 	announced := fmt.Sprintf("http://127.0.0.1:%d/?token=deadbeef", f.Settings.Port)
-	if err := f.Log.Line("dsh web: " + announced); err != nil {
+	if err := f.LogFile.Line("dsh web: " + announced); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 
@@ -1006,9 +1007,10 @@ func TestStatusDoesNotTakeTheLock(t *testing.T) {
 func TestBuildWritesTheSectionBeforeRotating(t *testing.T) {
 	f := newFixture(t)
 	f.Settings.LogRotateBytes = 512
-	f.Log = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+	f.Log = logging.New(f.LogFile, f.Err, logging.LevelInfo)
 	// Fill the log so the next build rotates it.
-	if err := f.Log.Line(strings.Repeat("x", 1200)); err != nil {
+	if err := f.LogFile.Line(strings.Repeat("x", 1200)); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 	f.host.fail = func(cmd run.Command) error {
@@ -1189,10 +1191,10 @@ func TestBuildDoesNotPruneOutsideTheCheckout(t *testing.T) {
 // the tail ended.
 func TestLogsPrintsTheTailAndFollowsWithoutGaps(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Line("first"); err != nil {
+	if err := f.LogFile.Line("first"); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	f.Log.SetPollInterval(5 * time.Millisecond)
+	f.LogFile.SetPollInterval(5 * time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1201,7 +1203,7 @@ func TestLogsPrintsTheTailAndFollowsWithoutGaps(t *testing.T) {
 
 	// Give the follow a moment to attach, then write.
 	time.Sleep(50 * time.Millisecond)
-	if err := f.Log.Line("second"); err != nil {
+	if err := f.LogFile.Line("second"); err != nil {
 		t.Fatalf("append: %v", err)
 	}
 	deadline := time.Now().Add(3 * time.Second)
@@ -1229,7 +1231,7 @@ func TestLogsPrintsTheTailAndFollowsWithoutGaps(t *testing.T) {
 // never recorded a build.
 func TestLogsBuildOnlyReportsAMissingRecord(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Line("just server output"); err != nil {
+	if err := f.LogFile.Line("just server output"); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	if err := f.Logs(context.Background(), LogsOptions{BuildOnly: true}); err != nil {
@@ -1246,7 +1248,7 @@ func TestWebURLPrefersTheRecordedAddress(t *testing.T) {
 	announced := fmt.Sprintf("http://127.0.0.1:%d/?token=abc", f.Settings.Port)
 	f.startServer(t, 4321, announced)
 	// The log holds an older address that must not win.
-	if err := f.Log.Line("dsh web: " + announced + "-stale"); err != nil {
+	if err := f.LogFile.Line("dsh web: " + announced + "-stale"); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 
@@ -1264,7 +1266,7 @@ func TestWebURLPrefersTheRecordedAddress(t *testing.T) {
 func TestWebURLFallsBackToTheLog(t *testing.T) {
 	f := newFixture(t)
 	announced := fmt.Sprintf("http://127.0.0.1:%d/?token=fromlog", f.Settings.Port)
-	if err := f.Log.Line("dsh web: " + announced); err != nil {
+	if err := f.LogFile.Line("dsh web: " + announced); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 	// A running server with an address-less record.
@@ -1282,7 +1284,7 @@ func TestWebURLFallsBackToTheLog(t *testing.T) {
 // TestWebURLRefusesAMissingAddress pins the error instead of printing nothing.
 func TestWebURLRefusesAMissingAddress(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Line("no address here"); err != nil {
+	if err := f.LogFile.Line("no address here"); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	f.startServer(t, 4321, "")
@@ -1295,7 +1297,7 @@ func TestWebURLRefusesAMissingAddress(t *testing.T) {
 // prints on its own counts, so a diagnostic that mentions a URL is ignored.
 func TestWebURLDoesNotLeakAnUnrelatedURL(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Line("see https://example.com/help for details"); err != nil {
+	if err := f.LogFile.Line("see https://example.com/help for details"); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	f.startServer(t, 4321, "")

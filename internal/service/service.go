@@ -41,6 +41,7 @@ import (
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/host"
 	"github.com/rhczz/dshctl/internal/logfile"
+	"github.com/rhczz/dshctl/internal/logging"
 	"github.com/rhczz/dshctl/internal/nodejs"
 	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/repo"
@@ -62,8 +63,13 @@ type Service struct {
 	Repo repo.Repo
 	// Node resolves the Node runtime.
 	Node *nodejs.Resolver
-	// Log is the shared log file.
-	Log *logfile.Logger
+	// LogFile is the shared log file: sections, the append handle the detached
+	// server writes to, tailing, and rotation.
+	LogFile *logfile.Logger
+
+	// Log is the diagnostic channel: what the operator must see now goes to
+	// standard error, what the run did goes into the file.
+	Log *logging.Logger
 	// Record is the runtime record of the server dshctl started on this port.
 	Record state.Store
 	// Out is the human-facing output stream.
@@ -118,6 +124,9 @@ type Dependencies struct {
 	Out, Err io.Writer
 	// Version is the running build's metadata.
 	Version version.Info
+	// LogLevel is the diagnostic threshold. The zero value means "not chosen",
+	// which resolves to logging.LevelInfo.
+	LogLevel logging.Level
 }
 
 // Launcher starts the detached server.
@@ -131,6 +140,11 @@ type Launcher func(path string, args []string, dir string, env []string, log *os
 // New wires a Service from resolved settings, the real host and the real
 // environment.
 func New(settings config.Settings, deps Dependencies) *Service {
+	level := deps.LogLevel
+	if level == 0 {
+		level = logging.LevelInfo
+	}
+	logFile := logfile.New(settings.LogPath, settings.LogRotateBytes)
 	return &Service{
 		Settings: settings,
 		Exec:     deps.Exec,
@@ -143,7 +157,8 @@ func New(settings config.Settings, deps Dependencies) *Service {
 			BuildRecordRel:       buildRecordRel,
 		},
 		Node:      nodejs.NewResolver(),
-		Log:       logfile.New(settings.LogPath, settings.LogRotateBytes),
+		LogFile:   logFile,
+		Log:       logging.New(logFile, deps.Err, level),
 		Record:    state.Store{Path: settings.StateFile()},
 		Out:       deps.Out,
 		Err:       deps.Err,
@@ -217,23 +232,23 @@ type note func(string)
 // report writes a line to the console and the log.
 func (s *Service) report(line string) {
 	fmt.Fprintln(s.Out, line)
-	s.note(line)
+	s.Log.Info(line)
 }
 
 // note appends a line to the log, ignoring a log failure that would otherwise
 // mask the operation's own result.
 func (s *Service) note(line string) {
-	_ = s.Log.Line(line)
+	s.Log.Info(line)
 }
 
 // warn writes a diagnostic that does not stop the operation.
 func (s *Service) warn(format string, args ...any) {
-	fmt.Fprintf(s.Err, "警告: "+format+"\n", args...)
+	s.Log.Warn(fmt.Sprintf(format, args...))
 }
 
 // errorf writes an error line that does not stop the operation.
 func (s *Service) errorf(format string, args ...any) {
-	fmt.Fprintf(s.Err, format+"\n", args...)
+	s.Log.Error(fmt.Sprintf(format, args...))
 }
 
 // sleepCtx waits for d or until ctx is cancelled, reporting the cancellation.

@@ -166,19 +166,19 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		return StartResult{}, err
 	}
 
-	if rotated, err := s.Log.RotateIfNeeded(); err != nil {
+	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
 	} else if rotated {
-		fmt.Fprintf(s.Out, "日志已轮转: %s\n", s.Log.BackupPath())
+		fmt.Fprintf(s.Out, "日志已轮转: %s\n", s.LogFile.BackupPath())
 	}
-	if err := s.Log.Section("start"); err != nil {
+	if err := s.LogFile.Section("start"); err != nil {
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
 	}
 
 	s.reportNodeOverride(installation)
 	s.reportRepoOverride()
 
-	handle, err := s.Log.OpenAppend()
+	handle, err := s.LogFile.OpenAppend()
 	if err != nil {
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
 	}

@@ -56,12 +56,12 @@ func (s *Service) buildLocked(ctx context.Context) error {
 	}
 	// Rotate before the section marker is written, so a marker and its body can
 	// never end up in different files.
-	if rotated, err := s.Log.RotateIfNeeded(); err != nil {
+	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	} else if rotated {
-		fmt.Fprintf(s.Out, "日志已轮转: %s\n", s.Log.BackupPath())
+		fmt.Fprintf(s.Out, "日志已轮转: %s\n", s.LogFile.BackupPath())
 	}
-	if err := s.Log.Section("build"); err != nil {
+	if err := s.LogFile.Section("build"); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 	s.note("--- pnpm run build ---")
@@ -171,7 +171,7 @@ func (s *Service) prune(ctx context.Context) error {
 
 // stream runs a command with both streams mirrored to the console and the log.
 func (s *Service) stream(ctx context.Context, command run.Command) error {
-	handle, err := s.Log.OpenAppend()
+	handle, err := s.LogFile.OpenAppend()
 	if err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}

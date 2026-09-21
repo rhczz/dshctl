@@ -236,7 +236,7 @@ func TestWebURLExplainsASurvivor(t *testing.T) {
 	f := newFixture(t)
 	seedInterruptedStart(t, f, 8000, 8001, false)
 	address := "http://127.0.0.1:" + strconv.Itoa(f.Settings.Port) + "/?token=survivor"
-	if err := f.Log.Line("dsh web: " + address); err != nil {
+	if err := f.LogFile.Line("dsh web: " + address); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 

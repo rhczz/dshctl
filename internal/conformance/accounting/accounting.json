@@ -3276,6 +3276,87 @@
     "note": ""
   },
   {
+    "test": "internal/logging/logging_test.go::TestParseLevelNames",
+    "file": "internal/logging/logging_test.go",
+    "package": "internal/logging",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/logging/logging_test.go::TestParseLevelRefusesAnUnknownName",
+    "file": "internal/logging/logging_test.go",
+    "package": "internal/logging",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/logging/logging_test.go::TestInfoRecordsALineInsideTheCurrentSection",
+    "file": "internal/logging/logging_test.go",
+    "package": "internal/logging",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/logging/logging_test.go::TestDebugIsSilentUntilTheLevelAsksForIt",
+    "file": "internal/logging/logging_test.go",
+    "package": "internal/logging",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/logging/logging_test.go::TestWarnReachesStandardErrorAndNotTheLog",
+    "file": "internal/logging/logging_test.go",
+    "package": "internal/logging",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/logging/logging_test.go::TestErrorWritesTheFrameTheCallerBuilt",
+    "file": "internal/logging/logging_test.go",
+    "package": "internal/logging",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/logging/logging_test.go::TestStepRecordsWhatItCost",
+    "file": "internal/logging/logging_test.go",
+    "package": "internal/logging",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/logging/logging_test.go::TestStepKeepsTheOperationError",
+    "file": "internal/logging/logging_test.go",
+    "package": "internal/logging",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/logging/logging_test.go::TestLogFailureDoesNotMaskTheOperation",
+    "file": "internal/logging/logging_test.go",
+    "package": "internal/logging",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
     "test": "internal/nodejs/gate_test.go::TestGateMatrix",
     "file": "internal/nodejs/gate_test.go",
     "package": "internal/nodejs",

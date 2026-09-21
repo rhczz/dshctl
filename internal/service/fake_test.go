@@ -19,6 +19,7 @@ import (
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/host"
 	"github.com/rhczz/dshctl/internal/logfile"
+	"github.com/rhczz/dshctl/internal/logging"
 	"github.com/rhczz/dshctl/internal/nodejs"
 	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/repo"
@@ -717,11 +718,12 @@ func newFixture(t *testing.T) *fixture {
 			Glob: filepath.Glob,
 			Stat: os.Stat,
 		},
-		Log:    logfile.New(logPath, settings.LogRotateBytes),
-		Record: state.Store{Path: settings.StateFile()},
-		Out:    out,
-		Err:    errOut,
-		Getenv: envLookup,
+		LogFile: logfile.New(logPath, settings.LogRotateBytes),
+		Log:     logging.New(logfile.New(logPath, settings.LogRotateBytes), errOut, logging.LevelInfo),
+		Record:  state.Store{Path: settings.StateFile()},
+		Out:     out,
+		Err:     errOut,
+		Getenv:  envLookup,
 		LookPath: func(name string) (string, error) {
 			return "/fake/bin/" + name, nil
 		},
@@ -1457,7 +1459,8 @@ func (f *fixture) run(t *testing.T, overrides config.Overrides) config.Settings 
 // fixture and the service it stands for describing one machine.
 func (f *fixture) rebind() {
 	f.Record = state.Store{Path: f.Settings.StateFile()}
-	f.Log = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+	f.Log = logging.New(f.LogFile, f.Err, logging.LevelInfo)
 }
 
 // guess is the built-in checkout this machine's home implies.

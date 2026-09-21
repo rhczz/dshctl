@@ -40,7 +40,7 @@ func (s *Service) Logs(ctx context.Context, options LogsOptions) error {
 	if options.BuildOnly {
 		return s.printBuildSection(lines)
 	}
-	if !s.Log.Exists() {
+	if !s.LogFile.Exists() {
 		return exitcode.New(exitcode.Failure, "日志文件不存在: %s", s.Settings.LogPath)
 	}
 	if options.Follow {
@@ -73,7 +73,7 @@ func (s *Service) tailThenFollow(ctx context.Context, lines int) error {
 		}
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
-	if err := s.Log.StreamFrom(ctx, s.Out, position); err != nil {
+	if err := s.LogFile.StreamFrom(ctx, s.Out, position); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}

@@ -210,7 +210,7 @@ func TestStartPrintsTheAnnouncedAddress(t *testing.T) {
 	f := newFixture(t)
 	f.host.spontaneouslyServed = true
 	announced := fmt.Sprintf("http://127.0.0.1:%d/?token=startme", f.Settings.Port)
-	if err := f.Log.Line("dsh web: " + announced); err != nil {
+	if err := f.LogFile.Line("dsh web: " + announced); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 

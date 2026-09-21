@@ -92,7 +92,7 @@ func (s *Service) Doctor(ctx context.Context) []Check {
 	s.doctorService(ctx, add)
 	s.doctorLock(add)
 
-	if size, err := s.Log.Size(); err != nil {
+	if size, err := s.LogFile.Size(); err != nil {
 		add("日志", CheckWarn, err.Error())
 	} else {
 		add("日志", CheckOK, fmt.Sprintf("%s (%s)", s.Settings.LogPath, humanBytes(size)))

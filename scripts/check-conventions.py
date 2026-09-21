@@ -91,6 +91,7 @@ LAYERS = {
         "internal/host",
         "internal/lock",
         "internal/logfile",
+        "internal/logging",
         "internal/nodejs",
         "internal/paths",
         "internal/repo",
@@ -102,6 +103,7 @@ LAYERS = {
     "internal/state": {"internal/atomically"},
     "internal/history": {"internal/atomically"},
     "internal/nodejs": {"internal/paths", "internal/run"},
+    "internal/logging": {"internal/logfile"},
     "internal/repo": {"internal/run"},
     "internal/version": {"internal/buildinfo"},
     # Every remaining package is a leaf: it may import the standard library and

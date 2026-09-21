@@ -13,6 +13,7 @@ import (
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/logfile"
+	"github.com/rhczz/dshctl/internal/logging"
 	"github.com/rhczz/dshctl/internal/run"
 	"github.com/rhczz/dshctl/internal/state"
 )
@@ -241,7 +242,8 @@ func TestBuildAndUpdateSeeASiblingRecordInAnAwkwardStateDirectory(t *testing.T) 
 			f.Settings.ConfigPath = filepath.Join(f.Settings.StateDir, config.ConfigFileName)
 			f.Settings.LogPath = filepath.Join(f.Settings.StateDir, config.DefaultLogFileName)
 			f.Record = state.Store{Path: f.Settings.StateFile()}
-			f.Log = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+			f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+			f.Log = logging.New(f.LogFile, f.Err, logging.LevelInfo)
 
 			otherPort := f.Settings.Port + 1
 			other := state.Store{Path: filepath.Join(f.Settings.StateDir, fmt.Sprintf(config.StateFileNamePattern, otherPort))}
