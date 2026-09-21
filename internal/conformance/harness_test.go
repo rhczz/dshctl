@@ -407,7 +407,11 @@ var normalizers = []struct {
 // cannot be recorded — timestamps, pids, the build stamp — with placeholders.
 // Everything else survives, so a changed message or a changed file is a diff.
 func normalize(root, text string) string {
-	for _, prefix := range []string{root, filepath.Dir(candidateBinary), os.TempDir()} {
+	prefixes := []string{root, filepath.Dir(candidateBinary), os.TempDir()}
+	if short := shortPath(root); short != "" {
+		prefixes = append(prefixes, short)
+	}
+	for _, prefix := range prefixes {
 		if prefix == "" {
 			continue
 		}
