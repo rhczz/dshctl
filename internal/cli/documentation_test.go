@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/rhczz/dshctl/internal/config"
-	"github.com/rhczz/dshctl/internal/kernel"
 	"github.com/rhczz/dshctl/internal/paths"
+	"github.com/rhczz/dshctl/internal/service"
 )
 
 // readReadme returns the operator contract as it is published.
@@ -96,7 +96,7 @@ func TestTheReadmeDocumentsEveryExitCode(t *testing.T) {
 // behaviour rather than an implementation detail.
 func TestTheReadmeDocumentsTheDefaultLogLines(t *testing.T) {
 	documented := readReadme(t)
-	want := fmt.Sprintf("默认 %d 行", kernel.DefaultLogLines)
+	want := fmt.Sprintf("默认 %d 行", service.DefaultLogLines)
 	if !strings.Contains(documented, want) {
 		t.Errorf("the README does not document the logs default line count (want %q)", want)
 	}

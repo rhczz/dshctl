@@ -36,7 +36,7 @@ dshctl 的状态目录（默认 `~/.dsh/dshctl`）里只有四类文件：配置
 
 10. **日志轮转复制到 `<path>.old` 后截断同一 inode，绝不 rename。** 为什么：分离出去的服务进程终身持有该 inode 的 append 句柄，rename 会把之后每一行送进备份文件，下一次轮转连它们一起删掉（`internal/logfile/logfile.go` 包文档与 `RotateIfNeeded`）。
 
-11. **记录按端口分文件，跨端口守卫用转义过的 glob。** 为什么：`build`/`update` 会 glob 出其他端口的记录以免误停别人的服务，而状态目录路径可能含 `[`、`*`、`?`——未转义的 glob 匹配不到任何东西，守卫就瞎了（`internal/config/config.go` 的 `StateFileGlob`/`quoteGlob`，`internal/kernel/contracts_test.go` 把它钉住）。
+11. **记录按端口分文件，跨端口守卫用转义过的 glob。** 为什么：`build`/`update` 会 glob 出其他端口的记录以免误停别人的服务，而状态目录路径可能含 `[`、`*`、`?`——未转义的 glob 匹配不到任何东西，守卫就瞎了（`internal/config/config.go` 的 `StateFileGlob`/`quoteGlob`，`internal/service/contracts_test.go` 把它钉住）。
 
 12. **只读命令零写盘：`status`/`url`/`logs`/`doctor`/`version` 不建锁、不写配置、不清理。** 为什么：这是 README 承诺的行为，`internal/cli/readonly_test.go` 跑真实二进制断言磁盘零新增——中间步骤顺手创建的锁文件也算违约。
 
@@ -54,5 +54,5 @@ dshctl 的状态目录（默认 `~/.dsh/dshctl`）里只有四类文件：配置
 - 锁：[../../../internal/lock/lock.go](../../../internal/lock/lock.go)
 - 原子写：[../../../internal/atomically/atomically.go](../../../internal/atomically/atomically.go)、[../../../internal/atomically/syncdir_unix.go](../../../internal/atomically/syncdir_unix.go)
 - 日志：[../../../internal/logfile/logfile.go](../../../internal/logfile/logfile.go)
-- 跨端口守卫：[../../../internal/kernel/contracts_test.go](../../../internal/kernel/contracts_test.go)
+- 跨端口守卫：[../../../internal/service/contracts_test.go](../../../internal/service/contracts_test.go)
 - 只读承诺：[../../../internal/cli/readonly_test.go](../../../internal/cli/readonly_test.go)

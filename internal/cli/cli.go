@@ -18,8 +18,8 @@ import (
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/i18n"
-	"github.com/rhczz/dshctl/internal/kernel"
 	"github.com/rhczz/dshctl/internal/run"
+	"github.com/rhczz/dshctl/internal/service"
 	"github.com/rhczz/dshctl/internal/version"
 )
 
@@ -88,7 +88,7 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv f
 	// The language is a property of the invocation, and the catalog is the merge
 	// of every layer's words: the kernel's, this shell's, and any front-end that
 	// joins later. Both are resolved once, before any command can print.
-	catalog, err := i18n.Merge(kernel.Messages)
+	catalog, err := i18n.Merge(service.Messages)
 	if err != nil {
 		fmt.Fprintf(stderr, "错误: %v\n", err)
 		return exitcode.Failure
@@ -388,10 +388,10 @@ func printCommandHelp(w io.Writer, command Command) {
 }
 
 // newApp builds the application for one command.
-func newApp(env *Env) *kernel.Service {
-	application := kernel.New(env.Settings, kernel.Dependencies{
+func newApp(env *Env) *service.Service {
+	application := service.New(env.Settings, service.Dependencies{
 		Exec:    env.Executor,
-		Emit:    kernel.TextEmitter{Out: env.Stdout, Err: env.Stderr},
+		Emit:    service.TextEmitter{Out: env.Stdout, Err: env.Stderr},
 		Version: env.Version,
 	})
 	// The command line owns the process-wide lookups, so they are injected here

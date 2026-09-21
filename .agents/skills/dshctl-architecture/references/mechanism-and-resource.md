@@ -22,7 +22,7 @@
   日志标记里的产品名与时间格式、记录 schema（字段与 JSON 键）、大小与条数上限
   （64 KiB 记录、50 条位置、4 MiB 轮转）、Node 下限、探针工具清单与候选顺序、
   dshctl 的环境变量名、`dsh-web:` 地址行格式、`latest` = `origin/master`。
-- 这些值要么是 `internal/kernel` 与 `internal/domain` 的常量/类型，要么以参数或显式
+- 这些值要么是 `internal/service` 与 `internal/domain` 的常量/类型，要么以参数或显式
   类型传进机制包（例如日志格式、记录类型、工具清单、上限）。
 - **去向**：需要给机制换"另一套值"时只改资源层，不改机制包。机制的测试只验证机制
   （用测试自有的格式/类型），资源值的测试在资源层，并配 `MUTATIONS` 锚点。

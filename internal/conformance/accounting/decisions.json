@@ -4,7 +4,7 @@
     "old_path": "internal/nodejs/nodejs.go",
     "packages": [
       "./internal/nodejs/",
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -14,7 +14,7 @@
     "old_path": "internal/nodejs/nodejs.go",
     "packages": [
       "./internal/nodejs/",
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -78,7 +78,7 @@
     "old_path": "internal/config/config.go",
     "packages": [
       "./internal/config/",
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -88,7 +88,7 @@
     "old_path": "internal/config/config.go",
     "packages": [
       "./internal/config/",
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -127,7 +127,7 @@
     "old_path": "internal/config/config.go",
     "packages": [
       "./internal/config/",
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -137,7 +137,7 @@
     "old_path": "internal/config/config.go",
     "packages": [
       "./internal/config/",
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -147,7 +147,7 @@
     "old_path": "internal/config/config.go",
     "packages": [
       "./internal/config/",
-      "./internal/kernel/",
+      "./internal/service/",
       "./internal/cli/"
     ],
     "new_path": null,
@@ -193,108 +193,108 @@
   },
   {
     "name": "an override of the configured release is not reported",
-    "old_path": "internal/kernel/start.go",
+    "old_path": "internal/service/start.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "an override of the configured checkout is not reported",
-    "old_path": "internal/kernel/start.go",
+    "old_path": "internal/service/start.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "the environment that lost to the document is not reported",
-    "old_path": "internal/kernel/start.go",
+    "old_path": "internal/service/start.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "the environment that beat the document's checkout is not reported",
-    "old_path": "internal/kernel/start.go",
+    "old_path": "internal/service/start.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "the runtime is left out of the final record",
-    "old_path": "internal/kernel/start.go",
+    "old_path": "internal/service/start.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "the checkout is left out of the final record",
-    "old_path": "internal/kernel/start.go",
+    "old_path": "internal/service/start.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "the checkout is left out of the record written before the port answers",
-    "old_path": "internal/kernel/start.go",
+    "old_path": "internal/service/start.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "an adopted survivor loses the checkout it was started from",
-    "old_path": "internal/kernel/start.go",
+    "old_path": "internal/service/start.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "a start that finds the service running does not reconcile the document",
-    "old_path": "internal/kernel/start.go",
+    "old_path": "internal/service/start.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "a build does not record the checkout it built",
-    "old_path": "internal/kernel/build.go",
+    "old_path": "internal/service/build.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "the running instance's checkout is not compared with the configuration",
-    "old_path": "internal/kernel/start.go",
+    "old_path": "internal/service/start.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "a sibling server from another checkout blocks a build",
-    "old_path": "internal/kernel/build.go",
+    "old_path": "internal/service/build.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -304,25 +304,25 @@
     "old_path": "internal/state/state.go",
     "packages": [
       "./internal/state/",
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "an adopted survivor loses the runtime it runs",
-    "old_path": "internal/kernel/start.go",
+    "old_path": "internal/service/start.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "the doctor row hides why a release is unverified",
-    "old_path": "internal/kernel/doctor.go",
+    "old_path": "internal/service/doctor.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -331,16 +331,16 @@
     "name": "the record no longer names the release it was started with",
     "old_path": "internal/state/state.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "a fingerprint that could not be read is reported as a readable one",
-    "old_path": "internal/kernel/start.go",
+    "old_path": "internal/service/start.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -410,54 +410,54 @@
   },
   {
     "name": "a lock that was never won is reported as a generic failure",
-    "old_path": "internal/kernel/observe.go",
+    "old_path": "internal/service/observe.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "a multi-instance operation no longer serializes on the state directory",
-    "old_path": "internal/kernel/observe.go",
+    "old_path": "internal/service/observe.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "a bare stop covers only the configured instance",
-    "old_path": "internal/kernel/ports.go",
+    "old_path": "internal/service/ports.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "the stop deadline is a hundred times more patient than the budget",
-    "old_path": "internal/kernel/observe.go",
+    "old_path": "internal/service/observe.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "the fingerprint absorbs no clock granularity",
-    "old_path": "internal/kernel/observe.go",
+    "old_path": "internal/service/observe.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "the port fixture hands a role to a port it already used",
-    "old_path": "internal/kernel/fake_test.go",
+    "old_path": "internal/service/fake_test.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -482,18 +482,18 @@
   },
   {
     "name": "the version already deployed is rebuilt and restarted anyway",
-    "old_path": "internal/kernel/update.go",
+    "old_path": "internal/service/update.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "a worktree with tracked changes is switched anyway",
-    "old_path": "internal/kernel/update.go",
+    "old_path": "internal/service/update.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -503,7 +503,7 @@
     "old_path": "internal/history/history.go",
     "packages": [
       "./internal/history/",
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -513,25 +513,25 @@
     "old_path": "internal/repo/release.go",
     "packages": [
       "./internal/repo/",
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "a no-op update forgets the checkout it ran against",
-    "old_path": "internal/kernel/update.go",
+    "old_path": "internal/service/update.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
   },
   {
     "name": "latest is fetched without an origin",
-    "old_path": "internal/kernel/update.go",
+    "old_path": "internal/service/update.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"
@@ -556,9 +556,9 @@
   },
   {
     "name": "a sha selector is repeated in the target line",
-    "old_path": "internal/kernel/update.go",
+    "old_path": "internal/service/update.go",
     "packages": [
-      "./internal/kernel/"
+      "./internal/service/"
     ],
     "new_path": null,
     "status": "pending"

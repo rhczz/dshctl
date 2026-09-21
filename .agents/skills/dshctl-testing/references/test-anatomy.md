@@ -35,7 +35,7 @@ func TestStopReportsAProcessThatSurvivesTheForceSignal(t *testing.T) {
 }
 ```
 
-（这个骨架锚定在真实测试 `internal/kernel/lifecycle_test.go` 的 `TestStopReportsAProcessThatSurvivesTheForceSignal` 上；新增生命周期测试照 `newFixture(t)` 的用法写，虚构进程表在 `internal/kernel/fake_test.go`。）
+（这个骨架锚定在真实测试 `internal/service/lifecycle_test.go` 的 `TestStopReportsAProcessThatSurvivesTheForceSignal` 上；新增生命周期测试照 `newFixture(t)` 的用法写，虚构进程表在 `internal/service/fake_test.go`。）
 
 要点：`newFixture(t)` 是唯一入口，`f.host` 是虚构机器（进程表、端口、信号都记在它身上）；动作走真实入口 `f.Stop`；断言用 fixture 自带的 `wantSignals`/`wantCode`/`isAlive` 落在外部可观测行为上；失败信息说清期望与实际的差距。
 
@@ -43,8 +43,8 @@ func TestStopReportsAProcessThatSurvivesTheForceSignal(t *testing.T) {
 
 | 想学什么 | 看哪里 |
 |---|---|
-| 虚构机器怎么建、异常路径怎么表达 | `internal/kernel/fake_test.go`（虚构进程表，读它的 `newFixture` 与 `fakeHost`） |
-| 跨包字面量的契约钉法 | `internal/kernel/contracts_test.go` |
+| 虚构机器怎么建、异常路径怎么表达 | `internal/service/fake_test.go`（虚构进程表，读它的 `newFixture` 与 `fakeHost`） |
+| 跨包字面量的契约钉法 | `internal/service/contracts_test.go` |
 | 真实二进制的只读承诺 | `internal/cli/readonly_test.go` |
 | README 与设置常量/配置键的同步 | `internal/cli/documentation_test.go` |
 | 表驱动 + 每种错误形状一行 | `internal/config/config_audit_test.go` |
@@ -80,7 +80,7 @@ func TestStopReportsAProcessThatSurvivesTheForceSignal(t *testing.T) {
 
 | 组件 | 选择 | 理由 |
 |---|---|---|
-| `kernel.OsHost` | fake | 系统调用与进程表不可控；fake 让"优雅停不掉"这类路径可测 |
+| `service.OsHost` | fake | 系统调用与进程表不可控；fake 让"优雅停不掉"这类路径可测 |
 | `run.Executor`/`Capturer`/`Outputer` | fake | 外部命令的输出形状需要在测试里精确构造 |
 | `config.Load` | 真实 | 解析与优先级本身就是被测行为 |
 | `atomically` | 真实 | 原子替换与 fsync 只有真跑才能验证 |

@@ -29,9 +29,9 @@ description: 在 dshctl 动手前定夺「这个值该固定还是该可配」�
 
 6. **校验只放在四处边界**：CLI 参数、配置文件、状态/日志文件、外部命令输出（`node -v`、`lsof`/`ss`/`netstat`/`ps`）。内部结构体之间是做类型保证的同一进程边界，不重复校验；反过来，从文件或子进程读回来的任何东西都必须当成不可信输入。
 
-7. **依赖方向不可逆**：`cmd/dshctl → internal/cli → internal/kernel → internal/domain 与基础设施`，跨层调用只经 `app`；领域层与 i18n 是零依赖叶子（见 `dshctl-architecture`）。系统调用只出现在 `host` 以及 `run`/`detach`/`logfile`/`atomically`/`lock`/`state`/`cmd/dshctl` 的平台文件里，上层不得出现 `if windows`。新增一条 import 边是设计决定，不是实现细节；`scripts/check-conventions.py` 会拦下未登记的边。
+7. **依赖方向不可逆**：`cmd/dshctl → internal/cli → internal/service → internal/domain 与基础设施`，跨层调用只经 `app`；领域层与 i18n 是零依赖叶子（见 `dshctl-architecture`）。系统调用只出现在 `host` 以及 `run`/`detach`/`logfile`/`atomically`/`lock`/`state`/`cmd/dshctl` 的平台文件里，上层不得出现 `if windows`。新增一条 import 边是设计决定，不是实现细节；`scripts/check-conventions.py` 会拦下未登记的边。
 
-8. **接口只为可测性或多前端替换存在。** 当前只有 `run.Executor`/`Capturer`/`Outputer`、`kernel.OsHost` 与 `kernel.Emitter`（前端端口：第二个壳实现它即可复用内核，见 `dshctl-architecture`）。新增接口时，文档必须写明它买到了什么测试能力或哪个已声明的前端；"将来可能换实现"不是理由。
+8. **接口只为可测性或多前端替换存在。** 当前只有 `run.Executor`/`Capturer`/`Outputer`、`service.OsHost` 与 `service.Emitter`（前端端口：第二个壳实现它即可复用内核，见 `dshctl-architecture`）。新增接口时，文档必须写明它买到了什么测试能力或哪个已声明的前端；"将来可能换实现"不是理由。
 
 9. **新包准入三条同时成立**：它有独立的不变量、它能被独立测试、它不引入反向依赖。三条缺一条就把代码放进已有的包。
 
@@ -51,6 +51,6 @@ go list -f '{{.ImportPath}} <- {{join .Imports " "}}' ./... | sed 's#github.com/
 - [固定 vs 配置的完整分类与误判清单](references/fixed-vs-configurable.md)
 - [`internal/config/config.go`](../../../internal/config/config.go)：四层解析、`File` 的指针字段与校验
 - [`internal/paths/paths.go`](../../../internal/paths/paths.go)：环境变量常量与路径解析
-- [`internal/kernel/host.go`](../../../internal/kernel/host.go)：`OsHost` 接口及其"为虚构机器而存在"的文档
+- [`internal/service/host.go`](../../../internal/service/host.go)：`OsHost` 接口及其"为虚构机器而存在"的文档
 - [`scripts/check-conventions.py`](../../../scripts/check-conventions.py)：分层允许边与零依赖检查
 - [`.agents/notes/README.md`](../../notes/README.md)：决策记录何时写、怎么写

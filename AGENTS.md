@@ -14,7 +14,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 包地图与依赖方向
 
-垂直分层（越靠内越纯，边只许自上而下）：`cmd/dshctl → internal/cli`（接入）`→ internal/kernel`（内核：引擎与操作）`→ internal/domain`（模型）与基础设施。`internal/domain`（状态、记录、归属、指纹、版本位置）与 `internal/i18n`（消息目录）是零内部依赖的叶子；基础设施叶子：`atomically`、`buildinfo`、`config`、`detach`、`exitcode`、`history`、`host`（唯一直接和操作系统对话的包）、`lock`、`logfile`、`logging`、`nodejs`、`paths`、`repo`、`run`、`state`、`version`；`conformance` 是测试专用包（金标与账本）。
+垂直分层（越靠内越纯，边只许自上而下）：`cmd/dshctl → internal/cli`（接入）`→ internal/service`（内核：引擎与操作）`→ internal/domain`（模型）与基础设施。`internal/domain`（状态、记录、归属、指纹、版本位置）与 `internal/i18n`（消息目录）是零内部依赖的叶子；基础设施叶子：`atomically`、`buildinfo`、`config`、`detach`、`exitcode`、`history`、`host`（唯一直接和操作系统对话的包）、`lock`、`logfile`、`logging`、`nodejs`、`paths`、`repo`、`run`、`state`、`version`；`conformance` 是测试专用包（金标与账本）。
 
 ## 固定 vs 配置
 

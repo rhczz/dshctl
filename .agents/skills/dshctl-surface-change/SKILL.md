@@ -26,7 +26,7 @@ description: 改 dshctl 面向使用者的表面：命令、flag、环境变量�
 
 5. **配置键就是 `internal/config/config.go` 的 `File` 字段。** 指针类型表达"没写"，json tag 就是键名，取值校验与未知键拒绝同处；新增键要同步 README 配置表。为什么：指针加 `null` 回落是一条统一规则，`DisallowUnknownFields` 防止拼错的键被当成生效配置，而 `documentation_test.go` 会逐个 json tag 断言 README 用反引号记录了它。
 
-6. **体检与运行记录也是表面。** `doctor` 每一项是 `internal/kernel/doctor.go` 的 `Check{Name, Status, Detail}`（中文短标签，`Detail` 给观测值或补救动作）；`status --json` 与 `url` 读 `internal/state/state.go` 的 `Record`。为什么：排障时操作者只看这两处，新增字段却不进记录或体检，等于让 README 的运行记录一节说谎。
+6. **体检与运行记录也是表面。** `doctor` 每一项是 `internal/service/doctor.go` 的 `Check{Name, Status, Detail}`（中文短标签，`Detail` 给观测值或补救动作）；`status --json` 与 `url` 读 `internal/state/state.go` 的 `Record`。为什么：排障时操作者只看这两处，新增字段却不进记录或体检，等于让 README 的运行记录一节说谎。
 
 7. **退出码只能取 `internal/exitcode` 的常量**：`OK=0`、`Failure=1`、`Usage=2`、`NotRunning=3`、`Preflight=4`、`LockTimeout=5`、`Interrupted=130`；用 `exitcode.Wrap` 带上分类、`exitcode.Of` 还原，命令自己打印错误又要定退出码时用 `SilentExit(code)`。为什么：脚本按码分支而不是解析文案，`internal/cli/readonly_test.go` 连"该返回 3 却返回 1"都算回归。
 
@@ -34,7 +34,7 @@ description: 改 dshctl 面向使用者的表面：命令、flag、环境变量�
 
 9. **输出流分工：`Env.Stdout` 放结果与帮助，`Env.Stderr` 放警告、错误与 `-v` 的配置回显。** 为什么：脚本把 stdout 当数据消费，把回显或警告混进 stdout 会污染管道输出。
 
-10. **文案简洁、说明后果、给出下一步。** 例："仓库目录 … 不存在；用 --repo 或环境变量 DSH_REPO_DIR 指定一次，成功运行后会写入 …"。为什么：操作者与 agent 都照这句话决定下一步动作，只说"失败"会逼人去读源码（`internal/kernel/doctor.go` 的失败行即范例）。
+10. **文案简洁、说明后果、给出下一步。** 例："仓库目录 … 不存在；用 --repo 或环境变量 DSH_REPO_DIR 指定一次，成功运行后会写入 …"。为什么：操作者与 agent 都照这句话决定下一步动作，只说"失败"会逼人去读源码（`internal/service/doctor.go` 的失败行即范例）。
 
 11. **README 五张表是同一份契约的五个视图**（命令、全局参数、配置项、环境变量、退出码），沿用既有硬折行与列数，只增删必要的行。为什么：README 正文按固定宽度硬折行，整段重排会让 diff 失去可读性，评审看不出真正改了什么。
 
@@ -57,6 +57,6 @@ description: 改 dshctl 面向使用者的表面：命令、flag、环境变量�
 - 命令与参数：[../../../internal/cli/commands.go](../../../internal/cli/commands.go)、[../../../internal/cli/cli.go](../../../internal/cli/cli.go)
 - 配置与路径：[../../../internal/config/config.go](../../../internal/config/config.go)、[../../../internal/paths/paths.go](../../../internal/paths/paths.go)
 - 退出码：[../../../internal/exitcode/exitcode.go](../../../internal/exitcode/exitcode.go)
-- 体检与记录：[../../../internal/kernel/doctor.go](../../../internal/kernel/doctor.go)、[../../../internal/state/state.go](../../../internal/state/state.go)
+- 体检与记录：[../../../internal/service/doctor.go](../../../internal/service/doctor.go)、[../../../internal/state/state.go](../../../internal/state/state.go)
 - 契约测试：[../../../internal/cli/documentation_test.go](../../../internal/cli/documentation_test.go)、[../../../internal/cli/readonly_test.go](../../../internal/cli/readonly_test.go)
 - 对外文档：[../../../README.md](../../../README.md)

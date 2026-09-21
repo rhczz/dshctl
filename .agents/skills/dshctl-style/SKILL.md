@@ -17,15 +17,15 @@ description: 按 dshctl 的书写规范改代码与注释：gofmt -s、注释讲
 
 3. **非测试 `.go` 文件的注释行 ≤ 88 列，按 ~80 列自然折行**。实测：2666 行注释中最宽 83 列（`internal/repo/prune.go:257`）、p95 80、p99 81、中位数 70；`scripts/check-conventions.py` 的 `go-comments` 规则以 88 为上限。为什么：一条注释是一条契约，超过一行宽度时它已经在写段落。
 
-4. **包文档写模型与不变量**，不写实现目录。范例：`internal/kernel`（三条生命周期不变量）、`internal/host`（"探测不了"不是结论）、`internal/state`（记录的严格规则，以及为什么不跟随 symlink）、`internal/lock`（锁在 inode 上）、`internal/logfile`（轮转为什么截断同一 inode）、`internal/detach`（为什么必须 reap）。为什么：这些正是判断"这段代码能不能这样改"的依据；删掉它，理由就只剩 git 历史。
+4. **包文档写模型与不变量**，不写实现目录。范例：`internal/service`（三条生命周期不变量）、`internal/host`（"探测不了"不是结论）、`internal/state`（记录的严格规则，以及为什么不跟随 symlink）、`internal/lock`（锁在 inode 上）、`internal/logfile`（轮转为什么截断同一 inode）、`internal/detach`（为什么必须 reap）。为什么：这些正是判断"这段代码能不能这样改"的依据；删掉它，理由就只剩 git 历史。
 
-5. **每个导出标识符都要有文档注释，字段用 `// X is …` 句式**。范例：`internal/run` 的 `Result`/`ExitError`、`internal/exitcode` 的 `Error`、`internal/kernel` 的 `StartResult`/`StopResult`、`internal/state` 的 `Record`。
+5. **每个导出标识符都要有文档注释，字段用 `// X is …` 句式**。范例：`internal/run` 的 `Result`/`ExitError`、`internal/exitcode` 的 `Error`、`internal/service` 的 `StartResult`/`StopResult`、`internal/state` 的 `Record`。
 
 6. **语言分工：面向操作者的句子进目录，开发者读的用英文**。错误文案与命令 `Help` 必须走 `internal/i18n` 的消息目录（`Messages` 里一条消息两种语言，英文默认、机器语言为中文时中文，见 `dshctl-architecture`）；测试失败信息、标识符、注释、包文档、README 的开发者段落用英文。判据是读者：终端前的操作者读目录里的那句话，改代码的人读英文。**新代码里不再写死中文文案**；迁移尚未覆盖的旧文件，改动时顺手迁进目录。
 
 7. **错误包装**：`fmt.Errorf("描述: %w", err)`；命令、参数、路径加反引号或 `%q`/`%s`；句尾不加句号。范例：`internal/detach` 的 `无法启动 %s: %w`、`internal/nodejs` 的 `` 无法执行 `%s -v`: %w ``。退出码与分类只用 `internal/exitcode` 的 `New`/`Wrap`，不自己造码。
 
-8. **命名**：测试辅助用 `mustX`/`newX`/`writeX`（`internal/repo/prune_audit_test.go` 的 `mustCheckout`、`internal/kernel/fake_test.go` 的 `writeFile`）；虚构对象用 `fakeX`（`internal/kernel/fake_test.go` 的 `fakeProcess`）；正则与魔法数抽成有语义的包级 `var`/`const`（`internal/kernel/start.go` 的 `webURLPattern`）。
+8. **命名**：测试辅助用 `mustX`/`newX`/`writeX`（`internal/repo/prune_audit_test.go` 的 `mustCheckout`、`internal/service/fake_test.go` 的 `writeFile`）；虚构对象用 `fakeX`（`internal/service/fake_test.go` 的 `fakeProcess`）；正则与魔法数抽成有语义的包级 `var`/`const`（`internal/service/start.go` 的 `webURLPattern`）。
 
 9. **单文件一概念**：新概念开新文件，而不是把无关逻辑堆进已有的大文件；平台实现只放 `_unix`/`_windows`/`_darwin`/`_linux`/`_other` 后缀的文件（细节见 `dshctl-portability`）。
 
@@ -56,5 +56,5 @@ python3 scripts/check-conventions.py      # --list 列出每条规则
 - [Makefile](../../../Makefile) — `fmt`/`fmt-check`/`check`/`ci` 目标
 - [scripts/check-conventions.py](../../../scripts/check-conventions.py) — 被机械强制的规则与阈值
 - [internal/run/run.go](../../../internal/run/run.go) — 错误包装与结果类型的范例
-- [internal/kernel/start.go](../../../internal/kernel/start.go) — 包级正则与中文错误的范例
+- [internal/service/start.go](../../../internal/service/start.go) — 包级正则与中文错误的范例
 - [slop 清单](references/slop.md) — 见到就该删的七种写法与注释保留/删除对照

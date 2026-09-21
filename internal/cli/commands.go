@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/rhczz/dshctl/internal/exitcode"
-	"github.com/rhczz/dshctl/internal/kernel"
+	"github.com/rhczz/dshctl/internal/service"
 )
 
 // helpExitCodes is the exit-code line the help text prints. It is a constant of
@@ -326,18 +326,18 @@ func runStatus(ctx context.Context, env *Env, args []string) error {
 	if err != nil {
 		return err
 	}
-	report := kernel.NewStatusReport(statuses)
+	report := service.NewStatusReport(statuses)
 	if *asJSON {
 		if err := printJSON(env.Stdout, report); err != nil {
 			return err
 		}
-	} else if err := kernel.PrintStatuses(env.Stdout, env.Stderr, report); err != nil {
+	} else if err := service.PrintStatuses(env.Stdout, env.Stderr, report); err != nil {
 		return err
 	}
 	// The exit code answers the question the command was asked: the port the
 	// configuration names, or the one that was named on the command line. Other
 	// instances are reported beside it, never instead of it.
-	if kernel.ServeExitCode(report.Status) != exitcode.OK {
+	if service.ServeExitCode(report.Status) != exitcode.OK {
 		return exitcode.SilentExit(exitcode.NotRunning)
 	}
 	return nil
@@ -357,7 +357,7 @@ func runURL(ctx context.Context, env *Env, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := kernel.PrintURLs(env.Stdout, env.Stderr, report); err != nil {
+	if err := service.PrintURLs(env.Stdout, env.Stderr, report); err != nil {
 		return err
 	}
 	// `url` succeeds exactly when it handed out an address, which is the promise
@@ -370,7 +370,7 @@ func runURL(ctx context.Context, env *Env, args []string) error {
 	}
 	if !report.Status.Owning() && !report.Status.Survivor {
 		return exitcode.New(exitcode.NotRunning,
-			"DSH Web 未在运行(%s)，没有可访问的地址", kernel.StatusSummary(report.Status))
+			"DSH Web 未在运行(%s)，没有可访问的地址", service.StatusSummary(report.Status))
 	}
 	return exitcode.SilentExit(exitcode.NotRunning)
 }
@@ -380,7 +380,7 @@ func runLogs(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "logs")
 	follow := flags.Bool("f", false, "持续跟随输出")
 	flags.BoolVar(follow, "follow", false, "持续跟随输出")
-	lines := flags.Int("n", kernel.DefaultLogLines, "打印最后 N 行")
+	lines := flags.Int("n", service.DefaultLogLines, "打印最后 N 行")
 	buildOnly := flags.Bool("build", false, "只显示最近一次 build/update/rollback 记录")
 	help, err := parseFlags(flags, args)
 	if err != nil {
@@ -392,7 +392,7 @@ func runLogs(ctx context.Context, env *Env, args []string) error {
 	if *buildOnly && *follow {
 		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("--build 与 --follow 不能同时使用"))
 	}
-	return newApp(env).Logs(ctx, kernel.LogsOptions{
+	return newApp(env).Logs(ctx, service.LogsOptions{
 		Lines:     *lines,
 		Follow:    *follow,
 		BuildOnly: *buildOnly,
@@ -431,7 +431,7 @@ func runTimeline(ctx context.Context, env *Env, args []string) error {
 		if err := printJSON(env.Stdout, report); err != nil {
 			return err
 		}
-	} else if err := kernel.PrintTimeline(env.Stdout, report); err != nil {
+	} else if err := service.PrintTimeline(env.Stdout, report); err != nil {
 		return err
 	}
 	// A failed fetch is a failed preflight, even though the locally known
@@ -512,10 +512,10 @@ func runDoctor(ctx context.Context, env *Env, args []string) error {
 		if err := printJSON(env.Stdout, checks); err != nil {
 			return err
 		}
-	} else if err := kernel.PrintChecks(env.Stdout, checks); err != nil {
+	} else if err := service.PrintChecks(env.Stdout, checks); err != nil {
 		return err
 	}
-	if kernel.ChecksFailed(checks) {
+	if service.ChecksFailed(checks) {
 		return exitcode.SilentExit(exitcode.Failure)
 	}
 	return nil

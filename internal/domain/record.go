@@ -15,7 +15,7 @@ const (
 	// A record exists only for a server that reached that point: it is written
 	// after the port answers, so there is no separate "starting" phase to record.
 	// (A start that is interrupted writes a wrapper record first so the process
-	// it launched is not left unowned; see the kernel.)
+	// it launched is not left unowned; see internal/service.)
 	PhaseRunning Phase = "running"
 )
 

@@ -14,9 +14,9 @@
 1. **领域层 `internal/domain` 是零依赖叶子**：状态词表、`Status`、运行记录模型、
    指纹比对 `Matches`、版本位置 `Target`、占用判定 `State.Occupant`、`Record.Describe`。
    没有 I/O、没有时钟、没有文案。
-2. **内核不打印**：结果用值返回，过程发 `kernel.Event`，前端实现 `kernel.Emitter`
-   （`Emit`/`Stream`/`Diagnostics`）。`kernel.TextEmitter` 是参考实现，也是命令行的实现。
-3. **内核 `internal/kernel` 包含引擎与操作**：`observe`/`admit`/`launch`/`deployLocked`
+2. **内核不打印**：结果用值返回，过程发 `service.Event`，前端实现 `service.Emitter`
+   （`Emit`/`Stream`/`Diagnostics`）。`service.TextEmitter` 是参考实现，也是命令行的实现。
+3. **内核 `internal/service` 包含引擎与操作**：`observe`/`admit`/`launch`/`deployLocked`
    是引擎，`Start`/`StopAll`/`Statuses`/`RunUpdate` 与锁范围、多实例选择、写回配置是操作
    策略。**不设独立的"应用层"包**：命令名、flag、帮助、退出码、`--json` 形状是某个前端的
    词汇，属于那个前端；CLI 的处理器住在 `internal/cli`，未来 HTTP 前端的处理器住在
@@ -37,9 +37,9 @@
 
 ## 后果
 
-- `internal/service` 改名 `internal/kernel`；`internal/domain`、`internal/i18n` 成为新叶子；
+- `internal/service` 改名 `internal/service`；`internal/domain`、`internal/i18n` 成为新叶子；
   参考实现 `TextEmitter` 与事件类型同处内核（否则测试无法使用它，会绕开真实渲染）。
-- 并发模型不变而且更强：`*kernel.Service` 构造后不可变，多个前端可并发调用，
+- 并发模型不变而且更强：`*service.Service` 构造后不可变，多个前端可并发调用，
   互斥由状态目录上的内核锁保证。
 - 尚未完成：命令层与引擎仍未物理分包；`print.go` 的结果渲染仍在 `app`（只读命令的
   文本渲染），第二个前端可以完全忽略它们。
@@ -48,5 +48,5 @@
 
 - `python3 scripts/check-conventions.py` 的 `go-imports` 规则（边登记、叶子零依赖）。
 - `internal/domain/*_test.go`：规则可脱离机器测试（无 fake host、无临时目录）。
-- `internal/kernel/emit_text_test.go`：参考实现的映射（叙事/原样/警告/错误 + 两个流）。
+- `internal/service/emit_text_test.go`：参考实现的映射（叙事/原样/警告/错误 + 两个流）。
 - `internal/conformance`：金标证明事件化之后对外字节不变。

@@ -2808,2094 +2808,6 @@
     "note": ""
   },
   {
-    "test": "internal/kernel/admit_test.go::TestOccupantIsExactlyWhatNoVerbMayActOn",
-    "file": "internal/kernel/admit_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/admit_test.go::TestAdmitSurvivorAdoptsAndReobserves",
-    "file": "internal/kernel/admit_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/admit_test.go::TestAdmitSurvivorSaysNothingWhenThereIsNone",
-    "file": "internal/kernel/admit_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/admit_test.go::TestAdmitSurvivorReportsOneItCannotRecord",
-    "file": "internal/kernel/admit_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/announced_test.go::TestAnnouncedURLFiltersByPort",
-    "file": "internal/kernel/announced_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/announced_test.go::TestWebURLUsesTheLogFallbackForItsOwnPort",
-    "file": "internal/kernel/announced_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/announced_test.go::TestWebURLRefusesWhenNothingRuns",
-    "file": "internal/kernel/announced_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/build_test.go::TestBuildReportsAPruneFailure",
-    "file": "internal/kernel/build_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/build_test.go::TestBuildReportsThePruneResult",
-    "file": "internal/kernel/build_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/build_test.go::TestBuildReportsItsOwnFailure",
-    "file": "internal/kernel/build_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/build_test.go::TestUpdateRefusesAMissingRepository",
-    "file": "internal/kernel/build_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/build_test.go::TestUpdateRefusesADirectoryThatIsNotAGitRepository",
-    "file": "internal/kernel/build_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/build_test.go::TestUpdateDoesNotStopWhenTheFetchFails",
-    "file": "internal/kernel/build_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/build_test.go::TestUpdateReportsWhenTheRestoreStartFails",
-    "file": "internal/kernel/build_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/build_test.go::TestUpdateRefusesWhileAnotherPortServesTheCheckout",
-    "file": "internal/kernel/build_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/build_test.go::TestBuildAndUpdateSeeASiblingRecordInAnAwkwardStateDirectory",
-    "file": "internal/kernel/build_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/contracts_test.go::TestTheBuildMarkerIsTheFileTheBuildWrites",
-    "file": "internal/kernel/contracts_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/contracts_test.go::TestTheCheckoutMarkersAreTheFilesTheRepositoryShips",
-    "file": "internal/kernel/contracts_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/contracts_test.go::TestTheRecordGlobFindsRecordsInAnAwkwardDirectory",
-    "file": "internal/kernel/contracts_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/contracts_test.go::TestTheDerivedPathsSitWhereTheyBelong",
-    "file": "internal/kernel/contracts_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/corrupt_test.go::TestStatusReportsACorruptRecordAsStaleWithoutRetiringIt",
-    "file": "internal/kernel/corrupt_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/corrupt_test.go::TestDoctorExplainsACorruptRecord",
-    "file": "internal/kernel/corrupt_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/corrupt_test.go::TestStopClearsACorruptRecord",
-    "file": "internal/kernel/corrupt_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/corrupt_test.go::TestStartReplacesACorruptRecord",
-    "file": "internal/kernel/corrupt_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/doctor_test.go::TestDoctorReportsEveryRowInOrder",
-    "file": "internal/kernel/doctor_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/doctor_test.go::TestDoctorReportsEveryRowOfAFreshStateDirectory",
-    "file": "internal/kernel/doctor_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/doctor_test.go::TestDoctorWarnsAboutAStateDirectoryThatWasNeverCreated",
-    "file": "internal/kernel/doctor_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/doctor_test.go::TestDoctorReportsAMissingRepository",
-    "file": "internal/kernel/doctor_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/doctor_test.go::TestDoctorReportsALockHeldByALiveProcess",
-    "file": "internal/kernel/doctor_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/emit_text_test.go::TestTextEmitterRendersEveryKind",
-    "file": "internal/kernel/emit_text_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "new-test",
-    "evidence": "emitter 映射：叙事/原样输出走 stdout，警告加前缀、错误原样走 stderr",
-    "note": ""
-  },
-  {
-    "test": "internal/kernel/emit_text_test.go::TestTextEmitterStreamsRawOutput",
-    "file": "internal/kernel/emit_text_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "new-test",
-    "evidence": "emitter 映射：叙事/原样输出走 stdout，警告加前缀、错误原样走 stderr",
-    "note": ""
-  },
-  {
-    "test": "internal/kernel/emit_text_test.go::TestTextEmitterWithoutStreamsDoesNotPanic",
-    "file": "internal/kernel/emit_text_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "new-test",
-    "evidence": "emitter 映射：叙事/原样输出走 stdout，警告加前缀、错误原样走 stderr",
-    "note": ""
-  },
-  {
-    "test": "internal/kernel/fake_test.go::TestFakeHostNeverReusesAPid",
-    "file": "internal/kernel/fake_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/fake_test.go::TestReserveFreePortDoesNotHandOutAPortTwice",
-    "file": "internal/kernel/fake_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/fingerprint_test.go::TestStartWithoutAFingerprintStillWorksAndSaysSo",
-    "file": "internal/kernel/fingerprint_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/fingerprint_test.go::TestStopRefusesARecycledPIDEvenWithoutAFingerprint",
-    "file": "internal/kernel/fingerprint_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/fingerprint_test.go::TestFailedStartLeavesNoRecordBehind",
-    "file": "internal/kernel/fingerprint_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/fingerprint_test.go::TestFingerprintTimeoutIsGenerous",
-    "file": "internal/kernel/fingerprint_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/fingerprint_test.go::TestProcessStartTimeGivesUpCleanly",
-    "file": "internal/kernel/fingerprint_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStartRefusesAForeignListener",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStartRefusesAnUnidentifiableListener",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStartIsIdempotentWhenAlreadyRunning",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStartRefusesARepositoryThatIsNotTheCheckout",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStartFailsFastWhenTheChildExits",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStartCancellationIsPrompt",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStartSucceedsWhenThePortAnswers",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStartReplacesAStaleRecord",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStartStoresTheAnnouncedURL",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStopOnlySignalsTheRecordedProcess",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStopForcesAProcessThatIgnoresGrace",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStopRefusesForceWhenPIDIsRecycledDuringGrace",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStartAdoptsASurvivorOfAnInterruptedStart",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStopAdoptsAndStopsASurvivorOfAnInterruptedStart",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStatusKeepsTheInterruptedRecordReadOnly",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestFailedStartCleansUpTheWholeGroup",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestFailedStartCleansUpWhenTheLeaderDiesFirst",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStartRefusesWhenTheListenerCannotBeNamed",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStartSurvivesAListenerThatIsUnnameableForAMoment",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStopReportsAProcessThatSurvivesTheForceSignal",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStopReportsAnotherHarnessServer",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStopRefusesToSignalARecycledPID",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStopReportsAnUnverifiableListener",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStopReportsAStrangerOnThePort",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStopSaysSoWhenNothingRuns",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestRestartStopsThenStarts",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestRestartRefusesWhileAForeignProgramOwnsThePort",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStatusClassifiesEveryState",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStatusReportsAnUninspectablePortAsAnError",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStatusReportsARecordThatDescribesNothing",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStatusCreatesNothingAtAll",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStatusReportsStaleWithoutRetiringIt",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestStatusDoesNotTakeTheLock",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestBuildWritesTheSectionBeforeRotating",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestBuildRefusesANonCheckout",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestUpdateSurfacesTheBuildFailure",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestUpdateRestoresTheServiceWhenTheSwitchFails",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestUpdateRefusesWhileAnUnidentifiedServerRuns",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestUpdateLeavesTheServiceStoppedWhenInstallFails",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestUpdateRestoresTheServiceOnSuccess",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestBuildDoesNotPruneOutsideTheCheckout",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestLogsPrintsTheTailAndFollowsWithoutGaps",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestLogsBuildOnlyReportsAMissingRecord",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestWebURLPrefersTheRecordedAddress",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestWebURLFallsBackToTheLog",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestWebURLRefusesAMissingAddress",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestWebURLDoesNotLeakAnUnrelatedURL",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestDoctorReportsEveryItem",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lifecycle_test.go::TestDoctorFlagsANonCheckout",
-    "file": "internal/kernel/lifecycle_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lock_test.go::TestAMutatingCommandReportsExitCodeFiveWhileAnotherOperationHoldsTheLock",
-    "file": "internal/kernel/lock_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/lock_test.go::TestOneLockCoversEveryInstanceOfAStateDirectory",
-    "file": "internal/kernel/lock_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/logs_test.go::TestLogsUsesTheDefaultLineCount",
-    "file": "internal/kernel/logs_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/logs_test.go::TestLogsReportsAMissingLog",
-    "file": "internal/kernel/logs_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/logs_test.go::TestLogsReportsACancelledContext",
-    "file": "internal/kernel/logs_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/logs_test.go::TestLogsBuildOnlyPrintsTheLastRecord",
-    "file": "internal/kernel/logs_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/logs_test.go::TestLogsBuildOnlyTrimsToTheRequestedLines",
-    "file": "internal/kernel/logs_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/logs_test.go::TestLogsBuildOnlyReportsATruncatedLog",
-    "file": "internal/kernel/logs_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/logs_test.go::TestWebURLRefusesAnotherPortsAddress",
-    "file": "internal/kernel/logs_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/logs_test.go::TestWebURLExplainsWhyThereIsNoAddress",
-    "file": "internal/kernel/logs_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/logs_test.go::TestLogsBuildOnlyReadsTheRealSectionPath",
-    "file": "internal/kernel/logs_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/messages_test.go::TestMessagesAreComplete",
-    "file": "internal/kernel/messages_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "todo",
-    "evidence": "",
-    "note": ""
-  },
-  {
-    "test": "internal/kernel/messages_test.go::TestMessagesMergeWithAnotherLayer",
-    "file": "internal/kernel/messages_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "todo",
-    "evidence": "",
-    "note": ""
-  },
-  {
-    "test": "internal/kernel/messages_test.go::TestNoOrphanMessages",
-    "file": "internal/kernel/messages_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "todo",
-    "evidence": "",
-    "note": ""
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestMovingTheFixturePortMovesItsRecordStore",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestStatusReportsEveryManagedPort",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestStatusWithoutPortsListsNothing",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestExplicitPortSelectsOneInstance",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestStopEndsEveryManagedServer",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestStopReportsEveryPortItEnded",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestStopEndsEveryInstanceThatIsRunning",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestStopAllLeavesAForeignListenerAloneAcrossPorts",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestStopOfANamedForeignPortIsACompleteAnswer",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestRestartWithoutAPortRestartsEveryInstance",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestRestartRefusesBeforeStoppingAnything",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestWebURLsReportsEveryRunningAddress",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestWebURLsNamesAnExplicitlySelectedInstance",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestWebURLsKeepsAWorkingInstanceOutOfTheFallback",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestPortDiscoveryFailsClosedWhenAProbeFails",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/multi_test.go::TestStopAllIsIdempotentAcrossPorts",
-    "file": "internal/kernel/multi_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/nodeversion_test.go::TestWriteBackMatrix",
-    "file": "internal/kernel/nodeversion_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/nodeversion_test.go::TestGateMatrix",
-    "file": "internal/kernel/nodeversion_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/nodeversion_test.go::TestServiceNodeTablesAreComplete",
-    "file": "internal/kernel/nodeversion_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/nodeversion_test.go::TestResolvingAConfiguredReleaseStartsNoProcess",
-    "file": "internal/kernel/nodeversion_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/nodeversion_test.go::TestResolvingADiscoveredReleaseProbesTheBinary",
-    "file": "internal/kernel/nodeversion_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/nodeversion_test.go::TestTheRecordNamesTheRuntimeTheInstanceUses",
-    "file": "internal/kernel/nodeversion_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/nodeversion_test.go::TestAnAdoptedSurvivorKeepsTheRuntimeItWasStartedWith",
-    "file": "internal/kernel/nodeversion_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/nodeversion_test.go::TestResolvingWithoutAPlatformHomeIsRefused",
-    "file": "internal/kernel/nodeversion_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/nodeversion_test.go::TestDoctorReportsARuntimeResolvedThroughAForwarder",
-    "file": "internal/kernel/nodeversion_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/nodeversion_test.go::TestARuntimeBehindAForwarderIsWhatTheServerGets",
-    "file": "internal/kernel/nodeversion_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/print_test.go::TestTheStatusReportNamesOnlyInstancesThatMatter",
-    "file": "internal/kernel/print_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/print_test.go::TestPrintStatusNamesTheState",
-    "file": "internal/kernel/print_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/print_test.go::TestServeExitCode",
-    "file": "internal/kernel/print_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/print_test.go::TestPrintChecksLabelsEveryStatus",
-    "file": "internal/kernel/print_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/print_test.go::TestChecksFailed",
-    "file": "internal/kernel/print_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/print_test.go::TestHumanBytes",
-    "file": "internal/kernel/print_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/print_test.go::TestDescribeFacts",
-    "file": "internal/kernel/print_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestASuccessfulStartMakesTheNextCommandUseTheSameCheckout",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestTheEnvironmentIsRecordedLikeAFlag",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestADecidedCheckoutIsNeverRewrittenAndTheMismatchIsSaidOutLoud",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestAnEnvironmentOverrideOfTheCheckoutIsReported",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestAnAlreadyRunningServiceTeachesTheDocumentItsCheckout",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestAnAlreadyRunningServiceRecordsAnExplicitCheckoutWhenTheRecordNamesNone",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestAnAlreadyRunningServiceRefusesToRecordAMistypedCheckout",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestAnAlreadyRunningServiceKeepsADecidedCheckoutAndWarns",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestABuildRecordsTheCheckoutItBuilt",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestAnUpdateRecordsTheCheckoutItUpdated",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestANoOpUpdateRecordsTheCheckoutItRanAgainst",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestAFailedStartRecordsNothing",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestTheRecordWrittenBeforeThePortAnswersCarriesTheCheckout",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestAnAdoptedSurvivorKeepsTheCheckoutItWasStartedFrom",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestDoctorNamesAServiceRunningFromAnotherCheckout",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestStatusNamesTheCheckoutTheRunningServiceUses",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestAForeignCheckoutDoesNotBlockABuild",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestASiblingOnTheSameCheckoutStillBlocksABuild",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestAStaleConfigurationStillStopsTheRunningService",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestTheSpawnUsesTheCheckoutThisRunResolved",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/repodir_test.go::TestAMissingCheckoutNamesTheRemedy",
-    "file": "internal/kernel/repodir_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/rollback_test.go::TestRollbackReturnsToThePreviousPosition",
-    "file": "internal/kernel/rollback_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/rollback_test.go::TestRollbackStepsWalkFurtherBack",
-    "file": "internal/kernel/rollback_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/rollback_test.go::TestRollbackRefusesWithoutHistory",
-    "file": "internal/kernel/rollback_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/rollback_test.go::TestRollbackRefusesACorruptHistory",
-    "file": "internal/kernel/rollback_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/rollback_test.go::TestRollbackRefusesBeyondTheHistory",
-    "file": "internal/kernel/rollback_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/rollback_test.go::TestRollbackToANamedVersionDoesNotFetch",
-    "file": "internal/kernel/rollback_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/rollback_test.go::TestRollbackStopsAndRestoresTheService",
-    "file": "internal/kernel/rollback_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/rollback_test.go::TestUpdateAfterARollbackReturnsToMaster",
-    "file": "internal/kernel/rollback_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/rollback_test.go::TestRollbackNamesTheTagItReturnsTo",
-    "file": "internal/kernel/rollback_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/rollback_test.go::TestRollbackRefusesAnUnknownRefWithoutFetching",
-    "file": "internal/kernel/rollback_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/rollback_test.go::TestRollbackShortCircuitsAtTheCurrentPosition",
-    "file": "internal/kernel/rollback_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/spawn_test.go::TestStartFailsFastWhenTheRealChildExitsImmediately",
-    "file": "internal/kernel/spawn_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/spawn_test.go::TestStartReportsASuccessfulRealChild",
-    "file": "internal/kernel/spawn_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/start_test.go::TestStartReportsAServerThatIsStillStarting",
-    "file": "internal/kernel/start_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/start_test.go::TestStartRefusesAnUnmetPrecondition",
-    "file": "internal/kernel/start_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/start_test.go::TestStartReportsASpawnFailure",
-    "file": "internal/kernel/start_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/start_test.go::TestStartHandsTheServerTheExactCommand",
-    "file": "internal/kernel/start_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/start_test.go::TestStartPrintsTheAnnouncedAddress",
-    "file": "internal/kernel/start_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/start_test.go::TestStartSaysNothingAboutAnAddressItDoesNotKnow",
-    "file": "internal/kernel/start_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/stop_test.go::TestStopClearsTheRecordOfARecycledPID",
-    "file": "internal/kernel/stop_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/stop_test.go::TestStopReportsALiveRecordWithoutStartedAt",
-    "file": "internal/kernel/stop_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/stop_test.go::TestRestartDoesNotStartASecondServerWhenTheStopFails",
-    "file": "internal/kernel/stop_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/stop_test.go::TestStopEndsAProcessThatDiesBeforeTheSignal",
-    "file": "internal/kernel/stop_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/stop_test.go::TestStopWarnsWhenTheGracefulSignalFails",
-    "file": "internal/kernel/stop_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/stop_test.go::TestStopFailsWhenTheForceSignalFails",
-    "file": "internal/kernel/stop_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/stop_test.go::TestStopClearsARecordThatDescribesNothing",
-    "file": "internal/kernel/stop_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/stop_test.go::TestStopTimesOutWhenTheTreeKeepsThePort",
-    "file": "internal/kernel/stop_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineReportsUpToDate",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineShowsTheWindowTagsAndElision",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineReportsDivergence",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineKeepsLocalStateWhenFetchFails",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineNamesTheDirtyWorktree",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineReportsWhenTheWorktreeCannotBeChecked",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelinePrintsTheHistoryNewestFirst",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineCapsTheHistorySection",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineWindowBoundary",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineNamesATagOnTheCurrentCommit",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineReportsACorruptHistory",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineTakesTheCurrentPositionFromGit",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineRefusesWhenOriginMasterIsMissing",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineRefusesACheckoutWithoutOrigin",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestTimelineRefusesAMissingCheckout",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/timeline_test.go::TestPrintTimelineRendersTheExactFormat",
-    "file": "internal/kernel/timeline_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/tolerance_test.go::TestTheFingerprintToleranceAbsorbsTheGranularityOfTheClock",
-    "file": "internal/kernel/tolerance_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestStopEndsTheRecordedServerBehindAStranger",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestStopSucceedsWhenAStrangerTakesThePort",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestStatusReportsALiveRecordAsNotStale",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestBuildRefusesWhileThisPortServes",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestBuildRefusesWhileAnotherPortsSurvivorServes",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestUpdateStopsARecordedServerThatNoLongerListens",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestDoctorAgreesWithStatusOnASurvivor",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestWebURLExplainsASurvivor",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestUpdateRefusesWhenItCannotVerifyTheRunningServer",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestStatusReportsARecycledRecordAsStaleEvenWithAStrangerOnThePort",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestAdoptSurvivorRefusesAListenerOutsideTheRecordedTree",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestStatusReportsPortReadiness",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/unified_test.go::TestStartRefusesWhenThePortProbeFails",
-    "file": "internal/kernel/unified_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateRefusesALocalBranchWithoutStopping",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateHEADIsANoOp",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateRefusesWhenTheWorktreeCannotBeChecked",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdatePrependsAManualPosition",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateLatestRefusesWithoutOrigin",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateANamedVersionWorksWithoutOrigin",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateNamesAShaTargetOnce",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateShortCircuitsWhenAlreadyAtTheTarget",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateSwitchesToATagWithoutMovingMaster",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateRefusesADirtyWorktreeWithoutStopping",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateRefusesAnUnknownVersionWithoutStopping",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateResolvesANamedVersionWithoutTheRemote",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateWarnsAboutATargetOutsideOrigin",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateKeepsDeployingWhenTheHistoryCannotBeWritten",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/update_test.go::TestUpdateRecordsTheMoveBeforeTheBuild",
-    "file": "internal/kernel/update_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/wrapper_test.go::TestStartAcrossAWrapperThatSpawns",
-    "file": "internal/kernel/wrapper_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/wrapper_test.go::TestStartRefusesWhenALiveRecordIsNotListening",
-    "file": "internal/kernel/wrapper_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/wrapper_test.go::TestStopEndsARecordedProcessThatNoLongerListens",
-    "file": "internal/kernel/wrapper_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
-    "test": "internal/kernel/wrapper_test.go::TestStopRemovesARecordWhoseProcessIsGone",
-    "file": "internal/kernel/wrapper_test.go",
-    "package": "internal/kernel",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/kernel，行为未变"
-  },
-  {
     "test": "internal/lock/lock_edges_test.go::TestAcquireReportsAnErrorWhenTheParentIsARegularFile",
     "file": "internal/lock/lock_edges_test.go",
     "package": "internal/lock",
@@ -7029,6 +4941,2094 @@
     "note": ""
   },
   {
+    "test": "internal/service/admit_test.go::TestOccupantIsExactlyWhatNoVerbMayActOn",
+    "file": "internal/service/admit_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/admit_test.go::TestAdmitSurvivorAdoptsAndReobserves",
+    "file": "internal/service/admit_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/admit_test.go::TestAdmitSurvivorSaysNothingWhenThereIsNone",
+    "file": "internal/service/admit_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/admit_test.go::TestAdmitSurvivorReportsOneItCannotRecord",
+    "file": "internal/service/admit_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/announced_test.go::TestAnnouncedURLFiltersByPort",
+    "file": "internal/service/announced_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/announced_test.go::TestWebURLUsesTheLogFallbackForItsOwnPort",
+    "file": "internal/service/announced_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/announced_test.go::TestWebURLRefusesWhenNothingRuns",
+    "file": "internal/service/announced_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/build_test.go::TestBuildReportsAPruneFailure",
+    "file": "internal/service/build_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/build_test.go::TestBuildReportsThePruneResult",
+    "file": "internal/service/build_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/build_test.go::TestBuildReportsItsOwnFailure",
+    "file": "internal/service/build_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/build_test.go::TestUpdateRefusesAMissingRepository",
+    "file": "internal/service/build_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/build_test.go::TestUpdateRefusesADirectoryThatIsNotAGitRepository",
+    "file": "internal/service/build_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/build_test.go::TestUpdateDoesNotStopWhenTheFetchFails",
+    "file": "internal/service/build_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/build_test.go::TestUpdateReportsWhenTheRestoreStartFails",
+    "file": "internal/service/build_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/build_test.go::TestUpdateRefusesWhileAnotherPortServesTheCheckout",
+    "file": "internal/service/build_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/build_test.go::TestBuildAndUpdateSeeASiblingRecordInAnAwkwardStateDirectory",
+    "file": "internal/service/build_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/contracts_test.go::TestTheBuildMarkerIsTheFileTheBuildWrites",
+    "file": "internal/service/contracts_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/contracts_test.go::TestTheCheckoutMarkersAreTheFilesTheRepositoryShips",
+    "file": "internal/service/contracts_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/contracts_test.go::TestTheRecordGlobFindsRecordsInAnAwkwardDirectory",
+    "file": "internal/service/contracts_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/contracts_test.go::TestTheDerivedPathsSitWhereTheyBelong",
+    "file": "internal/service/contracts_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/corrupt_test.go::TestStatusReportsACorruptRecordAsStaleWithoutRetiringIt",
+    "file": "internal/service/corrupt_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/corrupt_test.go::TestDoctorExplainsACorruptRecord",
+    "file": "internal/service/corrupt_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/corrupt_test.go::TestStopClearsACorruptRecord",
+    "file": "internal/service/corrupt_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/corrupt_test.go::TestStartReplacesACorruptRecord",
+    "file": "internal/service/corrupt_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/doctor_test.go::TestDoctorReportsEveryRowInOrder",
+    "file": "internal/service/doctor_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/doctor_test.go::TestDoctorReportsEveryRowOfAFreshStateDirectory",
+    "file": "internal/service/doctor_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/doctor_test.go::TestDoctorWarnsAboutAStateDirectoryThatWasNeverCreated",
+    "file": "internal/service/doctor_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/doctor_test.go::TestDoctorReportsAMissingRepository",
+    "file": "internal/service/doctor_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/doctor_test.go::TestDoctorReportsALockHeldByALiveProcess",
+    "file": "internal/service/doctor_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/emit_text_test.go::TestTextEmitterRendersEveryKind",
+    "file": "internal/service/emit_text_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "emitter 映射：叙事/原样输出走 stdout，警告加前缀、错误原样走 stderr",
+    "note": ""
+  },
+  {
+    "test": "internal/service/emit_text_test.go::TestTextEmitterStreamsRawOutput",
+    "file": "internal/service/emit_text_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "emitter 映射：叙事/原样输出走 stdout，警告加前缀、错误原样走 stderr",
+    "note": ""
+  },
+  {
+    "test": "internal/service/emit_text_test.go::TestTextEmitterWithoutStreamsDoesNotPanic",
+    "file": "internal/service/emit_text_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "emitter 映射：叙事/原样输出走 stdout，警告加前缀、错误原样走 stderr",
+    "note": ""
+  },
+  {
+    "test": "internal/service/fake_test.go::TestFakeHostNeverReusesAPid",
+    "file": "internal/service/fake_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/fake_test.go::TestReserveFreePortDoesNotHandOutAPortTwice",
+    "file": "internal/service/fake_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/fingerprint_test.go::TestStartWithoutAFingerprintStillWorksAndSaysSo",
+    "file": "internal/service/fingerprint_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/fingerprint_test.go::TestStopRefusesARecycledPIDEvenWithoutAFingerprint",
+    "file": "internal/service/fingerprint_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/fingerprint_test.go::TestFailedStartLeavesNoRecordBehind",
+    "file": "internal/service/fingerprint_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/fingerprint_test.go::TestFingerprintTimeoutIsGenerous",
+    "file": "internal/service/fingerprint_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/fingerprint_test.go::TestProcessStartTimeGivesUpCleanly",
+    "file": "internal/service/fingerprint_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStartRefusesAForeignListener",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStartRefusesAnUnidentifiableListener",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStartIsIdempotentWhenAlreadyRunning",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStartRefusesARepositoryThatIsNotTheCheckout",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStartFailsFastWhenTheChildExits",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStartCancellationIsPrompt",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStartSucceedsWhenThePortAnswers",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStartReplacesAStaleRecord",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStartStoresTheAnnouncedURL",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStopOnlySignalsTheRecordedProcess",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStopForcesAProcessThatIgnoresGrace",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStopRefusesForceWhenPIDIsRecycledDuringGrace",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStartAdoptsASurvivorOfAnInterruptedStart",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStopAdoptsAndStopsASurvivorOfAnInterruptedStart",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStatusKeepsTheInterruptedRecordReadOnly",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestFailedStartCleansUpTheWholeGroup",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestFailedStartCleansUpWhenTheLeaderDiesFirst",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStartRefusesWhenTheListenerCannotBeNamed",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStartSurvivesAListenerThatIsUnnameableForAMoment",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStopReportsAProcessThatSurvivesTheForceSignal",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStopReportsAnotherHarnessServer",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStopRefusesToSignalARecycledPID",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStopReportsAnUnverifiableListener",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStopReportsAStrangerOnThePort",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStopSaysSoWhenNothingRuns",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestRestartStopsThenStarts",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestRestartRefusesWhileAForeignProgramOwnsThePort",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStatusClassifiesEveryState",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStatusReportsAnUninspectablePortAsAnError",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStatusReportsARecordThatDescribesNothing",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStatusCreatesNothingAtAll",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStatusReportsStaleWithoutRetiringIt",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestStatusDoesNotTakeTheLock",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestBuildWritesTheSectionBeforeRotating",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestBuildRefusesANonCheckout",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestUpdateSurfacesTheBuildFailure",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestUpdateRestoresTheServiceWhenTheSwitchFails",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestUpdateRefusesWhileAnUnidentifiedServerRuns",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestUpdateLeavesTheServiceStoppedWhenInstallFails",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestUpdateRestoresTheServiceOnSuccess",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestBuildDoesNotPruneOutsideTheCheckout",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestLogsPrintsTheTailAndFollowsWithoutGaps",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestLogsBuildOnlyReportsAMissingRecord",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestWebURLPrefersTheRecordedAddress",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestWebURLFallsBackToTheLog",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestWebURLRefusesAMissingAddress",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestWebURLDoesNotLeakAnUnrelatedURL",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestDoctorReportsEveryItem",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lifecycle_test.go::TestDoctorFlagsANonCheckout",
+    "file": "internal/service/lifecycle_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lock_test.go::TestAMutatingCommandReportsExitCodeFiveWhileAnotherOperationHoldsTheLock",
+    "file": "internal/service/lock_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/lock_test.go::TestOneLockCoversEveryInstanceOfAStateDirectory",
+    "file": "internal/service/lock_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/logs_test.go::TestLogsUsesTheDefaultLineCount",
+    "file": "internal/service/logs_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/logs_test.go::TestLogsReportsAMissingLog",
+    "file": "internal/service/logs_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/logs_test.go::TestLogsReportsACancelledContext",
+    "file": "internal/service/logs_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/logs_test.go::TestLogsBuildOnlyPrintsTheLastRecord",
+    "file": "internal/service/logs_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/logs_test.go::TestLogsBuildOnlyTrimsToTheRequestedLines",
+    "file": "internal/service/logs_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/logs_test.go::TestLogsBuildOnlyReportsATruncatedLog",
+    "file": "internal/service/logs_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/logs_test.go::TestWebURLRefusesAnotherPortsAddress",
+    "file": "internal/service/logs_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/logs_test.go::TestWebURLExplainsWhyThereIsNoAddress",
+    "file": "internal/service/logs_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/logs_test.go::TestLogsBuildOnlyReadsTheRealSectionPath",
+    "file": "internal/service/logs_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/messages_test.go::TestMessagesAreComplete",
+    "file": "internal/service/messages_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/service/messages_test.go::TestMessagesMergeWithAnotherLayer",
+    "file": "internal/service/messages_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/service/messages_test.go::TestNoOrphanMessages",
+    "file": "internal/service/messages_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/service/multi_test.go::TestMovingTheFixturePortMovesItsRecordStore",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestStatusReportsEveryManagedPort",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestStatusWithoutPortsListsNothing",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestExplicitPortSelectsOneInstance",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestStopEndsEveryManagedServer",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestStopReportsEveryPortItEnded",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestStopEndsEveryInstanceThatIsRunning",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestStopAllLeavesAForeignListenerAloneAcrossPorts",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestStopOfANamedForeignPortIsACompleteAnswer",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestRestartWithoutAPortRestartsEveryInstance",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestRestartRefusesBeforeStoppingAnything",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestWebURLsReportsEveryRunningAddress",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestWebURLsNamesAnExplicitlySelectedInstance",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestWebURLsKeepsAWorkingInstanceOutOfTheFallback",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestPortDiscoveryFailsClosedWhenAProbeFails",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/multi_test.go::TestStopAllIsIdempotentAcrossPorts",
+    "file": "internal/service/multi_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/nodeversion_test.go::TestWriteBackMatrix",
+    "file": "internal/service/nodeversion_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/nodeversion_test.go::TestGateMatrix",
+    "file": "internal/service/nodeversion_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/nodeversion_test.go::TestServiceNodeTablesAreComplete",
+    "file": "internal/service/nodeversion_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/nodeversion_test.go::TestResolvingAConfiguredReleaseStartsNoProcess",
+    "file": "internal/service/nodeversion_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/nodeversion_test.go::TestResolvingADiscoveredReleaseProbesTheBinary",
+    "file": "internal/service/nodeversion_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/nodeversion_test.go::TestTheRecordNamesTheRuntimeTheInstanceUses",
+    "file": "internal/service/nodeversion_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/nodeversion_test.go::TestAnAdoptedSurvivorKeepsTheRuntimeItWasStartedWith",
+    "file": "internal/service/nodeversion_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/nodeversion_test.go::TestResolvingWithoutAPlatformHomeIsRefused",
+    "file": "internal/service/nodeversion_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/nodeversion_test.go::TestDoctorReportsARuntimeResolvedThroughAForwarder",
+    "file": "internal/service/nodeversion_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/nodeversion_test.go::TestARuntimeBehindAForwarderIsWhatTheServerGets",
+    "file": "internal/service/nodeversion_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/print_test.go::TestTheStatusReportNamesOnlyInstancesThatMatter",
+    "file": "internal/service/print_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/print_test.go::TestPrintStatusNamesTheState",
+    "file": "internal/service/print_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/print_test.go::TestServeExitCode",
+    "file": "internal/service/print_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/print_test.go::TestPrintChecksLabelsEveryStatus",
+    "file": "internal/service/print_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/print_test.go::TestChecksFailed",
+    "file": "internal/service/print_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/print_test.go::TestHumanBytes",
+    "file": "internal/service/print_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/print_test.go::TestDescribeFacts",
+    "file": "internal/service/print_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestASuccessfulStartMakesTheNextCommandUseTheSameCheckout",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestTheEnvironmentIsRecordedLikeAFlag",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestADecidedCheckoutIsNeverRewrittenAndTheMismatchIsSaidOutLoud",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestAnEnvironmentOverrideOfTheCheckoutIsReported",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestAnAlreadyRunningServiceTeachesTheDocumentItsCheckout",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestAnAlreadyRunningServiceRecordsAnExplicitCheckoutWhenTheRecordNamesNone",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestAnAlreadyRunningServiceRefusesToRecordAMistypedCheckout",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestAnAlreadyRunningServiceKeepsADecidedCheckoutAndWarns",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestABuildRecordsTheCheckoutItBuilt",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestAnUpdateRecordsTheCheckoutItUpdated",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestANoOpUpdateRecordsTheCheckoutItRanAgainst",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestAFailedStartRecordsNothing",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestTheRecordWrittenBeforeThePortAnswersCarriesTheCheckout",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestAnAdoptedSurvivorKeepsTheCheckoutItWasStartedFrom",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestDoctorNamesAServiceRunningFromAnotherCheckout",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestStatusNamesTheCheckoutTheRunningServiceUses",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestAForeignCheckoutDoesNotBlockABuild",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestASiblingOnTheSameCheckoutStillBlocksABuild",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestAStaleConfigurationStillStopsTheRunningService",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestTheSpawnUsesTheCheckoutThisRunResolved",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/repodir_test.go::TestAMissingCheckoutNamesTheRemedy",
+    "file": "internal/service/repodir_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/rollback_test.go::TestRollbackReturnsToThePreviousPosition",
+    "file": "internal/service/rollback_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/rollback_test.go::TestRollbackStepsWalkFurtherBack",
+    "file": "internal/service/rollback_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/rollback_test.go::TestRollbackRefusesWithoutHistory",
+    "file": "internal/service/rollback_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/rollback_test.go::TestRollbackRefusesACorruptHistory",
+    "file": "internal/service/rollback_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/rollback_test.go::TestRollbackRefusesBeyondTheHistory",
+    "file": "internal/service/rollback_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/rollback_test.go::TestRollbackToANamedVersionDoesNotFetch",
+    "file": "internal/service/rollback_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/rollback_test.go::TestRollbackStopsAndRestoresTheService",
+    "file": "internal/service/rollback_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/rollback_test.go::TestUpdateAfterARollbackReturnsToMaster",
+    "file": "internal/service/rollback_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/rollback_test.go::TestRollbackNamesTheTagItReturnsTo",
+    "file": "internal/service/rollback_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/rollback_test.go::TestRollbackRefusesAnUnknownRefWithoutFetching",
+    "file": "internal/service/rollback_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/rollback_test.go::TestRollbackShortCircuitsAtTheCurrentPosition",
+    "file": "internal/service/rollback_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/spawn_test.go::TestStartFailsFastWhenTheRealChildExitsImmediately",
+    "file": "internal/service/spawn_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/spawn_test.go::TestStartReportsASuccessfulRealChild",
+    "file": "internal/service/spawn_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/start_test.go::TestStartReportsAServerThatIsStillStarting",
+    "file": "internal/service/start_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/start_test.go::TestStartRefusesAnUnmetPrecondition",
+    "file": "internal/service/start_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/start_test.go::TestStartReportsASpawnFailure",
+    "file": "internal/service/start_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/start_test.go::TestStartHandsTheServerTheExactCommand",
+    "file": "internal/service/start_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/start_test.go::TestStartPrintsTheAnnouncedAddress",
+    "file": "internal/service/start_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/start_test.go::TestStartSaysNothingAboutAnAddressItDoesNotKnow",
+    "file": "internal/service/start_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/stop_test.go::TestStopClearsTheRecordOfARecycledPID",
+    "file": "internal/service/stop_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/stop_test.go::TestStopReportsALiveRecordWithoutStartedAt",
+    "file": "internal/service/stop_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/stop_test.go::TestRestartDoesNotStartASecondServerWhenTheStopFails",
+    "file": "internal/service/stop_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/stop_test.go::TestStopEndsAProcessThatDiesBeforeTheSignal",
+    "file": "internal/service/stop_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/stop_test.go::TestStopWarnsWhenTheGracefulSignalFails",
+    "file": "internal/service/stop_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/stop_test.go::TestStopFailsWhenTheForceSignalFails",
+    "file": "internal/service/stop_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/stop_test.go::TestStopClearsARecordThatDescribesNothing",
+    "file": "internal/service/stop_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/stop_test.go::TestStopTimesOutWhenTheTreeKeepsThePort",
+    "file": "internal/service/stop_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineReportsUpToDate",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineShowsTheWindowTagsAndElision",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineReportsDivergence",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineKeepsLocalStateWhenFetchFails",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineNamesTheDirtyWorktree",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineReportsWhenTheWorktreeCannotBeChecked",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelinePrintsTheHistoryNewestFirst",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineCapsTheHistorySection",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineWindowBoundary",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineNamesATagOnTheCurrentCommit",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineReportsACorruptHistory",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineTakesTheCurrentPositionFromGit",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineRefusesWhenOriginMasterIsMissing",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineRefusesACheckoutWithoutOrigin",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestTimelineRefusesAMissingCheckout",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestPrintTimelineRendersTheExactFormat",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/tolerance_test.go::TestTheFingerprintToleranceAbsorbsTheGranularityOfTheClock",
+    "file": "internal/service/tolerance_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestStopEndsTheRecordedServerBehindAStranger",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestStopSucceedsWhenAStrangerTakesThePort",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestStatusReportsALiveRecordAsNotStale",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestBuildRefusesWhileThisPortServes",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestBuildRefusesWhileAnotherPortsSurvivorServes",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestUpdateStopsARecordedServerThatNoLongerListens",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestDoctorAgreesWithStatusOnASurvivor",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestWebURLExplainsASurvivor",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestUpdateRefusesWhenItCannotVerifyTheRunningServer",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestStatusReportsARecycledRecordAsStaleEvenWithAStrangerOnThePort",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestAdoptSurvivorRefusesAListenerOutsideTheRecordedTree",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestStatusReportsPortReadiness",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/unified_test.go::TestStartRefusesWhenThePortProbeFails",
+    "file": "internal/service/unified_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateRefusesALocalBranchWithoutStopping",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateHEADIsANoOp",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateRefusesWhenTheWorktreeCannotBeChecked",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdatePrependsAManualPosition",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateLatestRefusesWithoutOrigin",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateANamedVersionWorksWithoutOrigin",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateNamesAShaTargetOnce",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateShortCircuitsWhenAlreadyAtTheTarget",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateSwitchesToATagWithoutMovingMaster",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateRefusesADirtyWorktreeWithoutStopping",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateRefusesAnUnknownVersionWithoutStopping",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateResolvesANamedVersionWithoutTheRemote",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateWarnsAboutATargetOutsideOrigin",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateKeepsDeployingWhenTheHistoryCannotBeWritten",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/update_test.go::TestUpdateRecordsTheMoveBeforeTheBuild",
+    "file": "internal/service/update_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/wrapper_test.go::TestStartAcrossAWrapperThatSpawns",
+    "file": "internal/service/wrapper_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/wrapper_test.go::TestStartRefusesWhenALiveRecordIsNotListening",
+    "file": "internal/service/wrapper_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/wrapper_test.go::TestStopEndsARecordedProcessThatNoLongerListens",
+    "file": "internal/service/wrapper_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/wrapper_test.go::TestStopRemovesARecordWhoseProcessIsGone",
+    "file": "internal/service/wrapper_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
     "test": "internal/state/recordread_unix_test.go::TestRecordBeingReplacedExcuseseNothing",
     "file": "internal/state/recordread_unix_test.go",
     "package": "internal/state",
@@ -7295,7 +7295,7 @@
     "package": "internal/output",
     "behavior": "",
     "disposition": "merged",
-    "evidence": "internal/kernel/emit_text_test.go::TestTextEmitterRendersEveryKind",
+    "evidence": "internal/service/emit_text_test.go::TestTextEmitterRendersEveryKind",
     "note": "output 包并入 app/cli 后由同一行为的测试接管"
   },
   {
@@ -7304,7 +7304,7 @@
     "package": "internal/output",
     "behavior": "",
     "disposition": "merged",
-    "evidence": "internal/kernel/emit_text_test.go::TestTextEmitterRendersEveryKind",
+    "evidence": "internal/service/emit_text_test.go::TestTextEmitterRendersEveryKind",
     "note": "output 包并入 app/cli 后由同一行为的测试接管"
   },
   {
@@ -7313,7 +7313,7 @@
     "package": "internal/output",
     "behavior": "",
     "disposition": "merged",
-    "evidence": "internal/kernel/emit_text_test.go::TestTextEmitterRendersEveryKind",
+    "evidence": "internal/service/emit_text_test.go::TestTextEmitterRendersEveryKind",
     "note": "output 包并入 app/cli 后由同一行为的测试接管"
   },
   {

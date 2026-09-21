@@ -16,7 +16,7 @@ description: 决定 dshctl 一次改动该跑哪些门禁（本地只跑快检�
 - 本地（快检）：`make fmt-check conventions vet`（改 `.github/` 加 `make workflow-check`），加受影响包的 `go test ./internal/<pkg>/ -count=1`；需要证明某条守卫会红、某个变异会被抓住时，只跑那一条（`-run NAME`、`python3 scripts/mutation-check.py --only NAME`）。
 - 本地不跑全量：`make check`、`make ci`、全量 `make test`、`make test-race`、`make mutation`、`make coverage`、`make hermetic`、`make cross` 覆盖的那些命令一律由 CI 执行（`../../../.github/workflows/ci.yml` 里逐条对应、由 `check-workflow.py` 校验一致），本地跑它们只是把 CI 的时间花两遍。
 - 改到哪类代码，就在 CI 上看哪个门禁的结论：改 `internal/nodejs` 或配置层决策看 `mutation` 与 `coverage`；改 `.github/` 本地跑 `make workflow-check`（静态检查，秒级），CI 的 hermetic job 也会再跑一遍；碰平台文件（`_unix`/`_windows`/`_darwin`/`_linux`/`_other`）看 `cross` 与三平台 `test`；改测试隔离或新增 skip 看 `hermetic`。CI 里没有对应 job 时，先补 workflow 再推（`dshctl-verify` 的"改门禁本身"）。
-- 为什么受影响的包绿了也要等 CI：跨包契约由测试钉住（如 `internal/kernel/contracts_test.go` 的三包路径契约），单包绿不代表契约没被别处踩坏；而且平台差异只有三平台矩阵能看见。
+- 为什么受影响的包绿了也要等 CI：跨包契约由测试钉住（如 `internal/service/contracts_test.go` 的三包路径契约），单包绿不代表契约没被别处踩坏；而且平台差异只有三平台矩阵能看见。
 
 ### 2. 让测试真的重新执行
 
@@ -27,7 +27,7 @@ description: 决定 dshctl 一次改动该跑哪些门禁（本地只跑快检�
 ### 3. 三个属性门禁各自断言什么
 
 - `make hermetic`（`../../../scripts/hermetic-check.sh`）：在一次性 HOME 里跑整套测试，并要求测试不在自己的临时目录之外留下任何东西。它红说明某个测试写了真实 HOME、真实状态目录或全局配置——这正是"测试不碰环境"从声明变成被检查属性的地方。
-- `make coverage`（`../../../scripts/check-coverage.py`）：`internal/nodejs` 是 100% 硬门禁（这个包决定长跑服务用哪个 Node 运行时），`internal/config`、`internal/kernel` 只报告不设阈值。给 nodejs 加分支必须同时加测试，否则 CI 直接红。
+- `make coverage`（`../../../scripts/check-coverage.py`）：`internal/nodejs` 是 100% 硬门禁（这个包决定长跑服务用哪个 Node 运行时），`internal/config`、`internal/service` 只报告不设阈值。给 nodejs 加分支必须同时加测试，否则 CI 直接红。
 - `make mutation`（`../../../scripts/mutation-check.py`）：逐条破坏 Node 与配置决策，要求测试失败。输出 `ALIVE`（没被发现）、`INVALID`（变异没编译，什么也没证明）、`BLOCKED`（工具链用不了构建缓存）都算失败。改这些决策必须让它跑（整套在 CI，本地只用 `--only` 证明单条），因为"测试通过"本身不能证明测试会注意到破坏。
 
 ### 4. CI 上额外跑什么

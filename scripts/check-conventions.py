@@ -77,9 +77,9 @@ AGENTS_SECTIONS = (
 #
 # The vertical order the front-ends see:
 #
-#   cmd/dshctl -> internal/cli -> internal/kernel -> internal/kernel?  (see below)
+#   cmd/dshctl -> internal/cli -> internal/service -> internal/service?  (see below)
 #
-# Today the engine and the commands share internal/kernel, and the model and the
+# Today the engine and the commands share internal/service, and the model and the
 # message catalog are the leaves every layer may use:
 #
 #   internal/domain  (the model: states, records, positions; no imports at all)
@@ -93,10 +93,10 @@ LAYERS = {
         "internal/exitcode",
         "internal/i18n",
         "internal/run",
-        "internal/kernel",
+        "internal/service",
         "internal/version",
     },
-    "internal/kernel": {
+    "internal/service": {
         "internal/config",
         "internal/detach",
         "internal/domain",
