@@ -27,7 +27,6 @@ import (
 	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
-	"github.com/rhczz/dshctl/internal/state"
 	"github.com/rhczz/dshctl/internal/version"
 )
 
@@ -725,7 +724,7 @@ func newFixture(t *testing.T) *fixture {
 		LogFile: logfile.New(logPath, settings.LogRotateBytes, logFormat),
 		Log:     logging.New(logfile.New(logPath, settings.LogRotateBytes, logFormat), logging.LevelInfo),
 		Emit:    TextEmitter{Out: out, Err: errOut},
-		Record:  state.Store{Path: settings.StateFile()},
+		Record:  recordStore(settings.StateFile()),
 		BuildInfo: version.Info{
 			Version: "test", Platform: "test/arch",
 			GoVersion: "go1.test", Module: "github.com/rhczz/dshctl",
@@ -1488,7 +1487,7 @@ func (f *fixture) run(t *testing.T, overrides config.Overrides) config.Settings 
 // ask them again for it. `New` wires the same two values, which is what keeps a
 // fixture and the service it stands for describing one machine.
 func (f *fixture) rebind() {
-	f.Record = state.Store{Path: f.Settings.StateFile()}
+	f.Record = recordStore(f.Settings.StateFile())
 	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes, logFormat)
 	f.Log = logging.New(f.LogFile, logging.LevelInfo)
 }

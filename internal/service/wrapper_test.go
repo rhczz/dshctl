@@ -51,7 +51,7 @@ setInterval(() => {}, 1000);
 
 	f.Spawn = nil
 	f.LookPath = run.LookPath
-	f.Host = host.NewWithLookPath(run.LookPath)
+	f.Host = host.NewWithLookPath(run.LookPath, hostTools)
 	// The real host answers a real child's start time, so this test keeps the
 	// production budget instead of the shortened one the fixture gives the
 	// fictional machine.

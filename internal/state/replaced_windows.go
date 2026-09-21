@@ -16,7 +16,7 @@ const errorSharingViolation = syscall.Errno(32)
 // recordBeingReplaced reports whether a failed read only means "the file was
 // being replaced just then": Windows refuses to read a file another handle is
 // replacing, and that answer is worth retrying rather than reporting.
-func recordBeingReplaced(err error) bool {
+func documentBeingReplaced(err error) bool {
 	return errors.Is(err, syscall.ERROR_ACCESS_DENIED) ||
 		errors.Is(err, errorSharingViolation)
 }

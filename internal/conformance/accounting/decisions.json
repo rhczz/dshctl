@@ -591,6 +591,25 @@
     "status": "ported"
   },
   {
+    "name": "the product trusts netstat before the tools that name the owner",
+    "old_path": "internal/service/hosttools.go",
+    "packages": [
+      "./internal/host/",
+      "./internal/service/"
+    ],
+    "new_path": "internal/service/hosttools.go",
+    "status": "ported"
+  },
+  {
+    "name": "the record store forgets the bound the product gave it",
+    "old_path": "internal/service/records.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": "internal/service/records.go",
+    "status": "ported"
+  },
+  {
     "name": "the log markers stop naming the product that wrote them",
     "old_path": "internal/service/logformat.go",
     "packages": [

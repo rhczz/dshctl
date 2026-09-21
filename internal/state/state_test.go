@@ -11,9 +11,9 @@ import (
 )
 
 // store returns a store over a fresh file.
-func store(t *testing.T) Store {
+func store(t *testing.T) Store[testDoc] {
 	t.Helper()
-	return Store{Path: filepath.Join(t.TempDir(), "dsh-web.state.json")}
+	return testStore(filepath.Join(t.TempDir(), "dsh-web.state.json"))
 }
 
 // TestRoundTrip pins that a saved record reads back unchanged.
@@ -25,7 +25,7 @@ func store(t *testing.T) Store {
 // a later command describe the instance instead of the configuration.
 func TestRoundTrip(t *testing.T) {
 	box := store(t)
-	record := domain.Record{
+	record := testDoc{
 		PID:         4242,
 		StartedAt:   1_700_000_000,
 		Port:        3080,
@@ -34,7 +34,7 @@ func TestRoundTrip(t *testing.T) {
 		NodeVersion: "24.20.0",
 		NodePath:    "/opt/node/bin/node",
 		RepoDir:     "/srv/deepseek-harness",
-		Phase:       domain.PhaseRunning,
+		Phase:       testPhaseRunning,
 	}
 	if err := box.Save(record); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -77,7 +77,7 @@ func TestARecordFromOlderBuildOmitsTheCheckout(t *testing.T) {
 	if loaded.RepoDir != "" || loaded.NodeVersion != "" || loaded.NodePath != "" {
 		t.Fatalf("loaded = %+v, want the fields the older build never wrote to read as unknown", loaded)
 	}
-	if loaded.PID != 4242 || loaded.Port != 3080 || loaded.Phase != domain.PhaseRunning {
+	if loaded.PID != 4242 || loaded.Port != 3080 || loaded.Phase != testPhaseRunning {
 		t.Fatalf("loaded = %+v, want every field it does carry", loaded)
 	}
 }
@@ -87,7 +87,7 @@ func TestARecordFromOlderBuildOmitsTheCheckout(t *testing.T) {
 // absent fact for an empty string that was saved.
 func TestSaveKeepsEveryOptionalFieldOutWhenEmpty(t *testing.T) {
 	box := store(t)
-	if err := box.Save(domain.Record{PID: 4242, StartedAt: 1_700_000_000, Port: 3080, Phase: domain.PhaseRunning}); err != nil {
+	if err := box.Save(testDoc{PID: 4242, StartedAt: 1_700_000_000, Port: 3080, Phase: testPhaseRunning}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	data, err := os.ReadFile(box.Path)
@@ -180,7 +180,7 @@ func TestLoadAcceptsUnknownFields(t *testing.T) {
 	if !ok {
 		t.Fatal("a record with unknown fields must still be readable")
 	}
-	if record.PID != 4242 || record.Port != 3080 || record.Phase != domain.PhaseRunning {
+	if record.PID != 4242 || record.Port != 3080 || record.Phase != testPhaseRunning {
 		t.Fatalf("record = %+v, want the fields this build knows", record)
 	}
 	if record.URL != "http://127.0.0.1:3080/?token=x" {
@@ -191,7 +191,7 @@ func TestLoadAcceptsUnknownFields(t *testing.T) {
 // TestLoadRejectsAnOversizedRecord pins the read bound.
 func TestLoadRejectsAnOversizedRecord(t *testing.T) {
 	box := store(t)
-	padding := strings.Repeat("x", maxRecordBytes+1)
+	padding := strings.Repeat("x", maxTestBytes+1)
 	content := `{"pid": 1, "port": 1, "phase": "running", "note": "` + padding + `"}`
 	if err := os.WriteFile(box.Path, []byte(content), 0o600); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -232,10 +232,10 @@ func TestLoadAndRemoveHandleResidueAtTheRecordPath(t *testing.T) {
 // the disk, where a later stop could read it.
 func TestSaveRefusesAUsableButMeaninglessRecord(t *testing.T) {
 	box := store(t)
-	if err := box.Save(domain.Record{PID: 0, Port: 3080}); err == nil {
+	if err := box.Save(testDoc{PID: 0, Port: 3080}); err == nil {
 		t.Fatal("saving a zero pid must fail")
 	}
-	if err := box.Save(domain.Record{PID: -1, Port: 3080}); err == nil {
+	if err := box.Save(testDoc{PID: -1, Port: 3080}); err == nil {
 		t.Fatal("saving a negative pid must fail")
 	}
 	_, ok, err := box.Load()
@@ -247,10 +247,10 @@ func TestSaveRefusesAUsableButMeaninglessRecord(t *testing.T) {
 // TestSaveReplacesAtomically pins that a reader never sees a partial document.
 func TestSaveReplacesAtomically(t *testing.T) {
 	box := store(t)
-	if err := box.Save(domain.Record{PID: 1, Port: 1, Phase: domain.PhaseRunning}); err != nil {
+	if err := box.Save(testDoc{PID: 1, Port: 1, Phase: testPhaseRunning}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
-	if err := box.Save(domain.Record{PID: 2, Port: 1, Phase: domain.PhaseRunning, URL: "http://x"}); err != nil {
+	if err := box.Save(testDoc{PID: 2, Port: 1, Phase: testPhaseRunning, URL: "http://x"}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	data, err := os.ReadFile(box.Path)
@@ -261,7 +261,7 @@ func TestSaveReplacesAtomically(t *testing.T) {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("the file is not a complete document: %v\n%s", err, data)
 	}
-	if decoded.PID != 2 || decoded.Phase != domain.PhaseRunning || decoded.URL != "http://x" {
+	if decoded.PID != 2 || decoded.Phase != testPhaseRunning || decoded.URL != "http://x" {
 		t.Fatalf("decoded = %+v, want the second record", decoded)
 	}
 	// No temporary files may be left behind.
@@ -282,7 +282,7 @@ func TestRemove(t *testing.T) {
 	if err := box.Remove(); err != nil {
 		t.Fatalf("removing a missing record must not fail: %v", err)
 	}
-	if err := box.Save(domain.Record{PID: 7, Port: 1, Phase: domain.PhaseRunning}); err != nil {
+	if err := box.Save(testDoc{PID: 7, Port: 1, Phase: testPhaseRunning}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	if err := box.Remove(); err != nil {

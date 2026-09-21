@@ -2556,6 +2556,24 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/host/probe_test.go::TestTheInventoryOrderDecidesWhichProbeAnswers",
+    "file": "internal/host/probe_test.go",
+    "package": "internal/host",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "机制按调用方给的顺序探测",
+    "note": ""
+  },
+  {
+    "test": "internal/host/probe_test.go::TestAnUnknownProbeNameIsReportedNotSkipped",
+    "file": "internal/host/probe_test.go",
+    "package": "internal/host",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "配置里读不懂的工具名按探测失败上报",
+    "note": ""
+  },
+  {
     "test": "internal/host/probe_unix_fuzz_test.go::FuzzParseSSPIDOnlyAnswersWhatTheLineSays",
     "file": "internal/host/probe_unix_fuzz_test.go",
     "package": "internal/host",
@@ -5328,6 +5346,15 @@
     "note": "随包从 internal/service 迁移到 internal/service，行为未变"
   },
   {
+    "test": "internal/service/hosttools_test.go::TestTheProbeInventoryTrustsTheToolThatNamesOwners",
+    "file": "internal/service/hosttools_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "产品把能说出归属的工具排在前面",
+    "note": ""
+  },
+  {
     "test": "internal/service/lifecycle_test.go::TestStartRefusesAForeignListener",
     "file": "internal/service/lifecycle_test.go",
     "package": "internal/service",
@@ -7137,15 +7164,6 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
-    "test": "internal/state/state_extra_test.go::TestDescribeAnEmptyRecord",
-    "file": "internal/state/state_extra_test.go",
-    "package": "internal/state",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "重写后仍在树中，钉住同一行为"
-  },
-  {
     "test": "internal/state/state_extra_test.go::TestLoadAcceptsPartialRecords",
     "file": "internal/state/state_extra_test.go",
     "package": "internal/state",
@@ -7324,6 +7342,15 @@
     "disposition": "new-test",
     "evidence": "version --json 带上编译工具链与 module",
     "note": ""
+  },
+  {
+    "test": "internal/state/state_extra_test.go::TestDescribeAnEmptyRecord",
+    "file": "internal/state/state_extra_test.go",
+    "package": "internal/state",
+    "behavior": "",
+    "disposition": "merged",
+    "evidence": "internal/domain/record_test.go::TestDescribe",
+    "note": "模型渲染的测试随 Record 搬到 domain"
   },
   {
     "test": "internal/i18n/i18n_test.go::TestCatalogIsComplete",

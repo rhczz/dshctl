@@ -483,6 +483,20 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         ["./internal/i18n/"],
     ),
     (
+        "the product trusts netstat before the tools that name the owner",
+        "internal/service/hosttools.go",
+        '\tPort:    []string{"lsof", "ss", "netstat"},',
+        '\tPort:    []string{"netstat", "ss", "lsof"},',
+        ["./internal/host/", "./internal/service/"],
+    ),
+    (
+        "the record store forgets the bound the product gave it",
+        "internal/service/records.go",
+        "\t\tMaxBytes: maxRecordBytes,",
+        "\t\tMaxBytes: 0,",
+        ["./internal/service/"],
+    ),
+    (
         "the log markers stop naming the product that wrote them",
         "internal/service/logformat.go",
         '\tProduct: "dshctl",',

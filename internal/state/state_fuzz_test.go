@@ -1,7 +1,6 @@
 package state
 
 import (
-	"github.com/rhczz/dshctl/internal/domain"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,7 +41,7 @@ func FuzzLoadRecordIsEitherCorruptOrUsable(f *testing.F) {
 			t.Fatalf("seed the record: %v", err)
 		}
 
-		record, ok, err := Store{Path: path}.Load()
+		record, ok, err := testStore(path).Load()
 		if err != nil {
 			// A rejection must say what is wrong; the class is what callers
 			// branch on, and a corrupt record must be recognizable as such.
@@ -89,13 +88,13 @@ func FuzzSaveLoadRoundTrip(f *testing.F) {
 				return
 			}
 		}
-		store := Store{Path: filepath.Join(t.TempDir(), "dsh-web-3080.state.json")}
-		saved := domain.Record{
+		store := testStore(filepath.Join(t.TempDir(), "dsh-web-3080.state.json"))
+		saved := testDoc{
 			PID:         pid,
 			SpawnedPID:  spawnedPID,
 			StartedAt:   startedAt,
 			Port:        port,
-			Phase:       domain.Phase(phase),
+			Phase:       phase,
 			URL:         url,
 			NodeVersion: nodeVersion,
 			NodePath:    nodePath,

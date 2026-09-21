@@ -40,8 +40,8 @@
   消息目录归各层；`logging` 只管"写到日志文件"，格式仍由 `logfile` 承担。
 - 已提取：`logfile` 的标记形状（`Format{Prefix, Product, Layout}`，产品值在
   `internal/service/logformat.go`）；`logging` 只认识"写进日志文件"。
-- 待提取（清单见 reference，逐项独立提交）：
-  `state` 的文件名模式与上限、`host` 的工具清单、`paths` 的机制/产品值标注。
+- 已提取：`state` 的 `Store[T]`（机制）与服务层的 `recordStore`（产品值：上限、校验、时间戳）。
+- 待提取（清单见 reference，逐项独立提交）：`host` 的工具清单、`paths` 的机制/产品值标注。
 - 每项提取的验收方式相同：机制包的测试用一个**测试自有的**格式/类型跑通，
   产品值的测试留在资源层并配 `MUTATIONS` 锚点，金标证明对外字节不变。
 

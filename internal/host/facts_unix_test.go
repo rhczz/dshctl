@@ -27,7 +27,7 @@ func stubTool(t *testing.T, dir, name, output string) string {
 // TestInspectRejectsImpossiblePIDs pins that a nonsense pid never reaches the
 // kernel and never appears alive.
 func TestInspectRejectsImpossiblePIDs(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	for _, pid := range []int{0, -1} {
 		facts := host.Inspect(context.Background(), pid)
 		if facts.Alive {
@@ -44,7 +44,7 @@ func TestInspectRejectsImpossiblePIDs(t *testing.T) {
 
 // TestAliveReportsThisProcess pins the existence probe.
 func TestAliveReportsThisProcess(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	if !host.Alive(context.Background(), os.Getpid()) {
 		t.Fatal("this process must be reported as alive")
 	}
@@ -65,7 +65,7 @@ func TestAliveReportsThisProcess(t *testing.T) {
 // here: where the signal is accepted instead, the same expression answers true
 // through its other branch, so the assertion holds for every runner.
 func TestAliveTreatsAPermissionRefusedSignalAsExistence(t *testing.T) {
-	if !New().Alive(context.Background(), 1) {
+	if !New(testTools).Alive(context.Background(), 1) {
 		t.Fatal("Alive(1) reported pid 1 as gone: a permission refusal (EPERM, the answer a non-root runner gets) is evidence that the process exists")
 	}
 }
@@ -73,7 +73,7 @@ func TestAliveTreatsAPermissionRefusedSignalAsExistence(t *testing.T) {
 // TestSignalRejectsNonsense pins that no signal is ever aimed at pid 0, which
 // would mean "every process in the group".
 func TestSignalRejectsNonsense(t *testing.T) {
-	if err := New().Signal(0, Force); err == nil {
+	if err := New(testTools).Signal(0, Force); err == nil {
 		t.Fatal("Signal(0) must be refused")
 	}
 }
@@ -89,7 +89,7 @@ func TestInspectNeverReportsAProcessAsGoneWhenItCannotLook(t *testing.T) {
 	if err := os.WriteFile(ps, []byte("#!/bin/sh\necho 00:01 node\n"), 0o644); err != nil {
 		t.Fatalf("write ps: %v", err)
 	}
-	host := &Host{lookPath: func(name string) (string, error) {
+	host := &Host{tools: testTools, lookPath: func(name string) (string, error) {
 		if name == "ps" {
 			return ps, nil
 		}

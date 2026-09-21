@@ -1,19 +1,17 @@
-// Package state stores the runtime records of the Web servers dshctl started:
-// one file per port, so one state directory can manage several of them.
+// Package state stores one small JSON document under strict rules.
 //
-// The record exists to answer one question without ever guessing: "is this pid
-// still the process I started?" A bare pid cannot answer it, because an
-// operating system recycles pids and every check-then-signal sequence is a race.
-// The record therefore carries the process start time as a fingerprint: a pid
-// whose start time differs from the recorded one describes a different process,
-// and dshctl treats it as stale rather than as its own server.
+// It is a mechanism, not a record format. What the document means — the fields,
+// the identity a pid and a start time describe, the file name it lives under —
+// belongs to the layer that owns that contract; this package knows how to read
+// and write it so that a reader never sees a half-written document and a
+// document nobody can understand is reported rather than guessed at.
 //
-// The rules for this file are the strict ones, and they differ from the config
-// file on purpose: the record is written and read only by dshctl, so anything
-// that is not a regular file of record size — a symlink, a directory, a device —
-// is residue to be cleared rather than followed. A configuration file belongs to
-// the operator, who may legitimately keep it behind a symlink; it is read with
-// those rules instead (see internal/config).
+// The rules are the strict ones, and they differ from the config file on
+// purpose: these documents are written and read only by the program, so anything
+// that is not a regular file of the bounded size — a symlink, a directory, a
+// device — is residue to be cleared rather than followed. A configuration file
+// belongs to the operator, who may legitimately keep it behind a symlink; it is
+// read with those rules instead (see internal/config).
 package state
 
 import (
@@ -27,135 +25,158 @@ import (
 	"time"
 
 	"github.com/rhczz/dshctl/internal/atomically"
-	"github.com/rhczz/dshctl/internal/domain"
 )
 
-// ErrCorrupt reports a record that exists but cannot be understood. Callers
-// treat it as "there is nothing usable here", never as "the server is gone".
-var ErrCorrupt = errors.New("运行记录无法解析")
+// ErrCorrupt reports a document that exists but cannot be understood. Callers
+// treat it as "there is nothing usable here", never as "there is nothing here".
+var ErrCorrupt = errors.New("文档无法解析")
 
-// maxRecordBytes bounds the record file. A record is a handful of fields; a file
-// larger than this is not one, and reading it whole would be a way to make a
-// reporting command allocate without limit.
-const maxRecordBytes = 64 << 10
+// documentPermission is the mode a stored document gets.
+//
+// The store exists for state the program keeps to itself — a record of what it
+// started, where it moved a tree — so the documents are private by
+// construction rather than by asking every caller to remember.
+const documentPermission = 0o600
 
-// Store reads and writes the record inside the state directory.
-type Store struct {
-	// Path is the record file location.
+// Store reads and writes one JSON document of type T.
+//
+// T is the caller's: the layer that owns the document's meaning also owns its
+// shape, its bounds and its rules. The store owns only the mechanism — atomic
+// replacement, the size bound, the strict read — so the same code stores a
+// runtime record, a position stack, or a document that does not exist yet.
+type Store[T any] struct {
+	// Path is the document's location.
 	Path string
+	// MaxBytes bounds the document. A larger file is not one of these
+	// documents, and reading it whole would be a way to make a reporting command
+	// allocate without limit.
+	MaxBytes int64
+	// Validate applies the caller's rule for a usable document, or nil when any
+	// decoded value is usable. It runs on read and before a write, so a document
+	// that could not be written is also not read back as one.
+	Validate func(T) error
+	// Stamp, when set, is applied to the value before it is written: a document
+	// that carries its own timestamp leaves the clock to the caller.
+	Stamp func(*T)
 }
 
-// Load reads the record.
+// Load reads the document.
 //
 // Returns:
-//   - the record, and true when one was read successfully.
-//   - false and a nil error when no record exists.
-//   - ErrCorrupt (wrapped) when the file exists but cannot be decoded.
-func (s Store) Load() (domain.Record, bool, error) {
+//   - the value, and true when one was read successfully.
+//   - the zero value and false, with a nil error, when no document exists.
+//   - ErrCorrupt (wrapped) when the file exists but cannot be understood.
+func (s Store[T]) Load() (T, bool, error) {
+	var zero T
 	info, err := os.Lstat(s.Path)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
-		return domain.Record{}, false, nil
+		return zero, false, nil
 	case err != nil:
-		return domain.Record{}, false, fmt.Errorf("无法读取运行记录 %s: %w", s.Path, err)
+		return zero, false, fmt.Errorf("无法读取文档 %s: %w", s.Path, err)
 	case !info.Mode().IsRegular():
-		// A directory or device at the record path is residue, not a record. It
-		// is reported as corrupt so the caller can clear it; reading it would
+		// A directory or device at the path is residue, not a document. It is
+		// reported as corrupt so the caller can clear it; reading it would
 		// either fail forever or follow something outside the state directory.
-		return domain.Record{}, false, fmt.Errorf("%w: %s 不是普通文件", ErrCorrupt, s.Path)
-	case info.Size() > maxRecordBytes:
-		return domain.Record{}, false, fmt.Errorf("%w: %s 过大 (%d 字节)", ErrCorrupt, s.Path, info.Size())
+		return zero, false, fmt.Errorf("%w: %s 不是普通文件", ErrCorrupt, s.Path)
+	case info.Size() > s.MaxBytes:
+		return zero, false, fmt.Errorf("%w: %s 过大 (%d 字节)", ErrCorrupt, s.Path, info.Size())
 	}
 
-	data, err := readRecordFile(s.Path)
+	data, err := readDocumentFile(s.Path)
 	if err != nil {
-		return domain.Record{}, false, fmt.Errorf("无法读取运行记录 %s: %w", s.Path, err)
+		return zero, false, fmt.Errorf("无法读取文档 %s: %w", s.Path, err)
 	}
 	if len(bytes.TrimSpace(data)) == 0 {
-		return domain.Record{}, false, fmt.Errorf("%w: %s 内容为空", ErrCorrupt, s.Path)
+		return zero, false, fmt.Errorf("%w: %s 内容为空", ErrCorrupt, s.Path)
 	}
 
-	// Unknown fields are accepted on purpose. The record is written by one build
-	// of dshctl and read by another — after an upgrade, a downgrade, or when two
+	// Unknown fields are accepted on purpose. A document is written by one build
+	// and read by another — after an upgrade, a downgrade, or when two
 	// installations share a home directory — so a field this build does not know
 	// is normal, not corruption. Refusing it made `stop` delete the only pointer
 	// to a running server and report success while the server kept serving.
-	var record domain.Record
+	var value T
 	decoder := json.NewDecoder(bytes.NewReader(data))
-	if err := decoder.Decode(&record); err != nil {
-		return domain.Record{}, false, fmt.Errorf("%w: %s: %v", ErrCorrupt, s.Path, err)
+	if err := decoder.Decode(&value); err != nil {
+		return zero, false, fmt.Errorf("%w: %s: %v", ErrCorrupt, s.Path, err)
 	}
-	// Exactly one document: trailing content means the file is not the record
-	// this build wrote.
+	// Exactly one document: trailing content means the file is not one of these.
 	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
-		return domain.Record{}, false, fmt.Errorf("%w: %s 在记录之后还有内容", ErrCorrupt, s.Path)
+		return zero, false, fmt.Errorf("%w: %s 在文档之后还有内容", ErrCorrupt, s.Path)
 	}
-	if record.PID <= 0 {
-		return domain.Record{}, false, fmt.Errorf("%w: %s 记录的 pid 无效: %d", ErrCorrupt, s.Path, record.PID)
+	if s.Validate != nil {
+		if err := s.Validate(value); err != nil {
+			return zero, false, fmt.Errorf("%w: %s: %v", ErrCorrupt, s.Path, err)
+		}
 	}
-	return record, true, nil
+	return value, true, nil
 }
 
-// recordReadRetryWindow bounds how long a read keeps trying while the operating
-// system reports that the file is being replaced.
-const recordReadRetryWindow = 250 * time.Millisecond
+// documentReadRetryWindow bounds how long a read keeps trying while the
+// operating system reports that the file is being replaced.
+const documentReadRetryWindow = 250 * time.Millisecond
 
-// recordReadRetryDelay is the pause between two attempts.
-const recordReadRetryDelay = 10 * time.Millisecond
+// documentReadRetryDelay is the pause between two attempts.
+const documentReadRetryDelay = 10 * time.Millisecond
 
-// readRecordFile reads the record, retrying briefly while the platform says the
-// file is being replaced.
+// readDocumentFile reads the document, retrying briefly while the platform says
+// the file is being replaced.
 //
-// A record is written by replacing it, and Windows refuses a read of a file that
-// another handle is replacing ("being used by another process"). A `status` that
-// ran at that instant would report that it could not read a record that is
+// A document is written by replacing it, and Windows refuses a read of a file
+// that another handle is replacing ("being used by another process"). A report
+// that ran at that instant would say it could not read a document that is
 // perfectly readable a millisecond later, which turns a routine race into a
 // failure. Only that answer is retried: a missing file, a corrupt document or a
 // permission problem is reported as it is, on the first attempt.
-func readRecordFile(path string) ([]byte, error) {
-	deadline := time.Now().Add(recordReadRetryWindow)
+func readDocumentFile(path string) ([]byte, error) {
+	deadline := time.Now().Add(documentReadRetryWindow)
 	for {
 		data, err := os.ReadFile(path)
-		if err == nil || !recordBeingReplaced(err) || time.Now().After(deadline) {
+		if err == nil || !documentBeingReplaced(err) || time.Now().After(deadline) {
 			return data, err
 		}
-		time.Sleep(recordReadRetryDelay)
+		time.Sleep(documentReadRetryDelay)
 	}
 }
 
-// Save writes the record atomically, stamping UpdatedAt.
-func (s Store) Save(record domain.Record) error {
-	record.UpdatedAt = time.Now().Unix()
-	if record.PID <= 0 {
-		return fmt.Errorf("拒绝写入 pid 无效的运行记录: %d", record.PID)
+// Save writes the document atomically.
+func (s Store[T]) Save(value T) error {
+	if s.Stamp != nil {
+		s.Stamp(&value)
 	}
-	data, err := json.MarshalIndent(record, "", "  ")
+	if s.Validate != nil {
+		if err := s.Validate(value); err != nil {
+			return fmt.Errorf("拒绝写入无效的文档: %w", err)
+		}
+	}
+	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
-		return fmt.Errorf("无法序列化运行记录: %w", err)
+		return fmt.Errorf("无法序列化文档: %w", err)
 	}
-	return atomically.WriteFile(s.Path, append(data, '\n'), 0o600)
+	return atomically.WriteFile(s.Path, append(data, '\n'), documentPermission)
 }
 
-// Remove deletes the record; a missing file is not an error.
+// Remove deletes the document; a missing file is not an error.
 //
 // A directory or other non-regular residue at the path is removed as well: the
 // state directory is disposable by design, and such residue would otherwise make
 // every later read fail the same way forever.
-func (s Store) Remove() error {
+func (s Store[T]) Remove() error {
 	info, err := os.Lstat(s.Path)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return nil
 	case err != nil:
-		return fmt.Errorf("无法检查运行记录 %s: %w", s.Path, err)
+		return fmt.Errorf("无法检查文档 %s: %w", s.Path, err)
 	case info.IsDir():
 		if err := os.RemoveAll(s.Path); err != nil {
-			return fmt.Errorf("无法清理运行记录路径上的残留 %s: %w", s.Path, err)
+			return fmt.Errorf("无法清理文档路径上的残留 %s: %w", s.Path, err)
 		}
 		return nil
 	}
 	if err := os.Remove(s.Path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("无法删除运行记录 %s: %w", s.Path, err)
+		return fmt.Errorf("无法删除文档 %s: %w", s.Path, err)
 	}
 	return nil
 }

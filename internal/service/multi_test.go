@@ -13,7 +13,6 @@ import (
 	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/host"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // The tests in this file pin the multi-instance model: one state directory
@@ -58,7 +57,7 @@ func TestMovingTheFixturePortMovesItsRecordStore(t *testing.T) {
 // start would have written it.
 func saveRecordFor(t *testing.T, f *fixture, record domain.Record) {
 	t.Helper()
-	store := state.Store{Path: filepath.Join(f.state, recordFileName(t, record.Port))}
+	store := recordStore(filepath.Join(f.state, recordFileName(t, record.Port)))
 	if err := store.Save(record); err != nil {
 		t.Fatalf("save the record for port %d: %v", record.Port, err)
 	}

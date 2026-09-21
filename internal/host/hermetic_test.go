@@ -25,7 +25,7 @@ func TestInspectionDoesNotDisturbTheProcess(t *testing.T) {
 	// helper registers the kill that ends it, so nothing survives the test.
 	command := startBlockingChild(t)
 	pid := command.Process.Pid
-	facts := New().Inspect(context.Background(), pid)
+	facts := New(testTools).Inspect(context.Background(), pid)
 	if facts.PID != pid {
 		t.Fatalf("Inspect(%d).PID = %d, want the process that was asked about", pid, facts.PID)
 	}
@@ -44,7 +44,7 @@ func TestInspectionDoesNotDisturbTheProcess(t *testing.T) {
 		t.Fatalf("inspecting pid %d ended or stopped the child: status %v, signal %v", pid, status, status.Signal())
 	}
 
-	host := New()
+	host := New(testTools)
 	// Inspecting a pid that exists must not change its state.
 	facts = host.Inspect(context.Background(), os.Getpid())
 	if !facts.Alive {

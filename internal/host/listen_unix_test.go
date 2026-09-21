@@ -12,7 +12,7 @@ import (
 // the tool's argument vector and the pid it reports are pinned against the real
 // lsof rather than against a stub that answers whatever it is told.
 func TestLsofNamesTheSocketThisProcessHolds(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	if _, ok := host.tool("lsof"); !ok {
 		t.Skip("lsof is unavailable, so the lsof probe has nothing to ask")
 	}
@@ -35,7 +35,7 @@ func TestLsofNamesTheSocketThisProcessHolds(t *testing.T) {
 // still refuses to end the chain with "free", because an unprivileged lsof omits
 // sockets it cannot attribute to a process.
 func TestLsofDeclinesAFreePort(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	if _, ok := host.tool("lsof"); !ok {
 		t.Skip("lsof is unavailable, so the lsof probe has nothing to ask")
 	}
@@ -68,7 +68,7 @@ func TestLsofDeclinesAFreePort(t *testing.T) {
 // that keeps that harmless is the one asserted here: status 1 is declined, so a
 // probe that reads the whole table still gets to speak.
 func TestLsofDeclinesAnUnusableSelector(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	if _, ok := host.tool("lsof"); !ok {
 		t.Skip("lsof is unavailable, so the lsof probe has nothing to ask")
 	}

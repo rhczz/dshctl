@@ -10,7 +10,6 @@ import (
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/run"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // RunBuild installs nothing: it removes stale residue and runs the repository's
@@ -140,7 +139,7 @@ func (s *Service) otherPortsServing(ctx context.Context) (servingPorts, error) {
 	}
 	var serving servingPorts
 	for _, path := range matches {
-		stored := state.Store{Path: path}
+		stored := recordStore(path)
 		record, ok, err := stored.Load()
 		if err != nil || !ok || record.Port == s.Settings.Port {
 			continue

@@ -22,7 +22,7 @@ func TestListeningFindsThisProcess(t *testing.T) {
 	defer listener.Close()
 	port := listener.Addr().(*net.TCPAddr).Port
 
-	result, err := New().Listening(context.Background(), port)
+	result, err := New(testTools).Listening(context.Background(), port)
 	if err != nil {
 		t.Fatalf("Listening: %v", err)
 	}
@@ -49,7 +49,7 @@ func TestListeningReportsAFreePort(t *testing.T) {
 		if err := listener.Close(); err != nil {
 			t.Fatalf("close: %v", err)
 		}
-		result, err := New().Listening(context.Background(), port)
+		result, err := New(testTools).Listening(context.Background(), port)
 		if err != nil {
 			t.Fatalf("Listening: %v", err)
 		}
@@ -63,7 +63,7 @@ func TestListeningReportsAFreePort(t *testing.T) {
 
 // TestInspectReportsThisProcess pins the process facts Windows can answer.
 func TestInspectReportsThisProcess(t *testing.T) {
-	facts := New().Inspect(context.Background(), os.Getpid())
+	facts := New(testTools).Inspect(context.Background(), os.Getpid())
 	if !facts.Alive {
 		t.Fatal("this process must be reported as alive")
 	}
@@ -77,7 +77,7 @@ func TestInspectReportsThisProcess(t *testing.T) {
 
 // TestAliveRejectsNonsense pins that impossible pids never reach the API.
 func TestAliveRejectsNonsense(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	for _, pid := range []int{0, -1} {
 		if host.Alive(context.Background(), pid) {
 			t.Fatalf("Alive(%d) = true", pid)
@@ -106,7 +106,7 @@ func TestSignalEndsARealChild(t *testing.T) {
 	}
 	defer func() { _ = command.Wait() }()
 
-	host := New()
+	host := New(testTools)
 	pid := command.Process.Pid
 	if !host.Alive(context.Background(), pid) {
 		t.Fatal("the child is not reported as alive before the signal")
@@ -135,7 +135,7 @@ func TestGroupExistsTracksTheRootProcess(t *testing.T) {
 	if err := command.Start(); err != nil {
 		t.Fatalf("start child: %v", err)
 	}
-	host := New()
+	host := New(testTools)
 	pid := command.Process.Pid
 	if !host.GroupExists(pid) {
 		t.Fatal("a live root process must count as an existing tree")
@@ -166,7 +166,7 @@ func TestListeningFindsAnIPv6OnlyListener(t *testing.T) {
 	defer listener.Close()
 	port := listener.Addr().(*net.TCPAddr).Port
 
-	result, err := New().Listening(context.Background(), port)
+	result, err := New(testTools).Listening(context.Background(), port)
 	if err != nil {
 		t.Fatalf("Listening: %v", err)
 	}

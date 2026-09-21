@@ -6,9 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/rhczz/dshctl/internal/domain"
 )
 
 // recordJSON is a complete record that Load accepts, used where a test needs a
@@ -29,7 +26,7 @@ func TestLoadRejectsASymlinkAtTheRecordPath(t *testing.T) {
 	if err := os.WriteFile(target, []byte(recordJSON), 0o600); err != nil {
 		t.Fatalf("seed target: %v", err)
 	}
-	box := Store{Path: filepath.Join(root, "dsh-web.state.json")}
+	box := testStore(filepath.Join(root, "dsh-web.state.json"))
 	if err := os.Symlink(target, box.Path); err != nil {
 		t.Skipf("symlinks are unavailable: %v", err)
 	}
@@ -60,7 +57,7 @@ func TestRemoveUnlinksASymlinkInsteadOfItsTarget(t *testing.T) {
 	if err := os.WriteFile(target, []byte(recordJSON), 0o600); err != nil {
 		t.Fatalf("seed target: %v", err)
 	}
-	box := Store{Path: filepath.Join(root, "dsh-web.state.json")}
+	box := testStore(filepath.Join(root, "dsh-web.state.json"))
 	if err := os.Symlink(target, box.Path); err != nil {
 		t.Skipf("symlinks are unavailable: %v", err)
 	}
@@ -125,9 +122,9 @@ func TestSaveReportsAFileInPlaceOfItsDirectory(t *testing.T) {
 	if err := os.WriteFile(parent, []byte("not a directory"), 0o600); err != nil {
 		t.Fatalf("seed file: %v", err)
 	}
-	box := Store{Path: filepath.Join(parent, "dsh-web.state.json")}
+	box := testStore(filepath.Join(parent, "dsh-web.state.json"))
 
-	err := box.Save(domain.Record{PID: 4242, Port: 3080, Phase: domain.PhaseRunning})
+	err := box.Save(testDoc{PID: 4242, Port: 3080, Phase: testPhaseRunning})
 	if err == nil {
 		t.Fatal("Save must fail when its directory is a file")
 	}
@@ -155,7 +152,7 @@ func TestRemoveReportsARecordItCannotDelete(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	box := Store{Path: filepath.Join(dir, "dsh-web.state.json")}
+	box := testStore(filepath.Join(dir, "dsh-web.state.json"))
 	if err := os.WriteFile(box.Path, []byte(recordJSON), 0o600); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -172,60 +169,36 @@ func TestRemoveReportsARecordItCannotDelete(t *testing.T) {
 	}
 }
 
-// TestDescribeAnEmptyRecord pins the diagnostic line for a record that was
-// never filled in.
-
-// TestLoadAcceptsPartialRecords pins which fields the loader insists on.
-//
-
-func TestDescribeAnEmptyRecord(t *testing.T) {
-	// The rendering of the epoch depends on the process time zone, so it is
-	// pinned here instead of depending on the machine's.
-	previous := time.Local
-	time.Local = time.UTC
-	t.Cleanup(func() { time.Local = previous })
-
-	text := domain.Record{PID: 7}.Describe()
-	for _, want := range []string{"pid=7", "started=1970-01-01T00:00:00Z", "port=0", "phase="} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("Describe = %q, missing %q", text, want)
-		}
-	}
-	if strings.Contains(text, "url=") {
-		t.Fatalf("Describe = %q, want no url for a record without one", text)
-	}
-}
-
 func TestLoadAcceptsPartialRecords(t *testing.T) {
 	cases := []struct {
 		name    string
 		content string
-		want    domain.Record
+		want    testDoc
 	}{
 		{
 			"port zero",
 			`{"pid": 7, "startedAt": 1700000000, "port": 0, "phase": "running"}`,
-			domain.Record{PID: 7, StartedAt: 1_700_000_000, Phase: domain.PhaseRunning},
+			testDoc{PID: 7, StartedAt: 1_700_000_000, Phase: testPhaseRunning},
 		},
 		{
 			"negative port",
 			`{"pid": 7, "startedAt": 1700000000, "port": -1, "phase": "running"}`,
-			domain.Record{PID: 7, StartedAt: 1_700_000_000, Port: -1, Phase: domain.PhaseRunning},
+			testDoc{PID: 7, StartedAt: 1_700_000_000, Port: -1, Phase: testPhaseRunning},
 		},
 		{
 			"missing phase",
 			`{"pid": 7, "startedAt": 1700000000, "port": 3080}`,
-			domain.Record{PID: 7, StartedAt: 1_700_000_000, Port: 3080},
+			testDoc{PID: 7, StartedAt: 1_700_000_000, Port: 3080},
 		},
 		{
 			"missing start time",
 			`{"pid": 7, "port": 3080, "phase": "running"}`,
-			domain.Record{PID: 7, Port: 3080, Phase: domain.PhaseRunning},
+			testDoc{PID: 7, Port: 3080, Phase: testPhaseRunning},
 		},
 		{
 			"pid only",
 			`{"pid": 7}`,
-			domain.Record{PID: 7},
+			testDoc{PID: 7},
 		},
 	}
 	for _, testCase := range cases {

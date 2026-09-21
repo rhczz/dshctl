@@ -14,7 +14,6 @@ import (
 	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/host"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // This file pins the behaviour every command shares, so the model stays one
@@ -151,7 +150,7 @@ func TestBuildRefusesWhileAnotherPortsSurvivorServes(t *testing.T) {
 	f.host.listenersByPort = map[int]int{otherPort: listener}
 	f.host.mu.Unlock()
 
-	other := state.Store{Path: filepath.Join(f.state, fmt.Sprintf(config.StateFileNamePattern, otherPort))}
+	other := recordStore(filepath.Join(f.state, fmt.Sprintf(config.StateFileNamePattern, otherPort)))
 	if err := other.Save(domain.Record{
 		PID: wrapper, SpawnedPID: wrapper, StartedAt: fixtureStartTime,
 		Port: otherPort, Phase: domain.PhaseRunning,

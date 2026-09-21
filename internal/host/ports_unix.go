@@ -29,13 +29,31 @@ import (
 // accepted as the price of a host that has nothing else.
 func (h *Host) Listening(ctx context.Context, port int) (PortResult, error) {
 	var failures []string
-	probes := []struct {
+	type probeFunc func(context.Context, int) (PortResult, bool, error)
+	known := map[string]probeFunc{
+		"lsof":    h.listenViaLsof,
+		"ss":      h.listenViaSS,
+		"netstat": h.listenViaNetstat,
+	}
+	var probes []struct {
 		name string
-		run  func(context.Context, int) (PortResult, bool, error)
-	}{
-		{"lsof", h.listenViaLsof},
-		{"ss", h.listenViaSS},
-		{"netstat", h.listenViaNetstat},
+		run  probeFunc
+	}
+	unreadable := false
+	for _, name := range h.tools.Port {
+		run, ok := known[name]
+		if !ok {
+			// A configured tool this build cannot read is reported, not
+			// skipped: quietly ignoring it would turn a typo in the product's
+			// configuration into "the port is unused".
+			failures = append(failures, fmt.Sprintf("不认识的探测工具 %q", name))
+			unreadable = true
+			continue
+		}
+		probes = append(probes, struct {
+			name string
+			run  probeFunc
+		}{name, run})
 	}
 	for _, probe := range probes {
 		result, handled, err := probe.run(ctx, port)
@@ -63,16 +81,23 @@ func (h *Host) Listening(ctx context.Context, port int) (PortResult, error) {
 	}
 	if len(failures) > 0 {
 		// A probe that exists but could not answer: the port state is unknown.
+		// An unreadable tool name is the same kind of answer as a tool that is
+		// not installed — there is no way to look — so it keeps the sentinel
+		// callers use to say so.
+		if unreadable {
+			return PortResult{}, fmt.Errorf("%w: %s", ErrUnsupported, strings.Join(failures, "; "))
+		}
 		return PortResult{}, fmt.Errorf("无法判断端口 %d 的占用情况: %s", port, strings.Join(failures, "; "))
 	}
-	// Nothing answered and nothing failed. That is either "no probe tool is
-	// installed" or "lsof ran and declined its negative verdict" — and since
-	// lsof is asked first, its presence is what tells the two apart. When it is
-	// the only tool the host has, its word is the best evidence available.
-	if _, ok := h.tool("lsof"); ok {
+	// Nothing answered and nothing failed. That is either "the first tool that
+	// exists declined" or "no configured tool is installed" — and which tool
+	// comes first is what tells the two apart: a per-query tool's silence is
+	// taken as its word, while a table probe that says nothing did not answer at
+	// all.
+	if h.firstAvailableTool() == "lsof" {
 		return PortResult{}, nil
 	}
-	return PortResult{}, fmt.Errorf("%w: 找不到 lsof、ss 或 netstat，无法判断端口 %d 的占用情况", ErrUnsupported, port)
+	return PortResult{}, fmt.Errorf("%w: 找不到 %s，无法判断端口 %d 的占用情况", ErrUnsupported, strings.Join(knownNames(h.tools.Port), "、"), port)
 }
 
 // listenViaLsof names the owning process on any Unix.
@@ -275,7 +300,7 @@ func (h *Host) Inspect(ctx context.Context, pid int) Facts {
 		facts.Source = "proc"
 	}
 
-	path, found := h.tool("ps")
+	path, found := h.tool(h.tools.Process)
 	if !found {
 		// No ps is not evidence of anything about the process.
 		facts.Source = firstNonEmpty(facts.Source, "signal")
@@ -419,6 +444,26 @@ func (h *Host) tool(name string) (string, bool) {
 		return "", false
 	}
 	return path, true
+}
+
+// firstAvailableTool names the first configured tool that is installed, or an
+// empty string when none is.
+func (h *Host) firstAvailableTool() string {
+	for _, name := range h.tools.Port {
+		if _, ok := h.tool(name); ok {
+			return name
+		}
+	}
+	return ""
+}
+
+// knownNames lists the configured tools for the "cannot look" message, so the
+// operator is told what was tried rather than what the build could have tried.
+func knownNames(names []string) []string {
+	if len(names) == 0 {
+		return []string{"任何端口探测工具"}
+	}
+	return names
 }
 
 // isLinux reports whether the binary targets Linux, which decides how netstat

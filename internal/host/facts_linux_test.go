@@ -84,7 +84,7 @@ func TestInspectPrefersProcOverPS(t *testing.T) {
 	dir := t.TempDir()
 	// A stub that answers the way ps would for a process started ten hours ago.
 	ps := stubTool(t, dir, "ps", "10:00:00 node --import tsx/esm apps/cli/src/bin.ts web --port 3080\n")
-	host := &Host{lookPath: func(name string) (string, error) {
+	host := &Host{tools: testTools, lookPath: func(name string) (string, error) {
 		if name == "ps" {
 			return ps, nil
 		}

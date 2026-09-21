@@ -101,7 +101,7 @@ func TestAdmitSurvivorReportsOneItCannotRecord(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatalf("creating %s: %v", dir, err)
 	}
-	f.Record = state.Store{Path: dir}
+	f.Record = state.Store[domain.Record]{Path: dir, MaxBytes: maxRecordBytes, Validate: validateRecord, Stamp: stampRecord}
 
 	verdict, _, err := f.admitSurvivor(context.Background(), before)
 	if err != nil {

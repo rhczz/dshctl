@@ -40,7 +40,7 @@ func TestStartTimeFromProcIsUnavailableOnDarwin(t *testing.T) {
 // /proc would point every later investigation at a read that never happened.
 func TestInspectFallsBackToPSOnDarwin(t *testing.T) {
 	pid := os.Getpid()
-	facts := New().Inspect(context.Background(), pid)
+	facts := New(testTools).Inspect(context.Background(), pid)
 	if !facts.Alive {
 		t.Fatalf("Inspect(%d) = %+v, want this process reported as alive", pid, facts)
 	}

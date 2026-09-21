@@ -15,7 +15,6 @@ import (
 	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/paths"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // The checkout a command acts on is resolved from the configuration, while the
@@ -643,7 +642,7 @@ func (f *fixture) withEnv(t *testing.T, key, value string) {
 // saveRecord writes a runtime record for another port into the state directory.
 func (f *fixture) saveRecord(t *testing.T, record domain.Record) {
 	t.Helper()
-	store := state.Store{Path: filepath.Join(f.state, fmt.Sprintf(config.StateFileNamePattern, record.Port))}
+	store := recordStore(filepath.Join(f.state, fmt.Sprintf(config.StateFileNamePattern, record.Port)))
 	if err := store.Save(record); err != nil {
 		t.Fatalf("save the record: %v", err)
 	}

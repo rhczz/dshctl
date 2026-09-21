@@ -31,7 +31,7 @@ func TestDescendsFromWalksTheParentChain(t *testing.T) {
 		_ = command.Wait()
 	}()
 
-	host := New()
+	host := New(testTools)
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		if host.DescendsFrom(os.Getpid(), command.Process.Pid) {
@@ -94,7 +94,7 @@ func TestGroupCallsEndARealTree(t *testing.T) {
 				_ = command.Wait()
 			})
 
-			host := New()
+			host := New(testTools)
 			pid := command.Process.Pid
 			if !host.Alive(context.Background(), pid) {
 				t.Fatalf("the child (pid %d) is not alive before the call", pid)
@@ -125,7 +125,7 @@ func TestGroupCallsEndARealTree(t *testing.T) {
 // group. Pinning both halves keeps the asymmetry visible: a caller may not rely on
 // an error from a pid that names no tree on Windows.
 func TestGroupCallsOnANonPositivePIDDoNothing(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	for _, pid := range []int{0, -1} {
 		if err := host.KillGroup(pid); err != nil {
 			t.Errorf("KillGroup(%d) = %v, want nil: there is no group to end on Windows", pid, err)

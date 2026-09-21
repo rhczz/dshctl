@@ -37,6 +37,7 @@ import (
 	"time"
 
 	"github.com/rhczz/dshctl/internal/config"
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/host"
 	"github.com/rhczz/dshctl/internal/logfile"
 	"github.com/rhczz/dshctl/internal/logging"
@@ -73,7 +74,7 @@ type Service struct {
 	// test all implement the same two-and-a-bit methods (see emit.go).
 	Emit Emitter
 	// Record is the runtime record of the server dshctl started on this port.
-	Record state.Store
+	Record state.Store[domain.Record]
 	// Dial reports whether the loopback port accepts a connection. It is a field
 	// so tests can decide when a fictional server is ready.
 	Dial func(ctx context.Context, port int) bool
@@ -147,7 +148,7 @@ func New(settings config.Settings, deps Dependencies) *Service {
 	return &Service{
 		Settings: settings,
 		Exec:     deps.Exec,
-		Host:     host.New(),
+		Host:     host.New(hostTools),
 		Repo: repo.Repo{
 			Dir:                  settings.RepoDir,
 			Ex:                   deps.Exec,
@@ -159,7 +160,7 @@ func New(settings config.Settings, deps Dependencies) *Service {
 		LogFile:   logFile,
 		Log:       logging.New(logFile, level),
 		Emit:      deps.Emit,
-		Record:    state.Store{Path: settings.StateFile()},
+		Record:    recordStore(settings.StateFile()),
 		Dial:      dialPort,
 		Spawn:     spawnDetached,
 		LookPath:  run.LookPath,
@@ -204,7 +205,7 @@ func (s *Service) atPort(port int) *Service {
 	bound := *s
 	bound.port = port
 	bound.Settings.Port = port
-	bound.Record = state.Store{Path: bound.Settings.StateFile()}
+	bound.Record = recordStore(bound.Settings.StateFile())
 	return &bound
 }
 
