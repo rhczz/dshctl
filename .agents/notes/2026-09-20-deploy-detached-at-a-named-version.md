@@ -16,8 +16,13 @@ hash）。解析在停服之前完成，解析失败不动服务；目标等于�
 不构建、不重启。
 
 - `latest` 固定指 `origin` 的 `master`，不跟随当前分支的 upstream；仓库没有
-  `origin` 时拒绝执行。指定版本时先 fetch，再按 `refs/tags/<s>^{commit}`、
+  `origin` 时 `update latest` 在 fetch 之前以退出码 4 拒绝（指定 tag/commit 仍可用，
+  离线也能切换）。指定版本时先 fetch，再按 `refs/tags/<s>^{commit}`、
   `<s>^{commit}` 的顺序解析，选择器不得以 `-` 开头（否则会被 git 当成选项）。
+- 本地分支名被拒绝（`refs/heads/*`）：`dshctl update master` 读起来像"最新的
+  master"，实际会部署本地分支指针——它常常落后于 `origin/master`，而"目标不在
+  origin/master 历史上"的警告对它保持沉默（落后的尖端仍是祖先）。要远程最新用
+  `latest`，要具体提交用 tag 或 hash。
 - 指定 tag/commit 用 `git checkout --detach <commit>`：不移动 master 分支指针，
   服务精确跑在目标提交上。`latest` 则回到 master 分支并 `merge --ff-only
   origin/master`，本地有未推送提交时按 git 的语义拒绝。
@@ -52,8 +57,14 @@ hash）。解析在停服之前完成，解析失败不动服务；目标等于�
 ## 验证
 
 - `internal/repo/release_test.go`：真实 git 夹具（bare remote + peer clone）钉住
-  fetch/解析/计数/first-parent/detached 切换/快进与分叉拒绝/脏检查。
+  fetch/解析/计数/first-parent/detached 切换/快进与分叉拒绝/脏检查，以及本地分支
+  被拒、`origin/master` 仍可解析。
 - `internal/service/update_test.go`：短路、tag 切换不动 master、脏工作区拒绝、
-  未知版本不停服、离线降级、历史外目标警告、记录写失败仍完成部署。
+  未知版本不停服、离线降级、无 origin 时 latest 拒绝而 tag 仍可用、历史外目标警告、
+  记录写失败仍完成部署。
+- `internal/service/rollback_test.go`：`TestUpdateAfterARollbackReturnsToMaster`
+  钉住完整闭环（update → rollback 后 detached → update 回到 master）。
 - `scripts/mutation-check.py`：`the version already deployed is rebuilt and
-  restarted anyway`、`a worktree with tracked changes is switched anyway`。
+  restarted anyway`、`a worktree with tracked changes is switched anyway`、
+  `a local branch name resolves as a version`、`a no-op update forgets the
+  checkout it ran against`、`latest is fetched without an origin`。

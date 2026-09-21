@@ -420,6 +420,27 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         ["./internal/history/", "./internal/service/"],
     ),
     (
+        "a local branch name resolves as a version",
+        "internal/repo/release.go",
+        "\t\tif strings.HasPrefix(strings.TrimSpace(name), \"refs/heads/\") {",
+        "\t\tif false && strings.HasPrefix(strings.TrimSpace(name), \"refs/heads/\") {",
+        ["./internal/repo/", "./internal/service/"],
+    ),
+    (
+        "a no-op update forgets the checkout it ran against",
+        "internal/service/update.go",
+        "\t\t// A no-op is still a successful run against this checkout, and the\n\t\t// document records the checkout a successful run used.\n\t\ts.writeBack(s.Settings.RepoDir, \"\")\n\t\treturn nil\n\t}",
+        "\t\treturn nil\n\t}",
+        ["./internal/service/"],
+    ),
+    (
+        "latest is fetched without an origin",
+        "internal/service/update.go",
+        "\t\tif !hasOrigin {",
+        "\t\tif false && !hasOrigin {",
+        ["./internal/service/"],
+    ),
+    (
         "a failed fetch still reports the timeline as confirmed",
         "internal/cli/commands.go",
         "\tif !report.Fetched {",

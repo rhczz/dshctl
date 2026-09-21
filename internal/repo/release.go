@@ -120,6 +120,12 @@ func (r Repo) RemoteTip(ctx context.Context) (string, error) {
 // A tag is tried first, then the selector as a revision, and both are peeled to
 // a commit: a selector that names a tree or a blob can never be deployed.
 //
+// A local branch name is refused. `dshctl update master` reads like "the latest
+// master" but would deploy wherever the local branch happens to point — often
+// behind origin/master — and the warning about targets outside origin/master
+// would stay silent because the stale tip is still an ancestor. `latest` is the
+// name for the remote's master; a specific commit is spelled as a tag or a sha.
+//
 // The selector is never read as an option. It is validated before it reaches
 // git, because a value like "--help" would otherwise be answered by git's own
 // option parser instead of by the version lookup — and any future git option
@@ -130,6 +136,12 @@ func (r Repo) ResolveRevision(ctx context.Context, selector string) (string, err
 	}
 	if strings.HasPrefix(selector, "-") {
 		return "", fmt.Errorf("版本不能以 - 开头: %q", selector)
+	}
+	if name, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--symbolic-full-name", selector)); err == nil {
+		if strings.HasPrefix(strings.TrimSpace(name), "refs/heads/") {
+			return "", fmt.Errorf("版本不能指向本地分支 %q: 用 %s 表示远程最新，或改用 tag/commit",
+				selector, RemoteTipName)
+		}
 	}
 	var lastErr error
 	for _, candidate := range []string{"refs/tags/" + selector, selector} {

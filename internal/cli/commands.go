@@ -128,6 +128,9 @@ fetch 失败或 git 读取失败。`,
   dshctl update <tag>        切换到该 tag 所在的提交(detached HEAD)
   dshctl update <commit>     切换到该 commit(支持完整或缩写 hash)
 
+本地分支名不是版本: 本地 master 可能落后于 origin/master，要远程最新用
+latest，要具体提交用 tag 或 hash。
+
 所有检查(版本解析、工作区是否干净)都在停止服务之前完成；目标就是当前版本时
 不会重启服务。工作区有已跟踪文件的未提交修改时拒绝执行(未跟踪文件不受影响)。
 切换成功但 install/build 失败时服务保持停止，可用 dshctl rollback 退回。

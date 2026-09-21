@@ -43,6 +43,11 @@ func (h *fakeHost) gitResult(cmd run.Command) run.Result {
 		}
 		return run.Result{Stdout: h.gitOrigin}
 	case hasArgument(cmd, "fetch"):
+		// A checkout without an origin cannot be fetched from: the same answer
+		// real git gives, so the origin preflight is exercised faithfully.
+		if h.gitOrigin == "" {
+			return fail(128)
+		}
 		return run.Result{Stderr: "fake git: fetch\n"}
 	case hasArgument(cmd, "rev-parse", "--verify", "origin/master^{commit}"):
 		if h.gitRemote == "" {

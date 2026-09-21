@@ -182,6 +182,39 @@ func TestRollbackStopsAndRestoresTheService(t *testing.T) {
 	}
 }
 
+// TestUpdateAfterARollbackReturnsToMaster pins the full cycle the contract
+// promises: a rollback leaves a detached head, and a plain update puts the
+// checkout back on master at origin/master.
+func TestUpdateAfterARollbackReturnsToMaster(t *testing.T) {
+	f := newFixture(t)
+	head := f.host.gitHead
+	remote := f.host.gitRemote
+
+	if err := f.RunUpdate(context.Background(), "latest"); err != nil {
+		t.Fatalf("RunUpdate: %v", err)
+	}
+	if err := f.RunRollback(context.Background(), "", 1); err != nil {
+		t.Fatalf("RunRollback: %v", err)
+	}
+	if f.host.gitHead != head || f.host.gitBranch != "" {
+		t.Fatalf("after the rollback: head=%q branch=%q, want a detached %q", f.host.gitHead, f.host.gitBranch, head)
+	}
+
+	if err := f.RunUpdate(context.Background(), "latest"); err != nil {
+		t.Fatalf("RunUpdate after the rollback: %v", err)
+	}
+	if f.host.gitHead != remote {
+		t.Fatalf("head = %q, want the remote tip %q", f.host.gitHead, remote)
+	}
+	if f.host.gitBranch != "master" {
+		t.Fatalf("branch = %q, want the checkout back on master", f.host.gitBranch)
+	}
+	records := f.deploymentHistory(t)
+	if len(records) != 2 || records[0].Commit != remote || records[0].Selector != "latest" {
+		t.Fatalf("history = %+v, want the remote tip on top of the rolled-back position", records)
+	}
+}
+
 // TestRollbackShortCircuitsAtTheCurrentPosition pins that rolling back to the
 // commit the checkout is already at changes nothing.
 func TestRollbackShortCircuitsAtTheCurrentPosition(t *testing.T) {

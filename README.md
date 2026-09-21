@@ -214,7 +214,10 @@ dshctl rollback dsh-v0.1.5-rc.2    # 定点回退到某个版本（不联网）
 规则：
 
 - `latest` 固定指 `origin` 的 `master`，不跟随当前分支的 upstream；仓库没有
-  `origin` 时 `timeline` 与 `update latest` 拒绝执行。
+  `origin` 时 `timeline` 与 `update latest` 拒绝执行（指定 tag/commit 仍可用）。
+- 本地分支名不是版本：`dshctl update master` 会被拒绝，因为本地 master 可能落后于
+  `origin/master`，而它会读起来像"最新的 master"；要远程最新用 `latest`，要具体
+  提交用 tag 或 hash。
 - 指定 tag/commit 时用 detached HEAD 检出，不移动 master 分支指针；之后不带参数
   的 `update` 会回到 master 并快进到 `origin/master`。
 - 所有检查（版本能否解析、工作区是否干净）都在停止服务之前完成；目标就是当前

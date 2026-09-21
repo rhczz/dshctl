@@ -221,6 +221,47 @@ func TestResolveRevisionAcceptsTagShortAndFull(t *testing.T) {
 	}
 }
 
+// TestResolveRevisionRefusesALocalBranch pins the one selector shape that reads
+// like "the latest master" but is not: a local branch name. The local branch can
+// be behind origin/master, and deploying it would silently go backwards.
+func TestResolveRevisionRefusesALocalBranch(t *testing.T) {
+	ctx := context.Background()
+	box := newReleaseBox(t)
+	box.peerCommit("next.txt", "next", "the next commit")
+	box.peerPush()
+	if err := box.repo.Fetch(ctx, io.Discard, io.Discard); err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+
+	_, err := box.repo.ResolveRevision(ctx, "master")
+	if err == nil {
+		t.Fatal("a local branch resolved as a version")
+	}
+	if !strings.Contains(err.Error(), `"master"`) || !strings.Contains(err.Error(), "origin/master") {
+		t.Fatalf("error = %v, want it to name the branch and point at origin/master", err)
+	}
+}
+
+// TestResolveRevisionAcceptsARemoteTrackingRef pins the boundary of the branch
+// refusal: origin/master is a version (the remote's tip), not a local pointer.
+func TestResolveRevisionAcceptsARemoteTrackingRef(t *testing.T) {
+	ctx := context.Background()
+	box := newReleaseBox(t)
+	box.peerCommit("next.txt", "next", "the next commit")
+	box.peerPush()
+	if err := box.repo.Fetch(ctx, io.Discard, io.Discard); err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+
+	got, err := box.repo.ResolveRevision(ctx, "origin/master")
+	if err != nil {
+		t.Fatalf("ResolveRevision(origin/master): %v", err)
+	}
+	if want := box.revParse("origin/master"); got != want {
+		t.Fatalf("ResolveRevision(origin/master) = %q, want %q", got, want)
+	}
+}
+
 // TestResolveRevisionNamesAnUnknownSelector pins that a typo is reported with
 // the selector in it, because "git failed" alone leaves the operator guessing
 // which argument was wrong.

@@ -26,6 +26,39 @@ func (f *fixture) deploymentHistory(t *testing.T) []history.Record {
 	return file.Records(f.Settings.RepoDir)
 }
 
+// TestUpdateLatestRefusesWithoutOrigin pins the preflight that turns "this
+// checkout has no origin" into a clear answer instead of git's fetch error:
+// latest has no meaning without a remote.
+func TestUpdateLatestRefusesWithoutOrigin(t *testing.T) {
+	f := newFixture(t)
+	f.host.gitOrigin = ""
+
+	err := f.RunUpdate(context.Background(), "latest")
+	wantCode(t, err, exitcode.Preflight)
+	wantContains(t, err, "origin")
+	f.wantNoCheckoutUpdate(t)
+}
+
+// TestUpdateANamedVersionWorksWithoutOrigin pins the other side: a tag that
+// exists locally is deployable on a checkout that has no remote at all. The
+// failed fetch is a warning, not a refusal.
+func TestUpdateANamedVersionWorksWithoutOrigin(t *testing.T) {
+	f := newFixture(t)
+	tagged := fakeSHA(500)
+	f.host.gitTags = map[string]string{"dsh-v0.1.0": tagged}
+	f.host.gitOrigin = ""
+
+	if err := f.RunUpdate(context.Background(), "dsh-v0.1.0"); err != nil {
+		t.Fatalf("RunUpdate: %v", err)
+	}
+	if f.host.gitHead != tagged {
+		t.Fatalf("head = %q, want the tag %q", f.host.gitHead, tagged)
+	}
+	if !strings.Contains(f.errOut.String(), "无法获取远程更新") {
+		t.Fatalf("stderr = %q, want the fetch warning", f.errOut.String())
+	}
+}
+
 // TestUpdateShortCircuitsWhenAlreadyAtTheTarget pins that a no-op update does
 // not stop, rebuild or restart anything: the version is the one the operator
 // asked for, so the only honest answer is "already there".

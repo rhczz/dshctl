@@ -181,6 +181,9 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 	}
 	if target.commit == current {
 		fmt.Fprintf(s.Out, "已在 %s（%s），无需%s\n", shortCommit(current), target.name, request.verb)
+		// A no-op is still a successful run against this checkout, and the
+		// document records the checkout a successful run used.
+		s.writeBack(s.Settings.RepoDir, "")
 		return nil
 	}
 	s.warnWhenOutsideOrigin(ctx, target)
@@ -288,6 +291,16 @@ func (s *Service) resolveDeployTarget(ctx context.Context, request deployRequest
 		return s.rollbackTarget(ctx, request.steps)
 	}
 	if request.target == latestTarget {
+		hasOrigin, err := s.Repo.HasOrigin(ctx)
+		if err != nil {
+			return deployTarget{}, exitcode.Wrap(exitcode.Preflight, err)
+		}
+		if !hasOrigin {
+			return deployTarget{}, exitcode.New(exitcode.Preflight,
+				"仓库 %s 没有 origin 远程，无法解析 latest\n"+
+					"提示: 用 dshctl update <tag|commit> 指定本地已知的版本",
+				s.Settings.RepoDir)
+		}
 		if err := s.Repo.Fetch(ctx, nil, nil); err != nil {
 			// latest cannot be resolved from local state: the whole point is
 			// the remote's tip.

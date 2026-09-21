@@ -334,6 +334,27 @@ func TestAnUpdateRecordsTheCheckoutItUpdated(t *testing.T) {
 	}
 }
 
+// TestANoOpUpdateRecordsTheCheckoutItRanAgainst pins the write-back contract for
+// the short circuit: the update succeeded against this checkout even though
+// nothing moved, so a document that decides nothing has to learn it — the next
+// plain command must not fall back to the built-in guess.
+func TestANoOpUpdateRecordsTheCheckoutItRanAgainst(t *testing.T) {
+	f := newFixture(t)
+	f.servePATHNode(t, config.TestedNodeVersion)
+	f.documentNaming(t, f.guess())
+	flag := f.repo
+	f.run(t, config.Overrides{RepoDir: &flag})
+	f.host.gitHead = f.host.gitRemote
+
+	if err := f.RunUpdate(context.Background(), "latest"); err != nil {
+		t.Fatalf("RunUpdate: %v", err)
+	}
+	f.wantRecordedCheckout(t, f.repo)
+	if next := f.run(t, config.Overrides{}); next.RepoDir != f.repo {
+		t.Fatalf("the next command resolved %q, want %q", next.RepoDir, f.repo)
+	}
+}
+
 // TestAFailedStartRecordsNothing pins the boundary: only what ran is written
 // down. A start that never served must leave the document deciding nothing, or
 // the next command would follow a checkout that demonstrably did not work.
