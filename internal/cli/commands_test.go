@@ -96,6 +96,106 @@ func TestEveryCommandAnswersItsOwnHelp(t *testing.T) {
 	}
 }
 
+// TestEveryCommandHelpShowsItsUsage pins that `dshctl <命令> -h` answers "how
+// do I call this" first, with the same invocation the top-level help lists.
+func TestEveryCommandHelpShowsItsUsage(t *testing.T) {
+	for _, command := range Commands() {
+		t.Run(command.Name, func(t *testing.T) {
+			code, stdout, stderr, _ := execute(t, command.Name, "-h")
+			if code != exitcode.OK {
+				t.Fatalf("%s -h exit = %d, want 0 (stderr = %s)", command.Name, code, stderr)
+			}
+			want := "用法: dshctl [全局参数] " + command.Name
+			if command.Usage != "" {
+				want += " " + command.Usage
+			}
+			if !strings.Contains(stdout, want) {
+				t.Fatalf("%s -h stdout = %q, want it to contain %q", command.Name, stdout, want)
+			}
+		})
+	}
+}
+
+// TestTopLevelHelpListsEveryCommandWithItsUsage pins the first screen an
+// operator sees: every command is named with its arguments and its purpose, so
+// a command that exists is never reachable only by guessing.
+func TestTopLevelHelpListsEveryCommandWithItsUsage(t *testing.T) {
+	var out strings.Builder
+	Usage(&out)
+	text := out.String()
+	for _, command := range Commands() {
+		invocation := "dshctl " + command.Name
+		if command.Usage != "" {
+			invocation += " " + command.Usage
+		}
+		if !strings.Contains(text, invocation) {
+			t.Errorf("the top-level help does not show %q", invocation)
+		}
+		if !strings.Contains(text, command.Summary) {
+			t.Errorf("the top-level help does not describe %s", command.Name)
+		}
+	}
+}
+
+// TestTopLevelHelpExplainsEveryCommandFlag pins the other half: every flag that
+// appears in a command's usage line is explained somewhere in the same screen,
+// so a new flag cannot ship as a bare token.
+func TestTopLevelHelpExplainsEveryCommandFlag(t *testing.T) {
+	var out strings.Builder
+	Usage(&out)
+	text := out.String()
+	explained := map[string]bool{}
+	for _, command := range Commands() {
+		for _, token := range flagTokens(command.Usage) {
+			if explained[token] {
+				continue
+			}
+			explained[token] = true
+			if !strings.Contains(text, token) {
+				t.Errorf("flag %s (from %s) is not explained in the top-level help", token, command.Name)
+			}
+		}
+	}
+}
+
+// TestTopLevelHelpShowsAFirstRun pins the examples: a first-time operator has
+// to see how to point dshctl at a checkout and which commands answer the
+// everyday questions.
+func TestTopLevelHelpShowsAFirstRun(t *testing.T) {
+	var out strings.Builder
+	Usage(&out)
+	text := out.String()
+	for _, want := range []string{
+		"dshctl --repo",
+		"dshctl status",
+		"dshctl url",
+		"dshctl logs -f",
+		"dshctl timeline",
+		"dshctl update",
+		"dshctl rollback",
+		"dshctl help <命令>",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("the top-level help does not show the example %q", want)
+		}
+	}
+}
+
+// flagTokens extracts the option-looking tokens from a usage string, so the
+// help test can require each of them to be explained.
+func flagTokens(usage string) []string {
+	fields := strings.FieldsFunc(usage, func(r rune) bool {
+		return r == ' ' || r == '[' || r == ']' || r == '|'
+	})
+	var tokens []string
+	for _, field := range fields {
+		if strings.HasPrefix(field, "-") {
+			tokens = append(tokens, field)
+		}
+	}
+	return tokens
+}
+
 // TestEveryCommandRejectsUnexpectedArguments pins that no command silently
 // ignores a stray word. Two words are passed rather than one, because the
 // version commands accept exactly one positional argument and must refuse the
