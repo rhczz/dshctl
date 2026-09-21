@@ -240,8 +240,8 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "a build does not record the checkout it built",
         "internal/service/build.go",
-        "\ts.writeBack(s.Settings.RepoDir, \"\")\n\treturn nil\n}\n\n// RunUpdate",
-        "\treturn nil\n}\n\n// RunUpdate",
+        "\ts.writeBack(s.Settings.RepoDir, \"\")\n\treturn nil\n}",
+        "\treturn nil\n}",
         ["./internal/service/"],
     ),
     (
@@ -397,6 +397,55 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         "\tif hasSiblingManifest(rootFS, relative) {\n\t\t// The parent ships its own package.json, so this directory is part of\n\t\t// the project rather than leftovers from a deleted package.\n\t\treturn Candidate{}, false\n\t}\n",
         "",
         ["./internal/repo/"],
+    ),
+    (
+        "the version already deployed is rebuilt and restarted anyway",
+        "internal/service/update.go",
+        "\tif target.commit == current {",
+        "\tif false {",
+        ["./internal/service/"],
+    ),
+    (
+        "a worktree with tracked changes is switched anyway",
+        "internal/service/update.go",
+        "\t} else if dirty {",
+        "\t} else if false && dirty {",
+        ["./internal/service/"],
+    ),
+    (
+        "returning to a visited position no longer truncates the stack",
+        "internal/history/history.go",
+        "\t\tif at <= index {",
+        "\t\tif at <= index && false {",
+        ["./internal/history/", "./internal/service/"],
+    ),
+    (
+        "a local branch name resolves as a version",
+        "internal/repo/release.go",
+        "\t\tif strings.HasPrefix(strings.TrimSpace(name), \"refs/heads/\") {",
+        "\t\tif false && strings.HasPrefix(strings.TrimSpace(name), \"refs/heads/\") {",
+        ["./internal/repo/", "./internal/service/"],
+    ),
+    (
+        "a no-op update forgets the checkout it ran against",
+        "internal/service/update.go",
+        "\t\t// A no-op is still a successful run against this checkout, and the\n\t\t// document records the checkout a successful run used.\n\t\ts.writeBack(s.Settings.RepoDir, \"\")\n\t\treturn nil\n\t}",
+        "\t\treturn nil\n\t}",
+        ["./internal/service/"],
+    ),
+    (
+        "latest is fetched without an origin",
+        "internal/service/update.go",
+        "\t\tif !hasOrigin {",
+        "\t\tif false && !hasOrigin {",
+        ["./internal/service/"],
+    ),
+    (
+        "a failed fetch still reports the timeline as confirmed",
+        "internal/cli/commands.go",
+        "\tif !report.Fetched {",
+        "\tif false {",
+        ["./internal/cli/"],
     ),
 ]
 

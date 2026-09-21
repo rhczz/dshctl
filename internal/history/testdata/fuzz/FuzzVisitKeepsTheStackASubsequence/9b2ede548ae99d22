@@ -1,0 +1,4 @@
+go test fuzz v1
+string("\xfb\xc9")
+string("0")
+int64(64)

@@ -97,16 +97,18 @@ func TestEveryCommandAnswersItsOwnHelp(t *testing.T) {
 }
 
 // TestEveryCommandRejectsUnexpectedArguments pins that no command silently
-// ignores a stray word. The message names the command, so a copy-paste mistake
-// in the shared helper would be visible.
+// ignores a stray word. Two words are passed rather than one, because the
+// version commands accept exactly one positional argument and must refuse the
+// second; the message names the command either way, so a copy-paste mistake in
+// the shared helper would be visible.
 func TestEveryCommandRejectsUnexpectedArguments(t *testing.T) {
 	for _, command := range Commands() {
 		t.Run(command.Name, func(t *testing.T) {
-			code, stdout, stderr, _ := execute(t, command.Name, "stray-argument")
+			code, stdout, stderr, _ := execute(t, command.Name, "stray-argument", "second-stray")
 			if code != exitcode.Usage {
 				t.Fatalf("%s exit = %d, want %d (stderr = %s)", command.Name, code, exitcode.Usage, stderr)
 			}
-			if !strings.Contains(stderr, "命令 "+command.Name+" 不接受位置参数") {
+			if !strings.Contains(stderr, "命令 "+command.Name) {
 				t.Fatalf("%s stderr = %q, want it to name the command", command.Name, stderr)
 			}
 			if stdout != "" {
@@ -588,7 +590,7 @@ func TestLogsBuildSection(t *testing.T) {
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want nothing when there is no build record", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "没有 build/update 记录") {
+	if !strings.Contains(stderr.String(), "没有 build/update/rollback 记录") {
 		t.Fatalf("stderr = %q, want the explanation", stderr.String())
 	}
 }

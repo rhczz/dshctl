@@ -48,9 +48,11 @@ dshctl stop                   # 停止
 | `restart` | 在同一把锁内先停后启；不加 `--port` 时重启本状态目录中正在运行的每一个服务 |
 | `status` | 运行状态；不加 `--port` 时报告本状态目录管理的每一个服务；`--json` 输出结构化结果 |
 | `url` | 打印带 token 的访问地址；不加 `--port` 时每个运行中的实例一行；一个地址都没有时退出码 3 |
-| `logs` | 日志；`-n <行数>`（默认 200 行，见 `internal/service.DefaultLogLines`）、`-f/--follow` 跟随、`--build` 只看最近一次构建记录 |
+| `logs` | 日志；`-n <行数>`（默认 200 行，见 `internal/service.DefaultLogLines`）、`-f/--follow` 跟随、`--build` 只看最近一次 build/update/rollback 记录 |
 | `build` | 清理已删除包的残留目录后执行 `pnpm run build` |
-| `update` | 停服 → `git pull --ff-only` → 清理 → `pnpm install` → 构建 → 恢复启动 |
+| `timeline` | 查看当前版本与 `origin/master` 的差距：落后/领先的提交数、差距内的 tag、最近的提交与部署历史；`--json` 输出结构化结果 |
+| `update` | 更新到指定版本（`latest`/tag/commit，默认 `latest`）：停服 → `git fetch` → 切换 → 清理 → `pnpm install` → 构建 → 恢复启动 |
+| `rollback` | 回退到之前部署过的位置：不带参数退 1 步、`-n <步数>` 退多步、`<tag>/<commit>` 定点回退；不联网 |
 | `doctor` | 只读体检；`--json` 输出结构化结果 |
 | `version` | 版本、提交、构建时间与目标平台；`--json` 输出结构化结果 |
 
@@ -95,8 +97,8 @@ dshctl stop                   # 停止
 
 - 每个字段都可以省略、删除或写成 `null`，都会退回到该字段的默认值；未知字段会被拒绝（防止把一个拼错的键当成生效配置）。
 - 配置文件必须是普通文件、不超过 64 KiB，内容是单个 JSON 对象；解析失败会明确指出是哪个文件、哪个字段。
-- 只有可变命令（`start`/`stop`/`restart`/`build`/`update`）会创建和写入它；`status`、`url`、`logs`、`doctor`、`version` 不写盘。
-- dshctl 只在自己确有必要时改这个文件：写入它实际用过的 `repoDir`（`start`/`build`/`update`）与 `nodeVersion`（`start`），而且只写这两个键、只在这个文件还没有写明它们的时候写；你在文件里写过的值永远不会被覆盖，其他字段逐字保留。
+- 只有可变命令（`start`/`stop`/`restart`/`build`/`update`/`rollback`）会创建和写入它；`status`、`url`、`logs`、`doctor`、`version` 不写盘。
+- dshctl 只在自己确有必要时改这个文件：写入它实际用过的 `repoDir`（`start`/`build`/`update`/`rollback`）与 `nodeVersion`（`start`），而且只写这两个键、只在这个文件还没有写明它们的时候写；你在文件里写过的值永远不会被覆盖，其他字段逐字保留。
 - 首次执行可变命令时生成的配置里**不含** `repoDir`：默认值只是「按这台机器的主目录猜的路径」，把猜测写进配置就等于把猜错的结果永久固定下来。
 - `dshctl -v <命令>` 会把生效值和每一项的来源（`flag` / `env` / `file` / `default`）打印出来，排查配置时先看它。
 
@@ -147,12 +149,14 @@ dshctl 自己的文件都在一个目录里，默认 `~/.dsh/dshctl`：
 ```
 config.json                 配置（首次执行可变命令时按键的默认值生成；成功运行后写入 repoDir、成功启动后写入 nodeVersion）
 dsh-web-<端口>.state.json   运行记录：监听进程 pid、启动时间、端口、访问地址、所用 Node 版本与仓库目录
+updates.json                部署位置历史：每个 checkout 一组「曾经部署到的提交」（新→旧，最多 50 条）
 dshctl.lock                 操作互斥锁
-dsh-web.log                 服务与 build/update 输出（超过 4 MiB 轮转为 .old）
+dsh-web.log                 服务与 build/update/rollback 输出（超过 4 MiB 轮转为 .old）
 ```
 
 这个目录可以随时删掉，不影响 DSH 的会话、附件、设置与凭据（它们由 DSH 自己放在 `~/.dsh` 下）。
-`status`、`url`、`logs`、`doctor`、`version` 不写盘。
+`status`、`url`、`logs`、`doctor`、`version` 不写盘；`timeline` 是唯一例外：它会
+`git fetch`（只写 `.git` 的远程跟踪引用），不写状态目录、不改工作区。
 
 ## 多个实例
 
@@ -184,8 +188,50 @@ dshctl stop                   # 停止本状态目录管理的全部服务
 端口上只是别人的程序、本状态目录从没在那里启动过服务时不算漏，因为那不是这次操作
 要管的东西。点名一个端口时同样不算漏：保留那个占用者正是这次操作要的结果。
 
-`build`/`update` 仍然只看配置里那个 checkout：它们会在替换产物之前检查所有端口，
+`build`/`update`/`rollback` 仍然只看配置里那个 checkout：它们会在替换产物之前检查所有端口，
 任何一个正在用这份 checkout 的服务都会让它拒绝执行，并提示先停掉对应端口。
+
+## 版本、更新与回退
+
+`update` 不再盲目跟到 master 尖端：它接受一个目标版本；`rollback` 回到 dshctl
+记录过的位置。先看差距再决定更新，是这个功能存在的理由。
+
+```sh
+dshctl timeline                    # 当前版本 vs origin/master：差距、tag、提交、部署历史
+dshctl update                      # 更新到 origin/master 最新（等价 dshctl update latest）
+dshctl update dsh-v0.1.6-alpha.2   # 切到该 tag 所在的提交
+dshctl update 1a2b3c4              # 切到该 commit（支持完整或缩写 hash）
+dshctl rollback                    # 回到上一次 update/rollback 之前所在的位置
+dshctl rollback -n 3               # 回退 3 步
+dshctl rollback dsh-v0.1.5-rc.2    # 定点回退到某个版本（不联网）
+```
+
+`timeline` 的输出：头部是当前版本、远程版本与差距（落后/领先/分叉），中间是
+「最新 10 个提交 ∪ 差距内全部 tag ∪ 当前 ∪ 远程尖端」的列表（当前用 `●` 标注、
+远程尖端用 `○`，中间省略的提交数会写明），末尾是 `updates.json` 里的部署历史。
+工作区有未提交修改时会多一行提示。`--json` 输出结构化结果。
+
+规则：
+
+- `latest` 固定指 `origin` 的 `master`，不跟随当前分支的 upstream；仓库没有
+  `origin` 时 `timeline` 与 `update latest` 拒绝执行（指定 tag/commit 仍可用）。
+- 本地分支名不是版本：`dshctl update master` 会被拒绝，因为本地 master 可能落后于
+  `origin/master`，而它会读起来像"最新的 master"；要远程最新用 `latest`，要具体
+  提交用 tag 或 hash。
+- 指定 tag/commit 时用 detached HEAD 检出，不移动 master 分支指针；之后不带参数
+  的 `update` 会回到 master 并快进到 `origin/master`。
+- 所有检查（版本能否解析、工作区是否干净）都在停止服务之前完成；目标就是当前
+  版本时不会停服、不构建、不重启。
+- 工作区有已跟踪文件的未提交修改时拒绝更新/回退；未跟踪文件（自己的插件目录等）
+  原样保留。
+- `rollback` 不联网：回到已知位置是救火路径，断网也必须可用。`update <tag|commit>`
+  在 fetch 失败但目标本地已知时降级为本地解析并打印警告；`update latest` 无法降级。
+- 更新历史存在 `<状态目录>/updates.json`：每个 checkout 一组位置（新→旧，最多
+  50 条），git 的 HEAD 始终是「当前在哪」的唯一真源。文件损坏时 `timeline` 警告、
+  `rollback` 拒绝、`update` 以当前位置重建。
+- `timeline` 是唯一会写 `.git` 的报告命令（它必须 `git fetch` 才能知道远程最新）；
+  它不写状态目录、不改工作区。fetch 失败时仍打印本地已知状态、明确标注「远程未
+  确认」、绝不出现「已是最新」，并以退出码 4 结束。
 
 ## 退出码
 
@@ -195,6 +241,6 @@ dshctl stop                   # 停止本状态目录管理的全部服务
 | 1 | 失败 |
 | 2 | 用法或配置错误 |
 | 3 | 服务未运行（`status` 以配置端口为准；`url` 是一个地址都没有），或端口被其他进程占用 |
-| 4 | 前置检查失败（缺 node/pnpm、不是 checkout、未构建、端口被占用或无法探测），或 `stop` 漏掉了一个它无法确认归属的实例 |
+| 4 | 前置检查失败（缺 node/pnpm、不是 checkout、未构建、端口被占用或无法探测、版本无法解析、工作区有已跟踪修改、`timeline` 无法获取远程更新），或 `stop` 漏掉了一个它无法确认归属的实例 |
 | 5 | 锁超时（另一个 dshctl 操作正在进行） |
 | 130 | 命令被 Ctrl-C 取消 |

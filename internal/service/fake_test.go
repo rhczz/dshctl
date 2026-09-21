@@ -93,6 +93,24 @@ type fakeHost struct {
 	// gitStatus is the answer to `git status --porcelain`: empty means a clean
 	// worktree, anything else means the checkout has uncommitted changes.
 	gitStatus string
+	// gitHead, gitRemote and gitMaster are the three commits the version
+	// decisions are about: where HEAD is, where origin/master is, and where the
+	// local master branch is. gitBranch is the checked-out branch, empty when
+	// HEAD is detached. gitTags maps tag names to commits.
+	gitHead     string
+	gitRemote   string
+	gitMaster   string
+	gitBranch   string
+	gitTags     map[string]string
+	gitLog      []fakeGitCommit
+	gitBehind   int
+	gitAhead    int
+	gitAncestor bool
+	// gitOrigin is the answer to `config --get remote.origin.url`; empty means
+	// the checkout has no origin remote.
+	gitOrigin string
+	// gitHeadSubject is the subject CommitInfo reports for HEAD.
+	gitHeadSubject string
 	// fail lets one test fail selected commands.
 	fail func(cmd run.Command) error
 	// nextPID is handed to the next spawn.
@@ -144,10 +162,18 @@ func newFakeHost() *fakeHost {
 	// verified against. Tests that need another one set it.
 	const defaultNodeVersion = config.TestedNodeVersion
 	return &fakeHost{
-		processes:   map[int]*fakeProcess{},
-		nextPID:     9000,
-		ready:       true,
-		nodeVersion: defaultNodeVersion,
+		processes:      map[int]*fakeProcess{},
+		nextPID:        9000,
+		ready:          true,
+		nodeVersion:    defaultNodeVersion,
+		gitHead:        "abc1234000000000000000000000000000000000",
+		gitRemote:      "def56780000000000000000000000000000000",
+		gitMaster:      "abc1234000000000000000000000000000000000",
+		gitBranch:      "main",
+		gitTags:        map[string]string{},
+		gitAncestor:    true,
+		gitOrigin:      "https://example.invalid/deepseek-harness",
+		gitHeadSubject: "fixture head",
 	}
 }
 
@@ -431,15 +457,14 @@ func (h *fakeHost) Run(_ context.Context, cmd run.Command) error {
 
 // answerGit replies the way a healthy, clean checkout does.
 func (h *fakeHost) answerGit(cmd run.Command) error {
-	switch {
-	case hasArgument(cmd, "rev-parse", "--short"):
-		return emit(cmd.Stdout, "abc1234\n")
-	case hasArgument(cmd, "rev-parse", "--abbrev-ref"):
-		return emit(cmd.Stdout, "main\n")
-	case hasArgument(cmd, "status", "--porcelain"):
-		return emit(cmd.Stdout, h.status())
+	result := h.gitResult(cmd)
+	if err := emit(cmd.Stdout, result.Stdout); err != nil {
+		return err
 	}
-	return nil
+	if err := emit(cmd.Stderr, result.Stderr); err != nil {
+		return err
+	}
+	return result.Err
 }
 
 // status answers `git status --porcelain` from the fixture's script.
@@ -466,18 +491,7 @@ func (h *fakeHost) Capture(_ context.Context, cmd run.Command) run.Result {
 	}
 	switch programName(cmd.Name) {
 	case "git":
-		switch {
-		case hasArgument(cmd, "rev-parse", "--short"):
-			return run.Result{Stdout: "abc1234"}
-		case hasArgument(cmd, "rev-parse", "--abbrev-ref"):
-			return run.Result{Stdout: "main"}
-		case hasArgument(cmd, "ls-files"):
-			return run.Result{Stdout: h.lsFiles()}
-		case hasArgument(cmd, "status", "--porcelain"):
-			return run.Result{Stdout: h.status()}
-		default:
-			return run.Result{}
-		}
+		return h.gitResult(cmd)
 	case "node":
 		return run.Result{Stdout: h.answerNode(cmd)}
 	case "pnpm":
@@ -1264,12 +1278,15 @@ func (f *fixture) wantNoRecordOnDisk(t *testing.T) {
 	}
 }
 
-// wantNoPull fails the test when the checkout was updated.
-func (f *fixture) wantNoPull(t *testing.T) {
+// wantNoCheckoutUpdate fails the test when the checkout was touched at all: a
+// refused operation must not have fetched, switched, installed or built.
+func (f *fixture) wantNoCheckoutUpdate(t *testing.T) {
 	t.Helper()
 	for _, command := range f.host.commandsRun() {
-		if strings.Contains(command, "pull") {
-			t.Fatalf("the checkout was updated: %v", f.host.commandsRun())
+		for _, forbidden := range []string{"fetch", "merge", "checkout", "install", "run build"} {
+			if strings.Contains(command, forbidden) {
+				t.Fatalf("the checkout was touched (%s): %v", forbidden, f.host.commandsRun())
+			}
 		}
 	}
 }

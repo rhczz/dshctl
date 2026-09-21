@@ -247,7 +247,7 @@ func testWriteBackW9RecordsDuringAnUpdate(t *testing.T) {
 	}
 	f.Settings.ConfiguredNodeVersion = ""
 
-	if err := f.RunUpdate(context.Background()); err != nil {
+	if err := f.RunUpdate(context.Background(), "latest"); err != nil {
 		t.Fatalf("RunUpdate: %v", err)
 	}
 	f.wantRecordedNodeVersion(t, config.TestedNodeVersion)
@@ -366,10 +366,10 @@ func testGateE2RefusesTooOldAReleaseForUpdate(t *testing.T) {
 	f := newFixture(t)
 	f.servePATHNode(t, "22.14.0")
 
-	err := f.RunUpdate(context.Background())
+	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Preflight)
 	wantContains(t, err, "低于最低要求")
-	f.wantNoPull(t)
+	f.wantNoCheckoutUpdate(t)
 }
 
 // testGateE3RefusesTooOldAReleaseForBuild pins the same floor for build.

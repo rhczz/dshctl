@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 
@@ -81,12 +82,12 @@ func Commands() []Command {
 		},
 		{
 			Name:    "logs",
-			Summary: "查看日志(含 build/update 记录)",
+			Summary: "查看日志(含 build/update/rollback 记录)",
 			Help: `查看日志。服务输出、构建输出、更新输出共用同一份日志。
 
   -n <行数>      打印最后 N 行(默认 200，小于 1 视为默认值)
   -f, --follow   持续跟随输出(跨日志轮转继续跟随)
-  --build        只显示最近一次 build/update 记录，用于排查上次构建失败`,
+  --build        只显示最近一次 build/update/rollback 记录，用于排查上次部署`,
 			Run: runLogs,
 		},
 		{
@@ -100,16 +101,58 @@ func Commands() []Command {
 			Run: runBuild,
 		},
 		{
-			Name:    "update",
-			Summary: "git pull + pnpm install + pnpm run build(自动停/启服务)",
-			Help: `更新流程: 停止服务(原本在运行才停) → git pull --ff-only → 清理残留
-→ pnpm install → pnpm run build → 恢复启动。
+			Name:    "timeline",
+			Summary: "查看仓库版本与 origin/master 的差距",
+			Help: `对比当前 checkout 与远程 origin/master：落后/领先的提交数、差距内的
+tag、最近的提交列表，以及 dshctl 自己记录过的部署历史。
 
-git pull 失败时旧构建仍然完好，会恢复启动旧版本并报告 pull 的错误；
-pnpm install 或构建失败时服务保持停止，日志中保留失败原因。
+执行时会先 git fetch（唯一会写 .git 远程跟踪引用的报告命令，不写状态目录、
+不改工作区）。fetch 失败时仍打印本地已知状态，但明确标注“远程未确认”，
+并以退出码 4 结束——绝不把过期的远程信息当作“已是最新”。
+
+  --json   以 JSON 输出，便于脚本消费
+
+退出码: 0 正常(落后/领先/分叉都算正常), 4 不是 checkout、没有 origin、
+fetch 失败或 git 读取失败。`,
+			Run: runTimeline,
+		},
+		{
+			Name:    "update",
+			Summary: "更新到指定版本(latest/tag/commit，自动停/启服务)",
+			Help: `更新流程: 解析目标版本 → 停止服务(原本在运行才停) → git 切换 →
+清理残留 → pnpm install → pnpm run build → 恢复启动。
+
+目标版本:
+  dshctl update              更新到 origin/master 最新(等价 latest)
+  dshctl update latest       同上
+  dshctl update <tag>        切换到该 tag 所在的提交(detached HEAD)
+  dshctl update <commit>     切换到该 commit(支持完整或缩写 hash)
+
+本地分支名不是版本: 本地 master 可能落后于 origin/master，要远程最新用
+latest，要具体提交用 tag 或 hash。
+
+所有检查(版本解析、工作区是否干净)都在停止服务之前完成；目标就是当前版本时
+不会重启服务。工作区有已跟踪文件的未提交修改时拒绝执行(未跟踪文件不受影响)。
+切换成功但 install/build 失败时服务保持停止，可用 dshctl rollback 退回。
 
 配置里没有写明 repoDir 时，更新成功后会把这个 checkout 写入配置。`,
 			Run: runUpdate,
+		},
+		{
+			Name:    "rollback",
+			Summary: "回退到之前的版本(不联网)",
+			Help: `回退流程与 update 相同(解析目标 → 停服 → git 切换 → 清理 → install →
+构建 → 恢复启动)，但目标来自 dshctl 记录的部署历史或指定的版本，且不联网：
+回到已知位置是救火路径，必须能在断网时工作。
+
+  dshctl rollback            回到上一次 update/rollback 之前所在的位置
+  dshctl rollback -n 3       回退 3 步
+  dshctl rollback <tag>      回到该 tag 所在的提交
+  dshctl rollback <commit>   回到该 commit(支持完整或缩写 hash)
+
+-n 与版本参数不能同时给出。没有历史可退或步数超过历史时以退出码 4 结束。
+工作区有已跟踪文件的未提交修改时拒绝执行(未跟踪文件不受影响)。`,
+			Run: runRollback,
 		},
 		{
 			Name:    "doctor",
@@ -283,7 +326,7 @@ func runLogs(ctx context.Context, env *Env, args []string) error {
 	follow := flags.Bool("f", false, "持续跟随输出")
 	flags.BoolVar(follow, "follow", false, "持续跟随输出")
 	lines := flags.Int("n", service.DefaultLogLines, "打印最后 N 行")
-	buildOnly := flags.Bool("build", false, "只显示最近一次 build/update 记录")
+	buildOnly := flags.Bool("build", false, "只显示最近一次 build/update/rollback 记录")
 	help, err := parseFlags(flags, args)
 	if err != nil {
 		return err
@@ -314,9 +357,10 @@ func runBuild(ctx context.Context, env *Env, args []string) error {
 	return newService(env).RunBuild(ctx)
 }
 
-// runUpdate implements `dshctl update`.
-func runUpdate(ctx context.Context, env *Env, args []string) error {
-	flags := newFlagSet(env, "update")
+// runTimeline implements `dshctl timeline`.
+func runTimeline(ctx context.Context, env *Env, args []string) error {
+	flags := newFlagSet(env, "timeline")
+	asJSON := flags.Bool("json", false, "以 JSON 输出")
 	help, err := parseFlags(flags, args)
 	if err != nil {
 		return err
@@ -324,7 +368,77 @@ func runUpdate(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	return newService(env).RunUpdate(ctx)
+	report, err := newService(env).Timeline(ctx)
+	if err != nil {
+		return err
+	}
+	if *asJSON {
+		if err := printJSON(env.Stdout, report); err != nil {
+			return err
+		}
+	} else if err := service.PrintTimeline(env.Stdout, report); err != nil {
+		return err
+	}
+	// A failed fetch is a failed preflight, even though the locally known
+	// report was printed: a script must be able to tell "confirmed against the
+	// remote" from "the remote could not be consulted".
+	if !report.Fetched {
+		return exitcode.SilentExit(exitcode.Preflight)
+	}
+	return nil
+}
+
+// runUpdate implements `dshctl update [latest|<tag>|<sha>]`.
+func runUpdate(ctx context.Context, env *Env, args []string) error {
+	flags := newFlagSet(env, "update")
+	help, rest, err := parseFlagsWithArgs(flags, args)
+	if err != nil {
+		return err
+	}
+	if help {
+		return nil
+	}
+	target, err := versionSelector(rest, flags.Name())
+	if err != nil {
+		return err
+	}
+	return newService(env).RunUpdate(ctx, target)
+}
+
+// runRollback implements `dshctl rollback [<tag>|<sha>] [-n <步数>]`.
+func runRollback(ctx context.Context, env *Env, args []string) error {
+	flags := newFlagSet(env, "rollback")
+	steps := flags.Int("n", 0, "回退的步数(默认 1)")
+	help, rest, err := parseFlagsWithArgs(flags, args)
+	if err != nil {
+		return err
+	}
+	if help {
+		return nil
+	}
+	target, err := versionSelector(rest, flags.Name())
+	if err != nil {
+		return err
+	}
+	given := false
+	flags.Visit(func(flag *flag.Flag) {
+		if flag.Name == "n" {
+			given = true
+		}
+	})
+	if given && target != "" {
+		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("命令 rollback 的 -n 与版本参数不能同时使用"))
+	}
+	if given && *steps < 1 {
+		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("命令 rollback 的 -n 必须是正整数: %d", *steps))
+	}
+	if target != "" {
+		return newService(env).RunRollback(ctx, target, 0)
+	}
+	if !given {
+		*steps = 1
+	}
+	return newService(env).RunRollback(ctx, "", *steps)
 }
 
 // runDoctor implements `dshctl doctor`.
