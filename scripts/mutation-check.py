@@ -260,7 +260,7 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     ),
     (
         "the record no longer names the checkout it was started from",
-        "internal/state/state.go",
+        "internal/domain/record.go",
         "RepoDir string `json:\"repoDir,omitempty\"`",
         "RepoDir string `json:\"-\"`",
         ["./internal/state/", "./internal/service/"],
@@ -281,7 +281,7 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     ),
     (
         "the record no longer names the release it was started with",
-        "internal/state/state.go",
+        "internal/domain/record.go",
         "if r.NodeVersion != \"\" {\n\t\tbuilder.WriteString(\", node=\")\n\t\tbuilder.WriteString(r.NodeVersion)\n\t}",
         "",
         ["./internal/service/"],
@@ -539,6 +539,29 @@ def run(packages: list[str]) -> tuple[str, str]:
     return "invalid", output
 
 
+def audit() -> int:
+    """Check every anchor against the tree without running a test.
+
+    A stale anchor is the signature of moved code: the sharded sweep catches it
+    one shard per run, which is a slow way to learn that a file was renamed. This
+    is the same check for the whole list at once.
+    """
+    stale = []
+    for name, path, original, _, _ in MUTATIONS:
+        file = ROOT / path
+        if not file.exists():
+            stale.append(f"{name}: {path} 不存在")
+            continue
+        if file.read_text(encoding="utf-8").count(original) != 1:
+            stale.append(f"{name}: {path} 里的锚点不唯一或不存在")
+    if stale:
+        for entry in stale:
+            print(f"检查失败: {entry}", file=sys.stderr)
+        return 1
+    print(f"锚点检查通过（{len(MUTATIONS)} 条都唯一匹配）")
+    return 0
+
+
 def select(entries: list, only: str | None, shard: str | None) -> list:
     """Return the mutations this invocation owns, in list order.
 
@@ -569,12 +592,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="list the mutations and exit")
     parser.add_argument("--only", help="run just the mutation whose name contains this")
+    parser.add_argument("--audit", action="store_true", help="check every anchor against the tree")
     parser.add_argument(
         "--shard",
         help="run one deterministic partition of the sweep, written I/N (CI runs all N in parallel)",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="show the failing output")
     arguments = parser.parse_args()
+
+    if arguments.audit:
+        return audit()
 
     if arguments.list:
         for name, path, _, _, packages in MUTATIONS:

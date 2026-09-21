@@ -97,7 +97,7 @@ check: fmt-check conventions vet test
 ## ci: what the pipeline runs on every commit
 ci: workflow-check fmt-check conventions vet coverage test-race
 
-## mutation: break each Node decision and require the suite to notice
+## mutation: break each Node decision and require the suite to notice (ARGS=--audit checks anchors)
 # ARGS reaches the script: `make mutation ARGS="--shard 2/6"` runs one shard of
 # the sweep, which is how the CI matrix covers all of it in parallel.
 mutation:
