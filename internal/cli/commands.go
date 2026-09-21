@@ -7,9 +7,9 @@ import (
 	"io"
 	"strings"
 
+	"github.com/rhczz/dshctl/internal/app"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/output"
-	"github.com/rhczz/dshctl/internal/service"
 )
 
 // helpExitCodes is the exit-code line the help text prints. It is a constant of
@@ -274,7 +274,7 @@ func runStart(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	_, err = newService(env).Start(ctx)
+	_, err = newApp(env).Start(ctx)
 	return err
 }
 
@@ -288,7 +288,7 @@ func runStop(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	result, err := newService(env).StopAll(ctx)
+	result, err := newApp(env).StopAll(ctx)
 	if err != nil {
 		return err
 	}
@@ -308,7 +308,7 @@ func runRestart(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	_, err = newService(env).RestartAll(ctx)
+	_, err = newApp(env).RestartAll(ctx)
 	return err
 }
 
@@ -323,16 +323,16 @@ func runStatus(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	statuses, err := newService(env).Statuses(ctx)
+	statuses, err := newApp(env).Statuses(ctx)
 	if err != nil {
 		return err
 	}
-	report := service.NewStatusReport(statuses)
+	report := app.NewStatusReport(statuses)
 	if *asJSON {
 		if err := output.JSON(env.Stdout, report); err != nil {
 			return err
 		}
-	} else if err := service.PrintStatuses(env.Stdout, env.Stderr, report); err != nil {
+	} else if err := app.PrintStatuses(env.Stdout, env.Stderr, report); err != nil {
 		return err
 	}
 	// The exit code answers the question the command was asked: the port the
@@ -354,11 +354,11 @@ func runURL(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	report, err := newService(env).URLReport(ctx)
+	report, err := newApp(env).URLReport(ctx)
 	if err != nil {
 		return err
 	}
-	if err := service.PrintURLs(env.Stdout, env.Stderr, report); err != nil {
+	if err := app.PrintURLs(env.Stdout, env.Stderr, report); err != nil {
 		return err
 	}
 	// `url` succeeds exactly when it handed out an address, which is the promise
@@ -381,7 +381,7 @@ func runLogs(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "logs")
 	follow := flags.Bool("f", false, "持续跟随输出")
 	flags.BoolVar(follow, "follow", false, "持续跟随输出")
-	lines := flags.Int("n", service.DefaultLogLines, "打印最后 N 行")
+	lines := flags.Int("n", app.DefaultLogLines, "打印最后 N 行")
 	buildOnly := flags.Bool("build", false, "只显示最近一次 build/update/rollback 记录")
 	help, err := parseFlags(flags, args)
 	if err != nil {
@@ -393,7 +393,7 @@ func runLogs(ctx context.Context, env *Env, args []string) error {
 	if *buildOnly && *follow {
 		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("--build 与 --follow 不能同时使用"))
 	}
-	return newService(env).Logs(ctx, service.LogsOptions{
+	return newApp(env).Logs(ctx, app.LogsOptions{
 		Lines:     *lines,
 		Follow:    *follow,
 		BuildOnly: *buildOnly,
@@ -410,7 +410,7 @@ func runBuild(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	return newService(env).RunBuild(ctx)
+	return newApp(env).RunBuild(ctx)
 }
 
 // runTimeline implements `dshctl timeline`.
@@ -424,7 +424,7 @@ func runTimeline(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	report, err := newService(env).Timeline(ctx)
+	report, err := newApp(env).Timeline(ctx)
 	if err != nil {
 		return err
 	}
@@ -432,7 +432,7 @@ func runTimeline(ctx context.Context, env *Env, args []string) error {
 		if err := output.JSON(env.Stdout, report); err != nil {
 			return err
 		}
-	} else if err := service.PrintTimeline(env.Stdout, report); err != nil {
+	} else if err := app.PrintTimeline(env.Stdout, report); err != nil {
 		return err
 	}
 	// A failed fetch is a failed preflight, even though the locally known
@@ -458,7 +458,7 @@ func runUpdate(ctx context.Context, env *Env, args []string) error {
 	if err != nil {
 		return err
 	}
-	return newService(env).RunUpdate(ctx, target)
+	return newApp(env).RunUpdate(ctx, target)
 }
 
 // runRollback implements `dshctl rollback [<tag>|<sha>] [-n <步数>]`.
@@ -489,12 +489,12 @@ func runRollback(ctx context.Context, env *Env, args []string) error {
 		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("命令 rollback 的 -n 必须是正整数: %d", *steps))
 	}
 	if target != "" {
-		return newService(env).RunRollback(ctx, target, 0)
+		return newApp(env).RunRollback(ctx, target, 0)
 	}
 	if !given {
 		*steps = 1
 	}
-	return newService(env).RunRollback(ctx, "", *steps)
+	return newApp(env).RunRollback(ctx, "", *steps)
 }
 
 // runDoctor implements `dshctl doctor`.
@@ -508,15 +508,15 @@ func runDoctor(ctx context.Context, env *Env, args []string) error {
 	if help {
 		return nil
 	}
-	checks := newService(env).Doctor(ctx)
+	checks := newApp(env).Doctor(ctx)
 	if *asJSON {
 		if err := output.JSON(env.Stdout, checks); err != nil {
 			return err
 		}
-	} else if err := service.PrintChecks(env.Stdout, checks); err != nil {
+	} else if err := app.PrintChecks(env.Stdout, checks); err != nil {
 		return err
 	}
-	if service.ChecksFailed(checks) {
+	if app.ChecksFailed(checks) {
 		return exitcode.SilentExit(exitcode.Failure)
 	}
 	return nil

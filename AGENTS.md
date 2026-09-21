@@ -14,7 +14,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 包地图与依赖方向
 
-`cmd/dshctl → internal/cli → internal/app → 叶子`，方向不可逆、不得成环、不得引入第三方 import。叶子：`atomically`、`buildinfo`、`config`、`deploy`、`detach`、`exitcode`、`history`、`host`（唯一直接和操作系统对话的包）、`lock`、`logfile`、`logging`、`nodejs`、`output`、`paths`、`repo`、`run`、`state`、`version`；`conformance` 是测试专用包（黑盒场景矩阵与差分金标）。迁移期仍有 `internal/service`（S3 删除）与 `internal/buildinfo`（S2 并入 `version`）。
+`cmd/dshctl → internal/cli → internal/app → 叶子`，方向不可逆、不得成环、不得引入第三方 import。叶子：`atomically`、`buildinfo`、`config`、`deploy`、`detach`、`exitcode`、`history`、`host`（唯一直接和操作系统对话的包）、`lock`、`logfile`、`logging`、`nodejs`、`output`、`paths`、`repo`、`run`、`state`、`version`；`conformance` 是测试专用包（黑盒场景矩阵与差分金标）。迁移期仍有 `internal/app`（S3 删除）与 `internal/buildinfo`（S2 并入 `version`）。
 
 ## 固定 vs 配置
 
@@ -32,7 +32,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 - 只读命令（`status`/`url`/`logs`/`doctor`/`version`/`help`）零写盘；`internal/cli/readonly_test.go` 跑真实二进制断言。唯一例外是 `timeline`：必须 `git fetch` 才能知道远程最新，只写 `.git` 的远程跟踪引用（不写状态目录、不改工作区），fetch 失败以退出码 4 结束、绝不声称“已是最新”。
 - 设置优先级 `flag > env > 文件 > 默认`，`-v` 打印每项来源；解析只在 `config.Load` 一处完成，操作函数内部不得再有隐藏默认。
-- "探测不了"绝不当作"没有"；绝不结束不是自己启动的进程（`internal/service` 包文档三条不变量）。
+- "探测不了"绝不当作"没有"；绝不结束不是自己启动的进程（`internal/app` 包文档三条不变量）。
 - 校验只在四处边界：CLI 参数、配置文件、状态与日志文件、外部命令输出。
 - 状态文件 0600、状态目录 0700、写入原子替换。
 - README 是唯一对外契约，`internal/cli/documentation_test.go` 强制环境变量、配置键、命令表、退出码表与默认值都被记录。
@@ -56,7 +56,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 架构
 
-- 跨层调用只经 `service`；平台差异只出现在 build tag 文件里，上层不得有 `if windows`（两处已声明例外见 `dshctl-portability`）。
+- 跨层调用只经 `app`；平台差异只出现在 build tag 文件里，上层不得有 `if windows`（两处已声明例外见 `dshctl-portability`）。
 - 接口只为可测性存在（当前只有 `run.Executor`/`Capturer`/`Outputer` 与 `service.OsHost`），文档要写明它买到了什么。
 - 新不变量同时写进包文档与一个测试；新包需"独立不变量 + 可独立测试 + 不引入反向依赖"三条同时成立。
 - 契约性决定连同被否决的方案与后果写进 `.agents/notes/`，与代码同一提交。

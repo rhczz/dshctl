@@ -47,7 +47,7 @@ go test ./internal/<pkg>/ -run <Test> -count=1           # 可疑时单点核实
 
 - [AGENTS.md](../../../AGENTS.md) — 不变量、固定 vs 配置、完成定义
 - [README.md](../../../README.md) — 操作者契约（命令、配置、环境变量、退出码）
-- [internal/service/service.go](../../../internal/service/service.go) — 三条生命周期不变量的声明地
+- [internal/app/service.go](../../../internal/app/service.go) — 三条生命周期不变量的声明地
 - [internal/cli/readonly_test.go](../../../internal/cli/readonly_test.go) — 真实入口取证的范例
 - [scripts/check-conventions.py](../../../scripts/check-conventions.py) — 已被门禁覆盖的部分，不要重复提
 - [评审清单](references/checklist.md) — 每条核查项的真源、违规长相与取证方式

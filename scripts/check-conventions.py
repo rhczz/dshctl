@@ -81,10 +81,10 @@ LAYERS = {
         "internal/exitcode",
         "internal/output",
         "internal/run",
-        "internal/service",
+        "internal/app",
         "internal/version",
     },
-    "internal/service": {
+    "internal/app": {
         "internal/config",
         "internal/detach",
         "internal/exitcode",

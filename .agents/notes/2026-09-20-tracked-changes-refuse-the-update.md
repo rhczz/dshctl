@@ -45,6 +45,6 @@
 
 - `internal/repo/release_test.go`：未暂存/已暂存/已删除都算脏；未跟踪不算；
   `checkout --detach` 拒绝覆盖已跟踪修改与未跟踪文件，且 HEAD 不动。
-- `internal/service/update_test.go`：脏工作区拒绝时服务不停、不切换、不构建。
+- `internal/app/update_test.go`：脏工作区拒绝时服务不停、不切换、不构建。
 - `scripts/mutation-check.py`：`a worktree with tracked changes is switched
   anyway`。

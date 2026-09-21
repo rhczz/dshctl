@@ -71,6 +71,6 @@
   前插/去重/上限、虚拟栈步进、组隔离。
 - `internal/history/history_fuzz_test.go`：`Load` 不发明位置、`Visit` 保持子序列
   且无重复、`Step` 的单调性与边界、Save/Load 双射。
-- `internal/service/rollback_test.go`：单步/多步/无历史/损坏/不联网/服务停启。
+- `internal/app/rollback_test.go`：单步/多步/无历史/损坏/不联网/服务停启。
 - `scripts/mutation-check.py`：`returning to a visited position no longer
   truncates the stack`。

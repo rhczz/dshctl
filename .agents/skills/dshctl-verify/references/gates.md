@@ -16,7 +16,7 @@
 | `make test` | **CI**（本地不跑全量） | `go test -timeout 600s ./...` | 全套行为与契约 | `--- FAIL: TestX`，先看断言的首句期望 |
 | `make test-race` | **CI** | `go test -race -timeout 600s ./...` | 同上加数据竞争检测 | 竞争报告含两段 goroutine 栈 |
 | `make hermetic` | **CI**：改测试隔离、新增 skip、碰 HOME/环境变量 | `../../../../scripts/hermetic-check.sh` | 一次性 HOME 下跑全套，断言临时目录之外零残留 | `tests created files in a real home directory:` 加路径 |
-| `make coverage` | **CI**：改 `internal/nodejs` 或配置层决策 | hermetic 跑一次带 `-coverprofile`，再交 `../../../../scripts/check-coverage.py` | `internal/nodejs` 100% 硬门禁；`internal/config`、`internal/service` 只报告 | `FAIL internal/nodejs: xx.x% (要求 100%，a/b 条语句)` 加 `未覆盖:` 行 |
+| `make coverage` | **CI**：改 `internal/nodejs` 或配置层决策 | hermetic 跑一次带 `-coverprofile`，再交 `../../../../scripts/check-coverage.py` | `internal/nodejs` 100% 硬门禁；`internal/config`、`internal/app` 只报告 | `FAIL internal/nodejs: xx.x% (要求 100%，a/b 条语句)` 加 `未覆盖:` 行 |
 | `make mutation` | **CI**（`ci.yml` 的 `mutation` job）：改 `internal/nodejs` 或配置层决策 | `../../../../scripts/mutation-check.py`，逐条破坏决策并要求测试失败 | "测试真的会注意到破坏吗" | `ALIVE`/`INVALID`/`BLOCKED` 任一行 + `mutation(s) survived` |
 | `make workflow-check` | 本地快检：改 `.github/`（静态检查，秒级；CI 的 hermetic job 也跑一遍） | `../../../../scripts/check-workflow.py` | workflow 结构属性（触发、平台矩阵、构建门禁、产物、表达式引号） | `workflow check failed: …` |
 | `make cross` | **CI**：平台代码改动；发布前 | 6 个 `GOOS/GOARCH` 交叉编译到 `dist/`；CI 的 `build` job 用等价的 6 个 `go build` 目标覆盖（`check-workflow.py` 校验六个目标都在） | darwin/linux/windows × amd64/arm64 都能编译 | 某个目标的编译错误 |
@@ -34,7 +34,7 @@
 
 - `make check` 整体 `real 1m56s`（含 `fmt-check`、`conventions`、`vet` 与测试）。
 - `make ci` 整体 `real 3m57s`：在 `check` 之上再跑一次带覆盖率的 hermetic 套件与 `-race` 套件。
-- 单包（约数，随机器波动）：`internal/cli` 约 110s、`internal/service` 约 106s、`internal/host` 约 21s、`internal/repo` 约 7s、`internal/lock` 约 6s、`internal/detach` 约 6s、`internal/logfile` 约 6s、`internal/nodejs` 约 5s、`internal/paths` 约 4s、`internal/exitcode` 约 4s、`internal/buildinfo` 约 3s、`internal/version` 约 3s、`internal/run` 约 3s、`internal/state` 约 3s、`internal/atomically` 约 2s、`internal/config` 约 2s、`cmd/dshctl` 约 1s。
+- 单包（约数，随机器波动）：`internal/cli` 约 110s、`internal/app` 约 106s、`internal/host` 约 21s、`internal/repo` 约 7s、`internal/lock` 约 6s、`internal/detach` 约 6s、`internal/logfile` 约 6s、`internal/nodejs` 约 5s、`internal/paths` 约 4s、`internal/exitcode` 约 4s、`internal/buildinfo` 约 3s、`internal/version` 约 3s、`internal/run` 约 3s、`internal/state` 约 3s、`internal/atomically` 约 2s、`internal/config` 约 2s、`cmd/dshctl` 约 1s。
 - 冷构建缓存会额外付出编译时间；`make mutation` 比 `make ci` 更重（每条变异都跑一次它所属的包）。CI 把它切成 6 个分片后，单个分片的墙钟是分钟级（约 2–4 分钟），整套的算力不变。
 - CI 上还有两个 Makefile 里没有的 job：`floor`（用下限工具链 `go vet ./...`，验证 README 的 `1.24+`）与 `vulncheck`（固定版本的 govulncheck）。两者都与 `test`/`hermetic` 并行，不在关键路径上。
 
@@ -55,7 +55,7 @@
 11. `workflow check failed: …` → workflow 的结构属性被破坏（少了一个平台、构建丢了 `needs`、`mutation` job 不见了或不再跑脚本、表达式里的裸词没加引号）→ 按提示改 `../../../../.github/workflows/` 下的文件。
 12. `检查失败: go-comments: <file>:<line>: 注释 N 列，超过 88` → 注释超宽 → 折行（`dshctl-style`）。
 13. `检查失败: go-imports: <file>: 引入第三方模块 …` → 破坏了零第三方依赖 → 用标准库实现。
-14. `检查失败: go-imports: <file>: <包> 依赖 <包>，不在允许的层方向内` → 依赖方向反了或新增了跨层边 → 把逻辑放回上层，或经 `internal/service` 中转（`dshctl-decisions`）。
+14. `检查失败: go-imports: <file>: <包> 依赖 <包>，不在允许的层方向内` → 依赖方向反了或新增了跨层边 → 把逻辑放回上层，或经 `internal/app` 中转（`dshctl-decisions`）。
 15. `检查失败: skills: … 相对链接指向不存在的 …` → skill 里的相对链接指向了被删/改名的文件 → 修链接或补文件（相对路径以 SKILL.md 所在目录为基准，仓库根是 `../../../`）。
 16. `检查失败: trailing-newline: <file>` → 文件结尾不是恰好一个换行 → 补或删末尾换行。
 17. `错误: …` 且退出码 2 → 命令行用法或配置错误（本地手跑命令时常见），不是门禁失败；看 `dshctl -v <命令>` 的来源输出。

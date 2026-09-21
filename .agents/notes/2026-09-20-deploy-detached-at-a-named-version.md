@@ -59,10 +59,10 @@ hash）。解析在停服之前完成，解析失败不动服务；目标等于�
 - `internal/repo/release_test.go`：真实 git 夹具（bare remote + peer clone）钉住
   fetch/解析/计数/first-parent/detached 切换/快进与分叉拒绝/脏检查，以及本地分支
   被拒、`origin/master` 仍可解析。
-- `internal/service/update_test.go`：短路、tag 切换不动 master、脏工作区拒绝、
+- `internal/app/update_test.go`：短路、tag 切换不动 master、脏工作区拒绝、
   未知版本不停服、离线降级、无 origin 时 latest 拒绝而 tag 仍可用、历史外目标警告、
   记录写失败仍完成部署。
-- `internal/service/rollback_test.go`：`TestUpdateAfterARollbackReturnsToMaster`
+- `internal/app/rollback_test.go`：`TestUpdateAfterARollbackReturnsToMaster`
   钉住完整闭环（update → rollback 后 detached → update 回到 master）。
 - `scripts/mutation-check.py`：`the version already deployed is rebuilt and
   restarted anyway`、`a worktree with tracked changes is switched anyway`、

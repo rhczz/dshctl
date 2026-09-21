@@ -6,8 +6,8 @@
 
 一次完整结论要等 14 分 26 秒（run 35176900756）：`mutation` job 自己占了 14 分 22 秒，
 其余 job 全在 3 分 20 秒内结束。逐条读日志，慢的不是编译：第 1 条变异 39.5s，之后
-同为 `./internal/service/` 的变异稳定在 32.9s，说明冷构建只值约 7s，剩下的是测试本身
-——`internal/service` 在 ubuntu 上跑 34s，其中 20.0s 是一个测试故意耗尽指纹预算的结果，
+同为 `./internal/app/` 的变异稳定在 32.9s，说明冷构建只值约 7s，剩下的是测试本身
+——`internal/app` 在 ubuntu 上跑 34s，其中 20.0s 是一个测试故意耗尽指纹预算的结果，
 而这个包被 20 多条变异各跑一遍。分片是唯一能把它除以 N 而不丢任何一条变异的办法。
 
 同期还有三个"同一提交可能有不同结论"的源头，以及两处文档与现实不符：
@@ -77,7 +77,7 @@ YAML 等于把判断藏进表达式；而且一条改动的跨包影响可能让
 关键路径；后者看着冗余，但不占墙钟（分片与 Windows job 都比它长），删掉只是拿掉一个
 执行制度的信号。
 
-**把 `internal/service` 的测试拆包或加 `t.Parallel()`。** 落选：这个包的测试会绑真实
+**把 `internal/app` 的测试拆包或加 `t.Parallel()`。** 落选：这个包的测试会绑真实
 端口、写真实临时目录，并行化把确定性换成速度，与本仓库的方向相反；分片已经拿到
 想要的墙钟。
 
@@ -87,7 +87,7 @@ YAML 等于把判断藏进表达式；而且一条改动的跨包影响可能让
 ## 后果
 
 - 墙钟从 14m26s 降到分钟级：六个变异分片各自约 2–4 分钟，最长的 job 变成 Windows 的
-  `test`（约 3m16s，`internal/service` 一个包 122s，是 runner 的文件系统与
+  `test`（约 3m16s，`internal/app` 一个包 122s，是 runner 的文件系统与
   Defender 开销，不是某个测试在等）。总 runner 分钟数上升，但仓库是公开仓库、分钟数
   不计费，而等待是人（和 agent）在付。
 - 变异的结论现在是六个 job 的合取：某一片红时，失败的变异名就在那一片的日志里；
@@ -96,7 +96,7 @@ YAML 等于把判断藏进表达式；而且一条改动的跨包影响可能让
   公告，`vulncheck` 是这个代价的报警器，升级则是一次独立的 `ci:` 提交。
 - `--only` 仍是本地证明单条变异的标准手段；`--shard` 不是本地门禁的替代品（本地跑它
   只回答"这一片还绿吗"）。
-- 已知缺口：`internal/service` 在 Windows 上 122s 的原因只到"包级"这一层，没有逐测试
+- 已知缺口：`internal/app` 在 Windows 上 122s 的原因只到"包级"这一层，没有逐测试
   证据；要定位需要一次带 `-v` 的 Windows 运行（本地无法执行 Windows 二进制）。
 
 ## 验证
@@ -112,6 +112,6 @@ YAML 等于把判断藏进表达式；而且一条改动的跨包影响可能让
   `caught`（`TestStartWithoutAFingerprintStillWorksAndSaysSo` 与
   `TestProcessStartTimeGivesUpCleanly` 两条同时失败），证明缩短预算没有把这条决策
   变成无人看守。
-- `go test ./internal/service/ -run TestStartWithoutAFingerprint -count=1`：20.20s → 0.23s。
+- `go test ./internal/app/ -run TestStartWithoutAFingerprint -count=1`：20.20s → 0.23s。
 - 本改动推送后由 CI 判定：六个变异分片、`floor`、三平台 `test`、`hermetic`、六个
   `build` 与 `vulncheck`。

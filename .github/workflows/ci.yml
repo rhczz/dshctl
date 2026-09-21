@@ -207,7 +207,7 @@ jobs:
           python3 scripts/check-coverage.py /tmp/coverage.out \
             --require internal/nodejs=100 \
             --report internal/config \
-            --report internal/service
+            --report internal/app
 
   mutation:
     name: the tests notice a broken decision (${{ matrix.shard }}/6)

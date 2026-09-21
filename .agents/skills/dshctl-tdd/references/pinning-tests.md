@@ -19,7 +19,7 @@ for _, testCase := range cases {
 
 用途：解析、校验、分类、排序。`internal/config/config_audit_test.go` 的 `TestLoadRejectsWrongJSONTypes` 是范例——每种错误形状一行，且断言里带字段名。
 
-**契约钉**：跨文件、跨包、跨进程的字面量必须一致，且改动是协调改动。范例：`internal/service/contracts_test.go` 把构建标记路径在 `config`、`repo`、`service` 三个包的推导结果钉成同一个字符串；`internal/cli/documentation_test.go` 把 `paths.Env*` 常量与 `config.File` 的 json tag 钉进 README。写这类测试的理由是失败模式是静默的：两边漂移后，构建成功会被报成"缺构建产物"。
+**契约钉**：跨文件、跨包、跨进程的字面量必须一致，且改动是协调改动。范例：`internal/app/contracts_test.go` 把构建标记路径在 `config`、`repo`、`service` 三个包的推导结果钉成同一个字符串；`internal/cli/documentation_test.go` 把 `paths.Env*` 常量与 `config.File` 的 json tag 钉进 README。写这类测试的理由是失败模式是静默的：两边漂移后，构建成功会被报成"缺构建产物"。
 
 **属性 / 边界审计**：`*_audit_test.go` 这个名字下的测试回答的是"这个函数还能给出第三种答案吗"。范例：`internal/logfile/logfile_audit_test.go` 的 `TestAllMatchesReportsWhenTheWindowMissedTheMatch` 区分"没有匹配"与"匹配在搜索窗口之外"——前者等待更久也没用，要如实上报"日志里没有地址"；后者必须上报搜索被截断，而不是宣称没有。凡是返回值多于"成功/失败"两态的地方，都该有这一类。
 

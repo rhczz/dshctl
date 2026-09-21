@@ -50,7 +50,7 @@ README 与 `readonly_test.go` 的承诺冲突："报告命令零写盘"。两者
 - `internal/cli/release_test.go`：真实仓库与真实二进制——工作区逐字节不变、状态
   目录不存在、`FETCH_HEAD` 出现、`--json` 可消费、fetch 失败退出 4 且绝不出现
   "已是最新"。
-- `internal/service/timeline_test.go`：窗口/tag/省略行、分叉、脏工作区、历史段、
+- `internal/app/timeline_test.go`：窗口/tag/省略行、分叉、脏工作区、历史段、
   fetch 失败的本地状态与"远程未确认"。
 - `scripts/mutation-check.py`：`a failed fetch still reports the timeline as
   confirmed`、`fetch prunes remote-tracking refs the remote no longer has`。

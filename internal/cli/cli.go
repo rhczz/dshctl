@@ -14,10 +14,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rhczz/dshctl/internal/app"
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/run"
-	"github.com/rhczz/dshctl/internal/service"
 	"github.com/rhczz/dshctl/internal/version"
 )
 
@@ -366,16 +366,16 @@ func printCommandHelp(w io.Writer, command Command) {
 	}
 }
 
-// newService builds the service for one command.
-func newService(env *Env) *service.Service {
-	application := service.New(env.Settings, service.Dependencies{
+// newApp builds the service for one command.
+func newApp(env *Env) *app.Service {
+	application := app.New(env.Settings, app.Dependencies{
 		Exec:    env.Executor,
 		Out:     env.Stdout,
 		Err:     env.Stderr,
 		Version: env.Version,
 	})
 	// The command line owns the process-wide lookups, so they are injected here
-	// rather than read from the environment inside the service.
+	// rather than read from the environment inside the app.
 	application.LookPath = env.LookPath
 	application.Getenv = env.Getenv
 	return application

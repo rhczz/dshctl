@@ -309,7 +309,7 @@ func TestExitedBlocksOnTheSeededTimerUntilTheChildEnds(t *testing.T) {
 // two, so the same question about the same dead process answers "still running"
 // roughly half the time. That answer is what dshctl start uses to turn a server
 // that died on startup into a fast failure instead of a timeout
-// (internal/service/start.go and observe.go poll the function spawnDetached
+// (internal/app/start.go and observe.go poll the function spawnDetached
 // hands them), and an answer that flips while nothing about the process has
 // changed cannot be trusted for it.
 //
