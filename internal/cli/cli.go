@@ -7,6 +7,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -14,9 +15,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rhczz/dshctl/internal/app"
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/exitcode"
+	"github.com/rhczz/dshctl/internal/i18n"
+	"github.com/rhczz/dshctl/internal/kernel"
 	"github.com/rhczz/dshctl/internal/run"
 	"github.com/rhczz/dshctl/internal/version"
 )
@@ -83,6 +85,15 @@ type globals struct {
 // Returns:
 //   - the process exit code.
 func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv func(string) string) int {
+	// The language is a property of the invocation, and the catalog is the merge
+	// of every layer's words: the kernel's, this shell's, and any front-end that
+	// joins later. Both are resolved once, before any command can print.
+	catalog, err := i18n.Merge(kernel.Messages)
+	if err != nil {
+		fmt.Fprintf(stderr, "错误: %v\n", err)
+		return exitcode.Failure
+	}
+	i18n.Use(i18n.New(i18n.Resolve(getenv), catalog))
 	env := &Env{
 		Stdout:   stdout,
 		Stderr:   stderr,
@@ -353,6 +364,16 @@ func versionSelector(args []string, command string) (string, error) {
 // printCommandHelp writes one command's help.
 //
 // The usage line comes first and is built from the same Usage the top-level
+// printJSON writes a value as indented JSON.
+//
+// The shell owns this rendering: a use case returns a value, and whether the
+// operator asked for JSON or for the narrative decides which one is printed.
+func printJSON(w io.Writer, value any) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
+}
+
 // help lists, so "how do I call this" is answered before the details.
 func printCommandHelp(w io.Writer, command Command) {
 	fmt.Fprintf(w, "dshctl %s — %s\n\n", command.Name, command.Summary)
@@ -366,12 +387,11 @@ func printCommandHelp(w io.Writer, command Command) {
 	}
 }
 
-// newApp builds the service for one command.
-func newApp(env *Env) *app.Service {
-	application := app.New(env.Settings, app.Dependencies{
+// newApp builds the application for one command.
+func newApp(env *Env) *kernel.Service {
+	application := kernel.New(env.Settings, kernel.Dependencies{
 		Exec:    env.Executor,
-		Out:     env.Stdout,
-		Err:     env.Stderr,
+		Emit:    kernel.TextEmitter{Out: env.Stdout, Err: env.Stderr},
 		Version: env.Version,
 	})
 	// The command line owns the process-wide lookups, so they are injected here

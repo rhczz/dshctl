@@ -7,9 +7,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/rhczz/dshctl/internal/app"
 	"github.com/rhczz/dshctl/internal/exitcode"
-	"github.com/rhczz/dshctl/internal/output"
+	"github.com/rhczz/dshctl/internal/kernel"
 )
 
 // helpExitCodes is the exit-code line the help text prints. It is a constant of
@@ -327,18 +326,18 @@ func runStatus(ctx context.Context, env *Env, args []string) error {
 	if err != nil {
 		return err
 	}
-	report := app.NewStatusReport(statuses)
+	report := kernel.NewStatusReport(statuses)
 	if *asJSON {
-		if err := output.JSON(env.Stdout, report); err != nil {
+		if err := printJSON(env.Stdout, report); err != nil {
 			return err
 		}
-	} else if err := app.PrintStatuses(env.Stdout, env.Stderr, report); err != nil {
+	} else if err := kernel.PrintStatuses(env.Stdout, env.Stderr, report); err != nil {
 		return err
 	}
 	// The exit code answers the question the command was asked: the port the
 	// configuration names, or the one that was named on the command line. Other
 	// instances are reported beside it, never instead of it.
-	if report.Status.ServeExitCode() != exitcode.OK {
+	if kernel.ServeExitCode(report.Status) != exitcode.OK {
 		return exitcode.SilentExit(exitcode.NotRunning)
 	}
 	return nil
@@ -358,7 +357,7 @@ func runURL(ctx context.Context, env *Env, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := app.PrintURLs(env.Stdout, env.Stderr, report); err != nil {
+	if err := kernel.PrintURLs(env.Stdout, env.Stderr, report); err != nil {
 		return err
 	}
 	// `url` succeeds exactly when it handed out an address, which is the promise
@@ -371,7 +370,7 @@ func runURL(ctx context.Context, env *Env, args []string) error {
 	}
 	if !report.Status.Owning() && !report.Status.Survivor {
 		return exitcode.New(exitcode.NotRunning,
-			"DSH Web 未在运行(%s)，没有可访问的地址", report.Status.Summary())
+			"DSH Web 未在运行(%s)，没有可访问的地址", kernel.StatusSummary(report.Status))
 	}
 	return exitcode.SilentExit(exitcode.NotRunning)
 }
@@ -381,7 +380,7 @@ func runLogs(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "logs")
 	follow := flags.Bool("f", false, "持续跟随输出")
 	flags.BoolVar(follow, "follow", false, "持续跟随输出")
-	lines := flags.Int("n", app.DefaultLogLines, "打印最后 N 行")
+	lines := flags.Int("n", kernel.DefaultLogLines, "打印最后 N 行")
 	buildOnly := flags.Bool("build", false, "只显示最近一次 build/update/rollback 记录")
 	help, err := parseFlags(flags, args)
 	if err != nil {
@@ -393,7 +392,7 @@ func runLogs(ctx context.Context, env *Env, args []string) error {
 	if *buildOnly && *follow {
 		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("--build 与 --follow 不能同时使用"))
 	}
-	return newApp(env).Logs(ctx, app.LogsOptions{
+	return newApp(env).Logs(ctx, kernel.LogsOptions{
 		Lines:     *lines,
 		Follow:    *follow,
 		BuildOnly: *buildOnly,
@@ -429,10 +428,10 @@ func runTimeline(ctx context.Context, env *Env, args []string) error {
 		return err
 	}
 	if *asJSON {
-		if err := output.JSON(env.Stdout, report); err != nil {
+		if err := printJSON(env.Stdout, report); err != nil {
 			return err
 		}
-	} else if err := app.PrintTimeline(env.Stdout, report); err != nil {
+	} else if err := kernel.PrintTimeline(env.Stdout, report); err != nil {
 		return err
 	}
 	// A failed fetch is a failed preflight, even though the locally known
@@ -510,13 +509,13 @@ func runDoctor(ctx context.Context, env *Env, args []string) error {
 	}
 	checks := newApp(env).Doctor(ctx)
 	if *asJSON {
-		if err := output.JSON(env.Stdout, checks); err != nil {
+		if err := printJSON(env.Stdout, checks); err != nil {
 			return err
 		}
-	} else if err := app.PrintChecks(env.Stdout, checks); err != nil {
+	} else if err := kernel.PrintChecks(env.Stdout, checks); err != nil {
 		return err
 	}
-	if app.ChecksFailed(checks) {
+	if kernel.ChecksFailed(checks) {
 		return exitcode.SilentExit(exitcode.Failure)
 	}
 	return nil
@@ -534,7 +533,7 @@ func runVersion(_ context.Context, env *Env, args []string) error {
 		return nil
 	}
 	if *asJSON {
-		return output.JSON(env.Stdout, env.Version)
+		return printJSON(env.Stdout, env.Version)
 	}
 	_, err = fmt.Fprintln(env.Stdout, env.Version.String())
 	return err

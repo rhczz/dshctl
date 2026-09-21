@@ -39,6 +39,10 @@ const (
 	EnvNodeVersion = "DSH_NODE_VERSION"
 	// EnvConfigFile overrides the config file location.
 	EnvConfigFile = "DSHCTL_CONFIG"
+	// EnvLang overrides the language operator-facing text is rendered in. It
+	// outranks the shell's locale variables, so an operator can ask for English
+	// on a Chinese machine and the other way around.
+	EnvLang = "DSHCTL_LANG"
 	// EnvLogFile overrides the log file location.
 	EnvLogFile = "DSH_LOG_FILE"
 )

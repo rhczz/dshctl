@@ -31,7 +31,7 @@ MUTATION_SCRIPT = ROOT / "scripts" / "mutation-check.py"
 
 # TestMain is a hook rather than a test, so the ledger skips it.
 TEST_FUNC = re.compile(r"^func (Test|Fuzz|Benchmark)(?!Main\b)[A-Za-z0-9_]*\(")
-DISPOSITIONS = ("todo", "new-test", "conformance", "differential", "merged", "obsolete")
+DISPOSITIONS = ("todo", "kept", "new-test", "conformance", "differential", "merged", "obsolete")
 NEEDS_EVIDENCE = ("new-test", "conformance", "differential", "merged", "obsolete")
 ADDITIONS = {
     "mutating-json": "--json on the six mutating commands",

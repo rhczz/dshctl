@@ -4,6 +4,7 @@ package state
 
 import (
 	"errors"
+	"github.com/rhczz/dshctl/internal/domain"
 	"os"
 	"syscall"
 	"testing"
@@ -46,7 +47,7 @@ func TestAFIFOAtTheRecordPathIsRejectedAndThenCleared(t *testing.T) {
 // portable file.
 func TestSaveIsOwnerOnly(t *testing.T) {
 	box := store(t)
-	if err := box.Save(Record{PID: 1, Port: 1, Phase: PhaseRunning}); err != nil {
+	if err := box.Save(domain.Record{PID: 1, Port: 1, Phase: domain.PhaseRunning}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	info, err := os.Stat(box.Path)

@@ -94,13 +94,13 @@ dshctl status                # “未运行”，但 3081 还在服务
 
 ## 验证
 
-- `internal/app/multi_test.go`：发现、`--port` 收窄、停全部、混合（死记录 /
+- `internal/kernel/multi_test.go`：发现、`--port` 收窄、停全部、混合（死记录 /
   陌生监听者）、拒绝重启、地址列表、探测失败不降级成结论。
 - `internal/cli/multiport_test.go`：真实二进制的报告序列（`--port` 起一个、
   默认起一个、点名停一个、不点名停剩下的），并断言 `status` 两个端口都报、
   `url` 两个 token 都拿得到、结束后不留记录。
 - `internal/cli/twoport_test.go`：原有的两端口回归测试（不互相孤儿化）。
-- `internal/app/multi_test.go` 的 `TestMovingTheFixturePortMovesItsRecordStore`：
+- `internal/kernel/multi_test.go` 的 `TestMovingTheFixturePortMovesItsRecordStore`：
   夹具换端口后必须读写同一个记录文件。这条守的是**夹具自己**：`New` 用
   `Settings.StateFile()` 建记录仓库，夹具曾经在构造时把它定死，于是换过端口的夹具
   读到的是没有任何命令写过的文件——一个只跑单个测试才通过的缺陷。

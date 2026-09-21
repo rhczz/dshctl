@@ -34,7 +34,7 @@ MUTATION_SCRIPT = ROOT / "scripts" / "mutation-check.py"
 
 # The dispositions a row may carry. `todo` is the only one that blocks a merge:
 # it means nobody has decided yet what replaces this test.
-DISPOSITIONS = ("todo", "new-test", "conformance", "differential", "merged", "obsolete")
+DISPOSITIONS = ("todo", "kept", "new-test", "conformance", "differential", "merged", "obsolete")
 
 
 def test_rows() -> list[dict[str, str]]:

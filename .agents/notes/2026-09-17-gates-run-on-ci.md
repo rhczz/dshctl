@@ -38,7 +38,7 @@
   与发布之间可能隔着很多提交，那时才发现某条决策不再被钉住，要回溯是哪次改动破坏的。
 - **按路径触发变异 job**（只有改 `internal/nodejs`/配置层时才跑）：被否。Actions 的
   `paths` 过滤只能作用在整个 workflow 上，per-job 判断要靠 `contains(github.event...)`
-  之类的表达式，脆且难验证；36 条变异里有一半涉及 `internal/cli`/`internal/app`，
+  之类的表达式，脆且难验证；36 条变异里有一半涉及 `internal/cli`/`internal/kernel`，
   「哪些改动算配置决策」本身就是判断，写死在 YAML 里等于把判断藏进表达式。
 - **给变异 job 加 `needs: [test]`**：被否。省不了多少算力（job 之间本来就并行），却把
   最慢的一环放进关键路径，还会让 build 的产出等它。

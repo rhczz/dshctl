@@ -239,6 +239,10 @@ func (f *fixture) environment(probes, realPATH bool) []string {
 		"USERPROFILE="+f.home,
 		"PATH="+path,
 		"DSHCTL_STATE_DIR="+f.stateDir,
+		// The goldens were recorded from v0.2.5, whose text is Chinese. Pinning
+		// the language keeps the oracle about behavior rather than about which
+		// language the machine happens to prefer.
+		"DSHCTL_LANG=zh",
 		"LC_ALL=C",
 		"LANG=C",
 	)

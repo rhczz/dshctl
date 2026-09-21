@@ -144,6 +144,11 @@ jobs:
         # the other repository-shape check.
         run: python3 scripts/check-conventions.py
 
+      - name: Orphan packages
+        # A rewrite leaves code that compiles and is never reached. The
+        # compiler cannot see it, so this walks the import graph instead.
+        run: python3 scripts/check-orphans.py
+
       - name: Rewrite ledger
         # The v0.3 branch replaces the test suite, so the ledger under
         # internal/conformance/accounting/ is what says what happened to every

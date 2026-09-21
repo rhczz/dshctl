@@ -7,12 +7,12 @@
 `AGENTS.md` 写"人读的文案中文"，`dshctl-style` 与 `dshctl-testing` 把它展开成
 "测试失败信息用中文"。树里的实际做法相反：按 `t.Fatalf`/`t.Errorf` 的首个字符串字面量
 统计，英文 2623 条、中文 65 条，其中约 30 条是本次会话新加的。近期提交（`internal/cli`、
-`internal/app`）也在加英文信息，`internal/repo/prune_audit_test.go` 里被 skill 引用为
+`internal/kernel`）也在加英文信息，`internal/repo/prune_audit_test.go` 里被 skill 引用为
 范例的那条 `mustCheckout` 信息本身就是英文。
 
 后果不是风格问题而是确定性问题：同一条规则下，两个 agent 会写出两种语言。本次会话里
 一个 agent 在 `internal/detach`/`internal/host`/`internal/repo`（这三个包原本 100% 英文）
-按规则写了中文信息，另一个 agent 在 `internal/app` 也写了中文，评审时必须先判断
+按规则写了中文信息，另一个 agent 在 `internal/kernel` 也写了中文，评审时必须先判断
 "规则对还是树对"。规则与 97.6% 的代码相反时，规则不会被执行，只会被争论。
 
 ## 决定
@@ -40,7 +40,7 @@ agent——正是这次要消灭的东西。
 
 - 新写的测试失败信息与树里绝大多数一致，评审不再需要在两种语言之间做裁量。
 - 面向操作者的中文文案不受影响：产品错误、`Help`、README 仍是中文，判据是"谁在读"。
-- 已知缺口：约 35 条历史中文失败信息留在树里（多在 `internal/app`、`internal/config`、
+- 已知缺口：约 35 条历史中文失败信息留在树里（多在 `internal/kernel`、`internal/config`、
   `internal/nodejs`），只在改动那些文件时顺带处理。
 
 ## 验证
@@ -50,7 +50,7 @@ agent——正是这次要消灭的东西。
 - 本次会话新增/改动的失败信息已全部改为英文：`internal/cli/documentation_test.go`、
   `internal/cli/readonly_test.go`、`internal/detach/detach_unix_test.go`、
   `internal/host/facts_unix_test.go`、`internal/host/hermetic_test.go`、
-  `internal/repo/prune_test.go`、`internal/app/lock_test.go`、
-  `internal/app/tolerance_test.go`。
+  `internal/repo/prune_test.go`、`internal/kernel/lock_test.go`、
+  `internal/kernel/tolerance_test.go`。
 - 统计口径：`grep` 每个 `*_test.go` 里 `t.Fatalf`/`t.Errorf`/`t.Fatal`/`t.Error` 的首个
   字符串字面量，按是否含 CJK 分类。

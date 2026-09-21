@@ -1,6 +1,7 @@
 package state
 
 import (
+	"github.com/rhczz/dshctl/internal/domain"
 	"os"
 	"path/filepath"
 	"testing"
@@ -89,12 +90,12 @@ func FuzzSaveLoadRoundTrip(f *testing.F) {
 			}
 		}
 		store := Store{Path: filepath.Join(t.TempDir(), "dsh-web-3080.state.json")}
-		saved := Record{
+		saved := domain.Record{
 			PID:         pid,
 			SpawnedPID:  spawnedPID,
 			StartedAt:   startedAt,
 			Port:        port,
-			Phase:       Phase(phase),
+			Phase:       domain.Phase(phase),
 			URL:         url,
 			NodeVersion: nodeVersion,
 			NodePath:    nodePath,

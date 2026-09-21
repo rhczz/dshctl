@@ -22,7 +22,7 @@ dshctl 支持 darwin/linux/windows × amd64/arm64，平台差异只允许出现�
 
 3. **`internal/host` 是唯一直接和操作系统对话的包，平台差异只用 build tag 表达，上层不出现 `if windows`。** 为什么：`internal/host/host.go` 的包文档承诺"lifecycle code above this package never contains an `if windows`"；一条平台分支漏到上层，就会在另一个平台以最难复现的方式失败。两处已声明的例外是 `runtime.GOOS` 直接出现在非 build tag 文件里，判据是"差异只是一个值，不是一段逻辑"，拆文件只会把同一段代码抄两遍：`internal/config` 的 `quoteGlob`（Windows 的 `filepath.Match` 关掉反斜杠转义，通配符要写成字符类）与 `internal/buildinfo`（只回报 `runtime.GOOS`/`GOARCH`，供版本输出与平台测试替换）。新增例外要同时改这一条与 `dshctl-review` 的清单。
 
-4. **上层通过窄接口获得平台能力**：`app.OsHost`（`Listening`/`Inspect`/`Alive`/`Signal`/`DescendsFrom`/`GroupExists`/`SignalGroup`/`KillGroup`）与 `run` 的 `Executor`/`Capturer`/`Outputer`。为什么：这些接口存在的唯一理由是让整个生命周期跑在虚构机器上（`internal/app/host.go` 的接口文档与 `internal/app/fake_test.go`）；把平台判断挪到上层会同时废掉这套测试能力。
+4. **上层通过窄接口获得平台能力**：`kernel.OsHost`（`Listening`/`Inspect`/`Alive`/`Signal`/`DescendsFrom`/`GroupExists`/`SignalGroup`/`KillGroup`）与 `run` 的 `Executor`/`Capturer`/`Outputer`。为什么：这些接口存在的唯一理由是让整个生命周期跑在虚构机器上（`internal/kernel/host.go` 的接口文档与 `internal/kernel/fake_test.go`）；把平台判断挪到上层会同时废掉这套测试能力。
 
 5. **Windows 事实，改动前先读对应文件**：
    - 主目录：`os.UserHomeDir` 在 Unix 读 `$HOME`、在 Windows 读 `%USERPROFILE%`（`internal/config/config_sources_test.go` 与 `internal/nodejs/nodejs_test.go` 用 `t.Setenv("USERPROFILE", …)` 表达这一点）。
@@ -30,7 +30,7 @@ dshctl 支持 darwin/linux/windows × amd64/arm64，平台差异只允许出现�
    - 子进程被放进新进程组，避免控制台 Ctrl-C 波及它（`internal/run/process_windows.go` 的 `createNewProcessGroup = 0x00000200`）；取消时用 `taskkill` 走整棵树（同文件的 `killTree`）。
    - 端口探测走 IP Helper API `GetExtendedTcpTable`，不是 netstat 文本（`internal/host/ports_windows.go`）。
    - IPv6 行是 56 字节且字段位置与 IPv4 不同；用 IPv4 布局解析 56 字节行会把端口读成地址中间的值，从而把每个 IPv6 监听者报成空闲端口（`internal/host/ports_windows.go` 的 `mibTCP6Row` 注释）。
-   - 文件名不能含 `*`/`?`，所以需要构造这类目录的测试分支只能在非 Windows 平台建立（`internal/app/contracts_test.go`）。
+   - 文件名不能含 `*`/`?`，所以需要构造这类目录的测试分支只能在非 Windows 平台建立（`internal/kernel/contracts_test.go`）。
    - 没有 Unix 权限位语义，`0600`/`0700` 的实现与断言拆在 `_unix` 文件（`internal/atomically/syncdir_unix.go`、`internal/config/config_permissions_unix_test.go`）。
    - Unix 侧还有自己的差异：netstat/lsof/ss 的文本布局与 `ps` 事实读取分别实现（`internal/host/netstat_linux.go`、`internal/host/netstat_darwin.go`、`internal/host/facts_linux.go`、`internal/host/facts_other_unix.go`），同一个问题在不同 Unix 上答案不同。
 
@@ -48,7 +48,7 @@ dshctl 支持 darwin/linux/windows × amd64/arm64，平台差异只允许出现�
 
 ## 相关文件
 
-- 平台边界与接口：[../../../internal/host/host.go](../../../internal/host/host.go)、[../../../internal/app/host.go](../../../internal/app/host.go)
+- 平台边界与接口：[../../../internal/host/host.go](../../../internal/host/host.go)、[../../../internal/kernel/host.go](../../../internal/kernel/host.go)
 - Windows 实现：[../../../internal/host/ports_windows.go](../../../internal/host/ports_windows.go)、[../../../internal/host/group_windows.go](../../../internal/host/group_windows.go)、[../../../internal/run/process_windows.go](../../../internal/run/process_windows.go)
 - Unix 实现：[../../../internal/host/netstat_linux.go](../../../internal/host/netstat_linux.go)、[../../../internal/host/netstat_darwin.go](../../../internal/host/netstat_darwin.go)
 - 三平台矩阵与 skip 白名单：[../../../.github/workflows/ci.yml](../../../.github/workflows/ci.yml)

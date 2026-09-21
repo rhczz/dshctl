@@ -18,7 +18,7 @@ dshctl 管的是长跑在后台的真实服务：它有独立的状态目录、�
 
 ### 1. 只读取证，按固定顺序
 
-1. `dshctl status --json`：看 `state`（`running`/`starting`/`stopped`/`port-foreign`/`port-unmanaged`，定义见 `../../../internal/app/observe.go`）、`ready`、`listenerPid` 与 `recordedPid` 是否一致、`recordLive`/`recordStale`/`survivorService`、以及 `recordedRepoDir`/`recordedNodeVersion`——"运行中的服务"与"配置里的 checkout"可能不是同一个，前者以记录为准。
+1. `dshctl status --json`：看 `state`（`running`/`starting`/`stopped`/`port-foreign`/`port-unmanaged`，定义见 `../../../internal/kernel/observe.go`）、`ready`、`listenerPid` 与 `recordedPid` 是否一致、`recordLive`/`recordStale`/`survivorService`、以及 `recordedRepoDir`/`recordedNodeVersion`——"运行中的服务"与"配置里的 checkout"可能不是同一个，前者以记录为准。
 2. `dshctl doctor --json`：每项是 `{name, status, detail}`，`status` 取 `ok`/`warn`/`fail`；先看 `fail`，`detail` 里通常直接写了补救动作。
 3. `dshctl url`：打印带 token 的访问地址；未运行时退出码 3，不是错误。
 4. `dshctl logs --build`：最近一次 build/update 记录。服务起不来最常见的原因是上一次构建失败，这一条比翻整个日志快。
@@ -36,7 +36,7 @@ dshctl 管的是长跑在后台的真实服务：它有独立的状态目录、�
 
 ### 4. 只结束自己启动过的进程
 
-- dshctl 只在运行记录里的 pid **与该进程的启动时间仍然吻合**时才结束它，因为 pid 会被操作系统回收，启动时间指纹是唯一的归属证据（`../../../internal/app/service.go` 的三条不变量、`../../../internal/state/state.go` 的记录模型）。
+- dshctl 只在运行记录里的 pid **与该进程的启动时间仍然吻合**时才结束它，因为 pid 会被操作系统回收，启动时间指纹是唯一的归属证据（`../../../internal/kernel/service.go` 的三条不变量、`../../../internal/state/state.go` 的记录模型）。
 - 禁止裸 `kill`/`killall`/`pkill`：agent 没有比运行记录更强的归属证据，绕过 dshctl 就等于绕过唯一的判据。
 - 端口被别的程序占用时 dshctl 只报告（`port-foreign`），`stop` 的帮助文案写的是"端口被其他程序占用时只提示，绝不误杀"；agent 也必须照此办理，不得代为清场。
 - `port-unmanaged` 表示端口上有个 dshctl 无法分类的持有者：同样只报告。变更命令只有在进程组证据证明那是自己被中断的启动留下的残留时才会接管它。
@@ -59,8 +59,8 @@ dshctl 管的是长跑在后台的真实服务：它有独立的状态目录、�
 ## 相关文件
 
 - `../../../README.md`：命令、配置项、环境变量、状态目录与退出码的操作者契约。
-- `../../../internal/app/observe.go`：状态取值与 `status --json` 的字段语义。
-- `../../../internal/app/service.go`：进程归属、"探测不了不等于没有"、不误杀他人服务三条不变量。
+- `../../../internal/kernel/observe.go`：状态取值与 `status --json` 的字段语义。
+- `../../../internal/kernel/service.go`：进程归属、"探测不了不等于没有"、不误杀他人服务三条不变量。
 - `../../../internal/state/state.go`：运行记录与启动时间指纹。
 - `../../../internal/config/config.go`：`-v` 输出的设置来源、状态目录内文件名。
 - `../../../internal/exitcode/exitcode.go`：退出码定义。

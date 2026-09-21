@@ -19,7 +19,7 @@ description: 在 dshctl 按测试先行推进：先写会失败的测试，守�
 
 3. **bug 先写复现测试。** 先写一个在当前代码上失败的测试，再修。要证明它确实在修复前是红的——临时把实现改动 stash 掉跑一次，或用 `git stash push <实现文件>` 再看红。修完这条测试永久留下，它就是这类 bug 不再复发的守卫。
 
-4. **跨进程与多态行为先在虚构机器上写失败测试。** `start`/`stop`/端口归属/信号这类行为不要一上手就起真实进程：`internal/app/fake_test.go` 的虚构进程表（含 `survivesGraceful`、`survivesForce` 这类只在异常路径才用到的形状）、`internal/app/host.go` 的 `OsHost`、`internal/run` 的 `Executor` 就是为此存在的。虚构机器先证明决策逻辑；真实进程测试（`internal/host/realps_test.go`、`internal/repo/prune_test.go`）再证明它与真实世界对得上。
+4. **跨进程与多态行为先在虚构机器上写失败测试。** `start`/`stop`/端口归属/信号这类行为不要一上手就起真实进程：`internal/kernel/fake_test.go` 的虚构进程表（含 `survivesGraceful`、`survivesForce` 这类只在异常路径才用到的形状）、`internal/kernel/host.go` 的 `OsHost`、`internal/run` 的 `Executor` 就是为此存在的。虚构机器先证明决策逻辑；真实进程测试（`internal/host/realps_test.go`、`internal/repo/prune_test.go`）再证明它与真实世界对得上。
 
 5. **断言强度要够。** `err == nil` 只是最低限度；断言要说清期望的形状与内容——表驱动用例配 `wantSubstr` 而不是"没报错"，结果结构逐字段比对而不是只看一个字段。一个改坏了实现仍然能通过的断言，等于没有断言。
 
@@ -51,7 +51,7 @@ python3 scripts/mutation-check.py --only <名字>        # 要证明某条变异
 ## 相关文件
 
 - [pinning 测试的形态与红-绿证明](references/pinning-tests.md)
-- [`internal/app/fake_test.go`](../../../internal/app/fake_test.go)：虚构进程表与它的异常路径形状
-- [`internal/app/contracts_test.go`](../../../internal/app/contracts_test.go)：跨包字面量的契约钉法
+- [`internal/kernel/fake_test.go`](../../../internal/kernel/fake_test.go)：虚构进程表与它的异常路径形状
+- [`internal/kernel/contracts_test.go`](../../../internal/kernel/contracts_test.go)：跨包字面量的契约钉法
 - [`internal/cli/documentation_test.go`](../../../internal/cli/documentation_test.go)：README 与设置的同步测试
 - [`scripts/mutation-check.py`](../../../scripts/mutation-check.py)：把"测试真的会失败吗"变成可执行检查

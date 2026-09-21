@@ -54,6 +54,7 @@ func freshEnvironment(t *testing.T, overrides map[string]string) (map[string]str
 	root := t.TempDir()
 	stateDir := filepath.Join(root, "state")
 	environment := map[string]string{
+		"DSHCTL_LANG":      "zh",
 		"DSHCTL_STATE_DIR": stateDir,
 		"DSH_HOME":         filepath.Join(root, "harness"),
 		"DSH_REPO_DIR":     filepath.Join(root, "repo"),

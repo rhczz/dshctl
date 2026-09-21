@@ -18,7 +18,7 @@
 | Node 可执行文件解析 | `executable_unix.go` | `executable_other.go` | `internal/nodejs` | `internal/nodejs/nodejs_test.go` |
 | 跟随日志的打开方式 | 普通 open 就够，句柄不阻止 rename/unlink | 必须显式共享 delete，否则跟随会把日志钉住、轮转与删除都会失败 | `internal/logfile/open_other.go` / `open_windows.go` 的 `openForFollow` | `internal/logfile` 测试 |
 | 信号处理 | `cmd/dshctl/signal_unix.go` | `signal_windows.go` | `cmd/dshctl` | `cmd/dshctl` 测试 |
-| 文件名限制 | 可以含 `*`/`?` | 不可以 | 只影响测试夹具 | `internal/app/contracts_test.go` 的分支 |
+| 文件名限制 | 可以含 `*`/`?` | 不可以 | 只影响测试夹具 | `internal/kernel/contracts_test.go` 的分支 |
 
 ## 后缀与 build tag 的既有形态
 

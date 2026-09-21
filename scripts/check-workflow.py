@@ -201,6 +201,8 @@ def check_hermetic_gates(text: str) -> None:
     for needle, description in (
         ("check-workflow.py", "the workflow-shape check"),
         ("check-conventions.py", "the writing and structure conventions"),
+        ("check-accounting.py", "the rewrite ledger of every test the tree contained"),
+        ("check-orphans.py", "the orphan-package check"),
         ("hermetic-check.sh", "the throwaway-HOME run"),
         ("-coverprofile=", "the coverage profile of that run"),
         ("check-coverage.py", "the coverage gate"),

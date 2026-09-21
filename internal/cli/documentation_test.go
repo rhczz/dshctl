@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rhczz/dshctl/internal/app"
 	"github.com/rhczz/dshctl/internal/config"
+	"github.com/rhczz/dshctl/internal/kernel"
 	"github.com/rhczz/dshctl/internal/paths"
 )
 
@@ -41,6 +41,7 @@ func TestTheReadmeDocumentsEverySetting(t *testing.T) {
 		paths.EnvRepoDir,
 		paths.EnvPort,
 		paths.EnvNodeVersion,
+		paths.EnvLang,
 	}
 	for _, name := range variables {
 		if !strings.Contains(documented, name) {
@@ -95,7 +96,7 @@ func TestTheReadmeDocumentsEveryExitCode(t *testing.T) {
 // behaviour rather than an implementation detail.
 func TestTheReadmeDocumentsTheDefaultLogLines(t *testing.T) {
 	documented := readReadme(t)
-	want := fmt.Sprintf("默认 %d 行", app.DefaultLogLines)
+	want := fmt.Sprintf("默认 %d 行", kernel.DefaultLogLines)
 	if !strings.Contains(documented, want) {
 		t.Errorf("the README does not document the logs default line count (want %q)", want)
 	}

@@ -48,7 +48,7 @@ dshctl stop                   # 停止
 | `restart` | 在同一把锁内先停后启；不加 `--port` 时重启本状态目录中正在运行的每一个服务 |
 | `status` | 运行状态；不加 `--port` 时报告本状态目录管理的每一个服务；`--json` 输出结构化结果 |
 | `url` | 打印带 token 的访问地址；不加 `--port` 时每个运行中的实例一行；一个地址都没有时退出码 3 |
-| `logs` | 日志；`-n <行数>`（默认 200 行，见 `internal/app.DefaultLogLines`）、`-f/--follow` 跟随、`--build` 只看最近一次 build/update/rollback 记录 |
+| `logs` | 日志；`-n <行数>`（默认 200 行，见 `internal/kernel.DefaultLogLines`）、`-f/--follow` 跟随、`--build` 只看最近一次 build/update/rollback 记录 |
 | `build` | 清理已删除包的残留目录后执行 `pnpm run build` |
 | `timeline` | 查看当前版本与 `origin/master` 的差距：落后/领先的提交数、差距内的 tag、最近的提交与部署历史；`--json` 输出结构化结果 |
 | `update` | 更新到指定版本（`latest`/tag/commit，默认 `latest`）：停服 → `git fetch` → 切换 → 清理 → `pnpm install` → 构建 → 恢复启动 |
@@ -116,11 +116,13 @@ dshctl stop                   # 停止
 | `DSH_REPO_DIR` | 仓库目录，等价 `--repo` | `~/deepseek-harness` |
 | `DSH_PORT` | 监听端口，等价 `--port` | `3080` |
 | `DSH_NODE_VERSION` | Node 版本，等价 `--node`；覆盖配置文件里的 `nodeVersion`（仅本次运行） | 按 PATH 解析 |
+| `DSHCTL_LANG` | 输出语言，取值 `zh` / `en`；不设时按机器语言（`LC_ALL` > `LC_MESSAGES` > `LANG`），认不出时用英文 | 机器语言，否则英文 |
 
 规则：
 
 - 路径类变量必须是绝对路径或以 `~` 开头（不支持 `~user`）；相对路径会被拒绝，因为它会让状态目录和操作锁跟着当前目录漂移。
 - 只含空白的变量视为未设置。
+- 面向操作者的文案默认英文，机器语言是中文时用中文：`DSHCTL_LANG` 优先于 shell 导出的 locale 变量，认不出的语言按英文处理（不会出现半翻译的界面）；日志文件里 dshctl 自己写的行同样遵循这个规则。
 - 优先级：命令行参数 > 环境变量 > 配置文件 > 默认值。所有配置项都按这个顺序，没有例外。两处补充：Node 版本的最后一层不是默认值，而是「没人指定就按 PATH 解析」（见「Node 版本」）；`repoDir` 在配置文件里的值与内置默认值完全相同时按默认值处理，不算你做过选择（见「仓库目录」）。
 - dshctl 另外读取操作系统自身的 `PATH`（解析 `node`、`pnpm`、`git`，以及 Unix 上的 `lsof`/`ss`/`netstat`/`ps`）和 `HOME`（Windows 上是 `USERPROFILE`）来确定主目录与默认路径；这两个不是 dshctl 的配置项，但会决定上面这些默认值。
 - 不可配置：Node 最低版本 `24.12.0` 是代码里的常量，任何配置项、参数或环境变量都改不动它；状态目录内的文件名（`dshctl.lock`、`dsh-web-<端口>.state.json`）也是固定的。

@@ -74,27 +74,40 @@ AGENTS_SECTIONS = (
 # The internal import graph, measured with `go list`. An edge that is not listed
 # here is a new dependency, and a new dependency between layers is a design
 # decision rather than an implementation detail.
+#
+# The vertical order the front-ends see:
+#
+#   cmd/dshctl -> internal/cli -> internal/kernel -> internal/kernel?  (see below)
+#
+# Today the engine and the commands share internal/kernel, and the model and the
+# message catalog are the leaves every layer may use:
+#
+#   internal/domain  (the model: states, records, positions; no imports at all)
+#   internal/i18n    (the message catalog; no imports at all)
+#   infrastructure   (host, run, detach, lock, logfile, state, repo, nodejs,
+#                     config, paths, exitcode, version, atomically, logging)
 LAYERS = {
     "cmd/dshctl": {"internal/cli"},
     "internal/cli": {
         "internal/config",
         "internal/exitcode",
-        "internal/output",
+        "internal/i18n",
         "internal/run",
-        "internal/app",
+        "internal/kernel",
         "internal/version",
     },
-    "internal/app": {
+    "internal/kernel": {
         "internal/config",
         "internal/detach",
+        "internal/domain",
         "internal/exitcode",
         "internal/history",
         "internal/host",
+        "internal/i18n",
         "internal/lock",
         "internal/logfile",
         "internal/logging",
         "internal/nodejs",
-        "internal/output",
         "internal/paths",
         "internal/repo",
         "internal/run",
@@ -102,7 +115,7 @@ LAYERS = {
         "internal/version",
     },
     "internal/config": {"internal/atomically", "internal/exitcode", "internal/paths"},
-    "internal/state": {"internal/atomically"},
+    "internal/state": {"internal/atomically", "internal/domain"},
     "internal/history": {"internal/atomically"},
     "internal/nodejs": {"internal/paths", "internal/run"},
     "internal/logging": {"internal/logfile"},
