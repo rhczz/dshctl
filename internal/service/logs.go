@@ -85,7 +85,7 @@ func (s *Service) tailThenFollow(ctx context.Context, lines int) error {
 
 // printBuildSection prints the body of the last build or update record.
 func (s *Service) printBuildSection(lines int) error {
-	body, outcome, err := logfile.LastSection(s.Settings.LogPath, buildSectionTitles)
+	body, outcome, err := logfile.LastSection(s.Settings.LogPath, logFormat, buildSectionTitles)
 	if err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}

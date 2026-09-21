@@ -483,6 +483,13 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         ["./internal/i18n/"],
     ),
     (
+        "the log markers stop naming the product that wrote them",
+        "internal/service/logformat.go",
+        '\tProduct: "dshctl",',
+        '\tProduct: "",',
+        ["./internal/service/", "./internal/conformance/"],
+    ),
+    (
         "a failed mutating run is reported as a success in its document",
         "internal/cli/jsonmode.go",
         "\tdocument := mutatingDocument{Command: name, OK: err == nil, Result: result, Events: events.list()}",

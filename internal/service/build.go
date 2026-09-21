@@ -61,7 +61,7 @@ func (s *Service) buildLocked(ctx context.Context) error {
 	} else if rotated {
 		s.narrate(fmt.Sprintf("日志已轮转: %s", s.LogFile.BackupPath()))
 	}
-	if err := s.LogFile.Section("build"); err != nil {
+	if err := s.LogFile.Section(sectionBuild); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 	s.note("--- pnpm run build ---")

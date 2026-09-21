@@ -591,6 +591,16 @@
     "status": "ported"
   },
   {
+    "name": "the log markers stop naming the product that wrote them",
+    "old_path": "internal/service/logformat.go",
+    "packages": [
+      "./internal/service/",
+      "./internal/conformance/"
+    ],
+    "new_path": "internal/service/logformat.go",
+    "status": "ported"
+  },
+  {
     "name": "a failed mutating run is reported as a success in its document",
     "old_path": "internal/cli/jsonmode.go",
     "packages": [

@@ -17,7 +17,7 @@ import (
 // newLogger returns a logger over a fresh file with rotation disabled.
 func newLogger(t *testing.T) *Logger {
 	t.Helper()
-	logger := New(filepath.Join(t.TempDir(), "dsh-web.log"), 0)
+	logger := New(filepath.Join(t.TempDir(), "dsh-web.log"), 0, testFormat)
 	logger.Now = func() time.Time { return time.Date(2026, 2, 3, 4, 5, 6, 0, time.UTC) }
 	return logger
 }
@@ -54,7 +54,7 @@ func TestRotationKeepsTheRunningWritersDescriptor(t *testing.T) {
 		t.Fatalf("server write: %v", err)
 	}
 
-	logger := New(path, 64)
+	logger := New(path, 64, testFormat)
 	for index := 0; index < 10; index++ {
 		if err := logger.Line("dshctl filler line to exceed the threshold"); err != nil {
 			t.Fatalf("filler: %v", err)
@@ -111,7 +111,7 @@ func TestRotationRefusesADirectory(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(target, "keep"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	logger := New(target, 1)
+	logger := New(target, 1, testFormat)
 	if _, err := logger.RotateIfNeeded(); err == nil {
 		t.Fatal("rotating a directory must fail")
 	}
@@ -122,7 +122,7 @@ func TestRotationRefusesADirectory(t *testing.T) {
 
 // TestRotationIsDisabledByZero pins the documented switch.
 func TestRotationIsDisabledByZero(t *testing.T) {
-	logger := New(filepath.Join(t.TempDir(), "dsh-web.log"), 0)
+	logger := New(filepath.Join(t.TempDir(), "dsh-web.log"), 0, testFormat)
 	if err := logger.Line(strings.Repeat("x", 4096)); err != nil {
 		t.Fatalf("Line: %v", err)
 	}
@@ -137,7 +137,7 @@ func TestRotationIsDisabledByZero(t *testing.T) {
 func TestRotationLeavesTheLogIntactWhenTheBackupCannotBeWritten(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dsh-web.log")
-	logger := New(path, 16)
+	logger := New(path, 16, testFormat)
 	if err := logger.Line("important build output that must survive"); err != nil {
 		t.Fatalf("Line: %v", err)
 	}
@@ -211,9 +211,9 @@ func TestParseSectionIsStrict(t *testing.T) {
 		{"===== 2026-02-03 04:05:06 dshctl build ====== extra", "", false},
 	}
 	for _, testCase := range cases {
-		title, ok := ParseSection(testCase.line)
+		title, ok := testFormat.Section(testCase.line)
 		if ok != testCase.ok || title != testCase.title {
-			t.Fatalf("ParseSection(%q) = (%q, %v), want (%q, %v)",
+			t.Fatalf("testFormat.Section(%q) = (%q, %v), want (%q, %v)",
 				testCase.line, title, ok, testCase.title, testCase.ok)
 		}
 	}
@@ -221,7 +221,7 @@ func TestParseSectionIsStrict(t *testing.T) {
 
 // TestParseSectionToleratesCarriageReturns pins Windows-written logs.
 func TestParseSectionToleratesCarriageReturns(t *testing.T) {
-	title, ok := ParseSection("===== 2026-02-03 04:05:06 dshctl build =====\r")
+	title, ok := testFormat.Section("===== 2026-02-03 04:05:06 dshctl build =====\r")
 	if !ok || title != "build" {
 		t.Fatalf("ParseSection with CR = (%q, %v), want (build, true)", title, ok)
 	}
@@ -244,7 +244,7 @@ func TestLastSectionReturnsTheLastMatchingBody(t *testing.T) {
 		}
 	}
 
-	body, outcome, err := LastSection(logger.Path, []string{"build"})
+	body, outcome, err := LastSection(logger.Path, testFormat, []string{"build"})
 	if err != nil {
 		t.Fatalf("LastSection: %v", err)
 	}
@@ -262,7 +262,7 @@ func TestLastSectionReturnsTheLastMatchingBody(t *testing.T) {
 	if err := logger.Line("update in progress"); err != nil {
 		t.Fatalf("Line: %v", err)
 	}
-	body, outcome, err = LastSection(logger.Path, []string{"update"})
+	body, outcome, err = LastSection(logger.Path, testFormat, []string{"update"})
 	if err != nil || outcome != Found || strings.Join(body, "\n") != "update in progress" {
 		t.Fatalf("LastSection = (%#v, %d, %v), want the open update section", body, outcome, err)
 	}
@@ -272,7 +272,7 @@ func TestLastSectionReturnsTheLastMatchingBody(t *testing.T) {
 // section is larger than the scan window.
 func TestLastSectionDistinguishesMissingFromTruncated(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dsh-web.log")
-	logger := New(path, 0)
+	logger := New(path, 0, testFormat)
 	if err := logger.Section("build"); err != nil {
 		t.Fatalf("Section: %v", err)
 	}
@@ -284,7 +284,7 @@ func TestLastSectionDistinguishesMissingFromTruncated(t *testing.T) {
 		}
 	}
 
-	_, outcome, err := LastSection(path, []string{"build"})
+	_, outcome, err := LastSection(path, testFormat, []string{"build"})
 	if err != nil {
 		t.Fatalf("LastSection: %v", err)
 	}
@@ -298,7 +298,7 @@ func TestLastSectionDistinguishesMissingFromTruncated(t *testing.T) {
 
 // TestLastSectionMissingFileIsNotAnError pins the first-run behaviour.
 func TestLastSectionMissingFileIsNotAnError(t *testing.T) {
-	body, outcome, err := LastSection(filepath.Join(t.TempDir(), "absent"), []string{"build"})
+	body, outcome, err := LastSection(filepath.Join(t.TempDir(), "absent"), testFormat, []string{"build"})
 	if err != nil {
 		t.Fatalf("LastSection: %v", err)
 	}
@@ -433,7 +433,7 @@ func TestAllMatches(t *testing.T) {
 // copy-truncate rotation this package performs.
 func TestStreamFollowsNewContentAcrossRotation(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dsh-web.log")
-	logger := New(path, 0)
+	logger := New(path, 0, testFormat)
 	logger.SetPollInterval(5 * time.Millisecond)
 	if err := logger.Line("history"); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -481,7 +481,7 @@ func TestStreamFollowsNewContentAcrossRotation(t *testing.T) {
 // and then streams from the beginning.
 func TestStreamFollowsAFileCreatedLater(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "later.log")
-	logger := New(path, 0)
+	logger := New(path, 0, testFormat)
 	logger.SetPollInterval(5 * time.Millisecond)
 
 	sink := &syncBuffer{}
@@ -507,7 +507,7 @@ func TestStreamFollowsAFileCreatedLater(t *testing.T) {
 func TestStreamFollowsAReplacedFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dsh-web.log")
-	logger := New(path, 0)
+	logger := New(path, 0, testFormat)
 	logger.SetPollInterval(5 * time.Millisecond)
 	if err := logger.Line("original"); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -543,7 +543,7 @@ func TestStreamFollowsAReplacedFile(t *testing.T) {
 func TestStreamFromConsumesItsPositionOnce(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dsh-web.log")
-	logger := New(path, 0)
+	logger := New(path, 0, testFormat)
 	logger.SetPollInterval(5 * time.Millisecond)
 
 	first := strings.Repeat("A", 1000)
@@ -579,7 +579,7 @@ func TestStreamFromConsumesItsPositionOnce(t *testing.T) {
 func TestStreamFromDoesNotApplyAPositionToANewGeneration(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dsh-web.log")
-	logger := New(path, 0)
+	logger := New(path, 0, testFormat)
 	logger.SetPollInterval(50 * time.Millisecond)
 
 	// The log existed when the tail ran and was gone by the time the follow
@@ -613,7 +613,7 @@ func TestStreamFromDoesNotApplyAPositionToANewGeneration(t *testing.T) {
 // writer case: build rotates the shared log while the server keeps appending,
 // and every byte written before the rotation call must survive in the backup.
 func TestRotationPreservesEverythingWrittenBeforeItStarted(t *testing.T) {
-	logger := New(filepath.Join(t.TempDir(), "dsh-web.log"), 4<<10)
+	logger := New(filepath.Join(t.TempDir(), "dsh-web.log"), 4<<10, testFormat)
 	for index := 0; index < 500; index++ {
 		if err := logger.Line(fmt.Sprintf("before-%03d", index)); err != nil {
 			t.Fatalf("seed line %d: %v", index, err)
@@ -667,7 +667,7 @@ func TestRotationPreservesEverythingWrittenBeforeItStarted(t *testing.T) {
 func TestRotationKeepsTheLinesWrittenWhileItCopies(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "dsh-web.log")
-	logger := New(path, 1<<20)
+	logger := New(path, 1<<20, testFormat)
 
 	seed, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
@@ -713,7 +713,7 @@ func TestRotationKeepsTheLinesWrittenWhileItCopies(t *testing.T) {
 
 // TestStreamEndsOnCancellation pins that the follow is interruptible.
 func TestStreamEndsOnCancellation(t *testing.T) {
-	logger := New(filepath.Join(t.TempDir(), "dsh-web.log"), 0)
+	logger := New(filepath.Join(t.TempDir(), "dsh-web.log"), 0, testFormat)
 	logger.SetPollInterval(5 * time.Millisecond)
 	ctx, cancel := newCancelContext()
 	cancel()
@@ -748,7 +748,7 @@ func TestExistsAndSize(t *testing.T) {
 // rotation was due.
 func TestOpenAppendRotatesFirst(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dsh-web.log")
-	logger := New(path, 32)
+	logger := New(path, 32, testFormat)
 	if err := os.WriteFile(path, []byte(strings.Repeat("x", 64)), 0o600); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -778,7 +778,7 @@ func TestOpenAppendRotatesFirst(t *testing.T) {
 // follow continues from there.
 func TestTailFromReportsWhereItStopped(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dsh-web.log")
-	logger := New(path, 0)
+	logger := New(path, 0, testFormat)
 	for _, line := range []string{"one", "two", "three"} {
 		if err := logger.Line(line); err != nil {
 			t.Fatalf("Line: %v", err)

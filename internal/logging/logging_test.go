@@ -16,7 +16,7 @@ func newLogger(t *testing.T, level Level) (*Logger, *logfile.Logger, string) {
 	t.Helper()
 	dir := t.TempDir()
 	path := dir + "/dsh-web.log"
-	file := logfile.New(path, 0)
+	file := logfile.New(path, 0, logfile.Format{Prefix: "=====", Product: "dshctl", Layout: "2006-01-02 15:04:05"})
 	return New(file, level), file, path
 }
 
@@ -135,7 +135,7 @@ func TestStepKeepsTheOperationError(t *testing.T) {
 
 func TestLogFailureDoesNotMaskTheOperation(t *testing.T) {
 	dir := t.TempDir()
-	logger := New(logfile.New(dir, 0), LevelInfo)
+	logger := New(logfile.New(dir, 0, logfile.Format{Prefix: "=====", Product: "dshctl", Layout: "2006-01-02 15:04:05"}), LevelInfo)
 	failure := fmt.Errorf("切换失败")
 	if err := logger.Step("切换版本", func() error { return failure }); err != failure {
 		t.Fatalf("step returned %v, want the operation's error", err)

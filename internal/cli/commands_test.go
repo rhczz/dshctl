@@ -647,7 +647,7 @@ func TestLogsRejectsAnUnparsableCount(t *testing.T) {
 func TestLogsBuildSection(t *testing.T) {
 	environment, _ := freshEnvironment(t, nil)
 	logPath := seedLogAt(t, environment, "服务输出一行")
-	logger := logfile.New(logPath, 0)
+	logger := logfile.New(logPath, 0, logfile.Format{Prefix: "=====", Product: "dshctl", Layout: "2006-01-02 15:04:05"})
 	for _, step := range []struct {
 		title string
 		lines []string

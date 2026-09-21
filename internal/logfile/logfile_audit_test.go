@@ -98,7 +98,7 @@ func TestStreamFromReadsAShorterReplacementFromItsBeginning(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "dsh-web.log")
-			logger := New(path, 0)
+			logger := New(path, 0, testFormat)
 			logger.SetPollInterval(5 * time.Millisecond)
 			if err := os.WriteFile(path, []byte(first), 0o600); err != nil {
 				t.Fatalf("seed: %v", err)
@@ -147,7 +147,7 @@ func TestStreamStopsWhenTheWriterFails(t *testing.T) {
 	if err := os.WriteFile(path, []byte(strings.Repeat("A", 200)), 0o600); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	logger := New(path, 0)
+	logger := New(path, 0, testFormat)
 	logger.SetPollInterval(5 * time.Millisecond)
 
 	writeErr := errors.New("the destination refused the write")
@@ -176,7 +176,7 @@ func TestStreamStopsWhenTheWriterFails(t *testing.T) {
 // its own directory is missing would look like a broken installation.
 func TestOpenAppendCreatesTheLogPath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing", "deeper", "dsh-web.log")
-	logger := New(path, 0)
+	logger := New(path, 0, testFormat)
 
 	handle, err := logger.OpenAppend()
 	if err != nil {
@@ -225,7 +225,7 @@ func TestRotationTriggersOnlyAboveTheThreshold(t *testing.T) {
 	if err := os.WriteFile(path, content, 0o600); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	logger := New(path, int64(len(content)))
+	logger := New(path, int64(len(content)), testFormat)
 
 	rotated, err := logger.RotateIfNeeded()
 	if err != nil {
@@ -281,7 +281,7 @@ func TestExistsAndSizeOnADirectoryAtTheLogPath(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "keep"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	logger := New(dir, 0)
+	logger := New(dir, 0, testFormat)
 
 	if logger.Exists() {
 		t.Fatal("a directory must not be reported as an existing log file")
@@ -328,11 +328,11 @@ func TestSectionRoundTripsATitleContainingAnEqualsSign(t *testing.T) {
 				t.Fatalf("log holds %d lines (%q), want a blank line, a marker and a body", len(lines), lines)
 			}
 			marker := lines[len(lines)-2]
-			got, ok := ParseSection(marker)
+			got, ok := testFormat.Section(marker)
 			if !ok || got != title {
-				t.Fatalf("ParseSection(%q) = (%q, %v), want (%q, true)", marker, got, ok, title)
+				t.Fatalf("testFormat.Section(%q) = (%q, %v), want (%q, true)", marker, got, ok, title)
 			}
-			sections, outcome, err := LastSection(logger.Path, []string{title})
+			sections, outcome, err := LastSection(logger.Path, testFormat, []string{title})
 			if err != nil {
 				t.Fatalf("LastSection: %v", err)
 			}

@@ -1007,7 +1007,7 @@ func TestStatusDoesNotTakeTheLock(t *testing.T) {
 func TestBuildWritesTheSectionBeforeRotating(t *testing.T) {
 	f := newFixture(t)
 	f.Settings.LogRotateBytes = 512
-	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes, logFormat)
 	f.Log = logging.New(f.LogFile, logging.LevelInfo)
 	f.Emit = TextEmitter{Out: f.out, Err: f.errOut}
 	// Fill the log so the next build rotates it.
@@ -1026,7 +1026,7 @@ func TestBuildWritesTheSectionBeforeRotating(t *testing.T) {
 	if err := f.RunBuild(context.Background()); err != nil {
 		t.Fatalf("RunBuild: %v", err)
 	}
-	body, outcome, err := logfile.LastSection(f.Settings.LogPath, buildSectionTitles)
+	body, outcome, err := logfile.LastSection(f.Settings.LogPath, logFormat, buildSectionTitles)
 	if err != nil {
 		t.Fatalf("LastSection: %v", err)
 	}

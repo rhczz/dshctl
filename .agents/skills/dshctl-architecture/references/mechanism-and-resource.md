@@ -31,8 +31,9 @@
 
 - `state`：`Record` 类型已搬到 `domain`，但文件名模式与 64 KiB 上限仍写在 `state`；
   目标是 `state` 只认识"严格 JSON 存储"，名字与上限由调用方传入。
-- `logfile`：段落标记的 `dshctl` 前缀、时间格式、`64 KiB/8 MiB/32 MiB` 窗口写在
-  `logfile`；目标是格式与窗口由内核以类型传入。
+- `logfile`：**已提取**——标记的形状是 `logfile.Format`（前缀、产品名、时间布局），
+  由服务层的 `logFormat` 提供；窗口大小（`64 KiB/8 MiB/32 MiB`）仍是机制的安全上限，
+  并在包文档里这么标注。
 - `host`：探针工具清单（`lsof`/`ss`/`netstat`/`ps`）与候选顺序写在 `host`；
   目标是清单由内核传入，`host` 负责执行与解析。
 - `paths`：环境变量名与默认路径解析混在一起；目标是机制（校验/展开）与产品变量名分开。

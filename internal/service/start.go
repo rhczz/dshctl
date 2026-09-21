@@ -168,7 +168,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	} else if rotated {
 		s.narrate(fmt.Sprintf("日志已轮转: %s", s.LogFile.BackupPath()))
 	}
-	if err := s.LogFile.Section("start"); err != nil {
+	if err := s.LogFile.Section(sectionStart); err != nil {
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
 	}
 

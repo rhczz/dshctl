@@ -243,7 +243,7 @@ func TestBuildAndUpdateSeeASiblingRecordInAnAwkwardStateDirectory(t *testing.T) 
 			f.Settings.ConfigPath = filepath.Join(f.Settings.StateDir, config.ConfigFileName)
 			f.Settings.LogPath = filepath.Join(f.Settings.StateDir, config.DefaultLogFileName)
 			f.Record = state.Store{Path: f.Settings.StateFile()}
-			f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+			f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes, logFormat)
 			f.Log = logging.New(f.LogFile, logging.LevelInfo)
 			f.Emit = TextEmitter{Out: f.out, Err: f.errOut}
 

@@ -143,7 +143,7 @@ func New(settings config.Settings, deps Dependencies) *Service {
 	if level == 0 {
 		level = logging.LevelInfo
 	}
-	logFile := logfile.New(settings.LogPath, settings.LogRotateBytes)
+	logFile := logfile.New(settings.LogPath, settings.LogRotateBytes, logFormat)
 	return &Service{
 		Settings: settings,
 		Exec:     deps.Exec,

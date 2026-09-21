@@ -722,8 +722,8 @@ func newFixture(t *testing.T) *fixture {
 			Glob: filepath.Glob,
 			Stat: os.Stat,
 		},
-		LogFile: logfile.New(logPath, settings.LogRotateBytes),
-		Log:     logging.New(logfile.New(logPath, settings.LogRotateBytes), logging.LevelInfo),
+		LogFile: logfile.New(logPath, settings.LogRotateBytes, logFormat),
+		Log:     logging.New(logfile.New(logPath, settings.LogRotateBytes, logFormat), logging.LevelInfo),
 		Emit:    TextEmitter{Out: out, Err: errOut},
 		Record:  state.Store{Path: settings.StateFile()},
 		BuildInfo: version.Info{
@@ -1164,7 +1164,7 @@ func minDuration(a, b time.Duration) time.Duration {
 // the command line does from --log-level before a command runs.
 func (f *fixture) setLogLevel(t *testing.T, level logging.Level) {
 	t.Helper()
-	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes, logFormat)
 	f.Log = logging.New(f.LogFile, level)
 }
 
@@ -1271,7 +1271,7 @@ func sectionTitles(t *testing.T, path string) []string {
 	}
 	var titles []string
 	for _, line := range strings.Split(string(data), "\n") {
-		if title, ok := logfile.ParseSection(line); ok {
+		if title, ok := logFormat.Section(line); ok {
 			titles = append(titles, title)
 		}
 	}
@@ -1489,7 +1489,7 @@ func (f *fixture) run(t *testing.T, overrides config.Overrides) config.Settings 
 // fixture and the service it stands for describing one machine.
 func (f *fixture) rebind() {
 	f.Record = state.Store{Path: f.Settings.StateFile()}
-	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes, logFormat)
 	f.Log = logging.New(f.LogFile, logging.LevelInfo)
 }
 
