@@ -417,6 +417,11 @@ func normalize(root, text string) string {
 		}
 		text = strings.ReplaceAll(text, prefix, "<PATH>")
 		text = strings.ReplaceAll(text, filepath.ToSlash(prefix), "<PATH>")
+		// A Windows path inside a JSON string is written with its backslashes
+		// doubled, so the same path has two spellings in one output.
+		if escaped := strings.ReplaceAll(prefix, `\`, `\\`); escaped != prefix {
+			text = strings.ReplaceAll(text, escaped, "<PATH>")
+		}
 	}
 	for _, rule := range normalizers {
 		text = rule.pattern.ReplaceAllString(text, rule.replace)
