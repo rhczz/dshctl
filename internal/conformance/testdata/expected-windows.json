@@ -1,197 +1,195 @@
 {
   "build-without-checkout": {
     "exit": 4,
-    "stdout": "",
-    "stderr": "错误: 仓库目录不存在: \u003cPATH\u003e\\home\\deepseek-harness\n提示: 用 --repo 或环境变量 DSH_REPO_DIR 指定仓库路径\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir",
       "state/config.json|0666|a7f00f4e6c9380675bef23f1",
       "state/dshctl.lock|0666|2a279291b478982b95c0f49a",
       "state/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: 仓库目录不存在: <PATH>\\home\\deepseek-harness\n提示: 用 --repo 或环境变量 DSH_REPO_DIR 指定仓库路径\n",
+    "stdout": ""
   },
   "config-bad-json": {
     "exit": 2,
-    "stdout": "",
-    "stderr": "错误: 配置文件 \u003cPATH\u003e\\state\\config.json 解析失败: invalid character 'n' looking for beginning of object key string\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir",
       "state/config.json|0666|23790cf84da5ce5aa8d3f133",
       "state/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: 配置文件 <PATH>\\state\\config.json 解析失败: invalid character 'n' looking for beginning of object key string\n",
+    "stdout": ""
   },
   "config-unknown-key": {
     "exit": 2,
-    "stdout": "",
-    "stderr": "错误: 配置文件 \u003cPATH\u003e\\state\\config.json 解析失败: json: unknown field \"frobnicate\"\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir",
       "state/config.json|0666|45073cf94db884bf84ad06a5",
       "state/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: 配置文件 <PATH>\\state\\config.json 解析失败: json: unknown field \"frobnicate\"\n",
+    "stdout": ""
   },
   "doctor-fresh": {
     "exit": 1,
-    "stdout": "[警告] 状态目录: \u003cPATH\u003e\\state 尚未创建，首次运行会自动创建\n[警告] 配置文件: \u003cPATH\u003e\\state\\config.json 尚未创建，将写入默认值\n[失败] 仓库目录: \u003cPATH\u003e\\home\\deepseek-harness 不存在；用 --repo 或环境变量 DSH_REPO_DIR 指定一次，成功运行后会写入 \u003cPATH\u003e\\state\\config.json\n[失败] 依赖: \u003cPATH\u003e\\home\\deepseek-harness\\node_modules 不存在，请先执行 pnpm install\n[失败] 构建产物: 缺少 \u003cPATH\u003e\\home\\deepseek-harness\\.dsh-build\\client-build-environment.json，请运行 dshctl build\n[失败] Node: 找不到可用的 node\n  PATH: 没有 node\n修复(任选一种):\n  nvm:      nvm install 24 \u0026\u0026 nvm alias default 24\n  fnm:      fnm install 24 \u0026\u0026 fnm default 24\n  Homebrew: brew install node@24\n  n:        n 24\n  Volta:    volta install node@24\n  asdf:     asdf install nodejs 24.20.0 \u0026\u0026 asdf global nodejs 24.20.0\n  mise:     mise use -g node@24\n  nodenv:   nodenv install 24.20.0 \u0026\u0026 nodenv global 24.20.0\n  官方安装包: https://nodejs.org/en/download\n也可以只指定一次: --node \u003c版本\u003e 或 DSH_NODE_VERSION=\u003c版本\u003e(成功后写入配置)\n[失败] pnpm: 找不到 pnpm，请先安装并确保它在 PATH 中\n[OK  ] 端口: 3080 空闲\n[OK  ] 运行记录: 不存在(尚未启动过服务)\n[OK  ] 操作锁: 空闲\n[OK  ] 日志: \u003cPATH\u003e\\state\\dsh-web.log (0 B)\n[OK  ] 进程分离方式: new process group, no console\n",
-    "stderr": "",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "",
+    "stdout": "[警告] 状态目录: <PATH>\\state 尚未创建，首次运行会自动创建\n[警告] 配置文件: <PATH>\\state\\config.json 尚未创建，将写入默认值\n[失败] 仓库目录: <PATH>\\home\\deepseek-harness 不存在；用 --repo 或环境变量 DSH_REPO_DIR 指定一次，成功运行后会写入 <PATH>\\state\\config.json\n[失败] 依赖: <PATH>\\home\\deepseek-harness\\node_modules 不存在，请先执行 pnpm install\n[失败] 构建产物: 缺少 <PATH>\\home\\deepseek-harness\\.dsh-build\\client-build-environment.json，请运行 dshctl build\n[失败] Node: 找不到可用的 node\n  PATH: 没有 node\n修复(任选一种):\n  nvm:      nvm install 24 && nvm alias default 24\n  fnm:      fnm install 24 && fnm default 24\n  Homebrew: brew install node@24\n  n:        n 24\n  Volta:    volta install node@24\n  asdf:     asdf install nodejs 24.20.0 && asdf global nodejs 24.20.0\n  mise:     mise use -g node@24\n  nodenv:   nodenv install 24.20.0 && nodenv global 24.20.0\n  官方安装包: https://nodejs.org/en/download\n也可以只指定一次: --node <版本> 或 DSH_NODE_VERSION=<版本>(成功后写入配置)\n[失败] pnpm: 找不到 pnpm，请先安装并确保它在 PATH 中\n[OK  ] 端口: 3080 空闲\n[OK  ] 运行记录: 不存在(尚未启动过服务)\n[OK  ] 操作锁: 空闲\n[OK  ] 日志: <PATH>\\state\\dsh-web.log (0 B)\n[OK  ] 进程分离方式: new process group, no console\n[OK  ] 构建信息: go1.25.14 · github.com/rhczz/dshctl\n"
   },
   "help": {
     "exit": 0,
-    "stdout": "dshctl — 管理本机运行的 DeepSeek Harness Web 服务\n\n用法:\n  dshctl [全局参数] \u003c命令\u003e [命令参数]\n  dshctl                        等价于 dshctl start\n  dshctl help [命令]            查看某个命令的完整帮助\n\n  全局参数必须写在命令名之前。\n\n命令:\n  dshctl start                        后台启动 DSH Web(不执行 install/build)\n  dshctl stop                         停止 DSH Web(不加 --port 时停止全部实例)\n  dshctl restart                      重启 DSH Web(不加 --port 时重启全部实例)\n  dshctl status [--json]              查看运行状态(不加 --port 时报告全部实例)\n  dshctl url                          打印带 token 的访问地址\n  dshctl logs [-n \u003cN\u003e] [-f|--follow] [--build]\n                                      查看日志(含 build/update/rollback 记录)\n  dshctl build                        在仓库内执行 pnpm run build\n  dshctl timeline [--json]            查看当前版本与 origin/master 的差距\n  dshctl update [latest|\u003ctag\u003e|\u003ccommit\u003e]\n                                      更新到指定版本并重建，自动停/启服务\n  dshctl rollback [-n \u003cN\u003e] [\u003ctag\u003e|\u003ccommit\u003e]\n                                      回退到之前部署过的位置，不联网\n  dshctl doctor [--json]              体检环境\n  dshctl version [--json]             打印版本信息\n\n常用:\n  dshctl --repo ~/projects/deepseek-harness start   第一次：指定仓库并启动\n  dshctl status                                     看运行状态\n  dshctl url                                        拿带 token 的访问地址\n  dshctl logs -f                                    跟随日志\n  dshctl timeline                                   更新前先看落后多少、有哪些 tag\n  dshctl update                                     更新到 origin/master 最新\n  dshctl update dsh-v0.1.6-alpha.2                  更新到指定 tag\n  dshctl rollback                                   退回上一次 update/rollback 之前\n\n参数:\n  --json           以 JSON 输出，便于脚本消费(status/timeline/doctor/version)\n  -n \u003cN\u003e           logs: 打印最后 N 行(默认 200，小于 1 视为默认值)\n  -f, --follow     logs: 持续跟随输出(跨日志轮转继续跟随)\n  --build          logs: 只显示最近一次 build/update/rollback 记录\n  -n \u003cN\u003e           rollback: 回退几步(默认 1)\n\n全局参数:\n  --repo \u003c路径\u003e     覆盖仓库目录(环境变量 DSH_REPO_DIR)\n  --port \u003c端口\u003e     指定端口(环境变量 DSH_PORT); status/stop/restart/url 不带它\n                    时作用于本状态目录管理的全部服务\n  --node \u003c版本\u003e     指定 Node 版本, 仅本次生效(环境变量 DSH_NODE_VERSION)\n  --config \u003c文件\u003e   覆盖配置文件路径(环境变量 DSHCTL_CONFIG)\n  -v, --verbose     打印生效配置及其来源\n  -h, --help        显示帮助\n  -V, --version     打印版本\n\nNode:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12.0 一律拒绝\n          优先级: --node \u003e DSH_NODE_VERSION \u003e 配置文件 nodeVersion \u003e PATH\n\n状态目录: $DSHCTL_STATE_DIR 或 $DSH_HOME/dshctl 或 ~/.dsh/dshctl\n退出码:   0 成功/运行中, 1 失败, 2 用法或配置错误, 3 未运行, 4 前置检查失败, 5 锁超时\n\n每个命令的完整说明(参数、退出码、注意事项): dshctl help \u003c命令\u003e\n",
-    "stderr": "",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "",
+    "stdout": "dshctl — 管理本机运行的 DeepSeek Harness Web 服务\n\n用法:\n  dshctl [全局参数] <命令> [命令参数]\n  dshctl                        等价于 dshctl start\n  dshctl help [命令]            查看某个命令的完整帮助\n\n  全局参数必须写在命令名之前。\n\n命令:\n  dshctl start                        后台启动 DSH Web(不执行 install/build)\n  dshctl stop                         停止 DSH Web(不加 --port 时停止全部实例)\n  dshctl restart                      重启 DSH Web(不加 --port 时重启全部实例)\n  dshctl status [--json]              查看运行状态(不加 --port 时报告全部实例)\n  dshctl url                          打印带 token 的访问地址\n  dshctl logs [-n <N>] [-f|--follow] [--build]\n                                      查看日志(含 build/update/rollback 记录)\n  dshctl build                        在仓库内执行 pnpm run build\n  dshctl timeline [--json]            查看当前版本与 origin/master 的差距\n  dshctl update [--json] [latest|<tag>|<commit>]\n                                      更新到指定版本并重建，自动停/启服务\n  dshctl rollback [--json] [-n <N>] [<tag>|<commit>]\n                                      回退到之前部署过的位置，不联网\n  dshctl doctor [--json]              体检环境\n  dshctl version [--json]             打印版本信息\n\n常用:\n  dshctl --repo ~/projects/deepseek-harness start   第一次：指定仓库并启动\n  dshctl status                                     看运行状态\n  dshctl url                                        拿带 token 的访问地址\n  dshctl logs -f                                    跟随日志\n  dshctl timeline                                   更新前先看落后多少、有哪些 tag\n  dshctl update                                     更新到 origin/master 最新\n  dshctl update dsh-v0.1.6-alpha.2                  更新到指定 tag\n  dshctl rollback                                   退回上一次 update/rollback 之前\n\n参数:\n  --json           以 JSON 输出，便于脚本消费(status/timeline/doctor/version)\n  -n <N>           logs: 打印最后 N 行(默认 200，小于 1 视为默认值)\n  -f, --follow     logs: 持续跟随输出(跨日志轮转继续跟随)\n  --build          logs: 只显示最近一次 build/update/rollback 记录\n  -n <N>           rollback: 回退几步(默认 1)\n\n全局参数:\n  --repo <路径>     覆盖仓库目录(环境变量 DSH_REPO_DIR)\n  --port <端口>     指定端口(环境变量 DSH_PORT); status/stop/restart/url 不带它\n                    时作用于本状态目录管理的全部服务\n  --node <版本>     指定 Node 版本, 仅本次生效(环境变量 DSH_NODE_VERSION)\n  --config <文件>   覆盖配置文件路径(环境变量 DSHCTL_CONFIG)\n  -v, --verbose     打印生效配置及其来源\n  -h, --help        显示帮助\n  -V, --version     打印版本\n\nNode:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12.0 一律拒绝\n          优先级: --node > DSH_NODE_VERSION > 配置文件 nodeVersion > PATH\n\n状态目录: $DSHCTL_STATE_DIR 或 $DSH_HOME/dshctl 或 ~/.dsh/dshctl\n退出码:   0 成功/运行中, 1 失败, 2 用法或配置错误, 3 未运行, 4 前置检查失败, 5 锁超时\n\n每个命令的完整说明(参数、退出码、注意事项): dshctl help <命令>\n"
   },
   "help-command": {
     "exit": 0,
-    "stdout": "dshctl start — 后台启动 DSH Web(不执行 install/build)\n\n用法: dshctl [全局参数] start\n\n后台启动 DSH Web 并等待端口就绪，不执行 install/build。\n\n启动前会检查仓库、node、pnpm 与构建产物。端口被其他程序占用时拒绝启动；\n端口上是一个 dshctl 无法确认归属的进程时同样拒绝，dshctl 不会结束它没有\n启动过的进程。\n\n配置里没有写明 repoDir 时，成功启动会把本次使用的仓库目录写入配置；配置里\n已经写明时只打印一行说明，绝不改写。服务已在运行时只记录运行记录里的仓库\n目录，不会重新启动。\n\n环境变量: DSH_REPO_DIR, DSH_PORT, DSH_NODE_VERSION。\n退出码: 0 成功(含已在运行), 4 前置检查失败。\n",
-    "stderr": "",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "",
+    "stdout": "dshctl start — 后台启动 DSH Web(不执行 install/build)\n\n用法: dshctl [全局参数] start\n\n后台启动 DSH Web 并等待端口就绪，不执行 install/build。\n\n启动前会检查仓库、node、pnpm 与构建产物。端口被其他程序占用时拒绝启动；\n端口上是一个 dshctl 无法确认归属的进程时同样拒绝，dshctl 不会结束它没有\n启动过的进程。\n\n配置里没有写明 repoDir 时，成功启动会把本次使用的仓库目录写入配置；配置里\n已经写明时只打印一行说明，绝不改写。服务已在运行时只记录运行记录里的仓库\n目录，不会重新启动。\n\n环境变量: DSH_REPO_DIR, DSH_PORT, DSH_NODE_VERSION。\n--json: 把整次运行输出为一份文档（ok、命令自己的结果、以及运行过程中说过的话）。\n退出码: 0 成功(含已在运行), 4 前置检查失败。\n"
   },
   "help-unknown": {
     "exit": 2,
-    "stdout": "",
-    "stderr": "错误: 未知命令 \"frobnicate\"\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: 未知命令 \"frobnicate\"\n",
+    "stdout": ""
   },
   "logs-build-fresh": {
     "exit": 0,
-    "stdout": "",
-    "stderr": "日志中没有 build/update/rollback 记录: \u003cPATH\u003e\\state\\dsh-web.log\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "日志中没有 build/update/rollback 记录: <PATH>\\state\\dsh-web.log\n",
+    "stdout": ""
   },
   "logs-fresh": {
     "exit": 1,
-    "stdout": "",
-    "stderr": "错误: 日志文件不存在: \u003cPATH\u003e\\state\\dsh-web.log\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: 日志文件不存在: <PATH>\\state\\dsh-web.log\n",
+    "stdout": ""
   },
   "logs-zero-lines": {
     "exit": 1,
-    "stdout": "",
-    "stderr": "错误: 日志文件不存在: \u003cPATH\u003e\\state\\dsh-web.log\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: 日志文件不存在: <PATH>\\state\\dsh-web.log\n",
+    "stdout": ""
   },
   "port-out-of-range": {
     "exit": 2,
-    "stdout": "",
-    "stderr": "错误: port 必须在 1-65535 之间: 0\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: port 必须在 1-65535 之间: 0\n",
+    "stdout": ""
   },
   "rollback-without-history": {
     "exit": 4,
-    "stdout": "",
-    "stderr": "错误: 仓库目录不存在: \u003cPATH\u003e\\home\\deepseek-harness\n提示: 用 --repo 或环境变量 DSH_REPO_DIR 指定仓库路径\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir",
       "state/config.json|0666|a7f00f4e6c9380675bef23f1",
       "state/dshctl.lock|0666|2a279291b478982b95c0f49a",
       "state/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: 仓库目录不存在: <PATH>\\home\\deepseek-harness\n提示: 用 --repo 或环境变量 DSH_REPO_DIR 指定仓库路径\n",
+    "stdout": ""
   },
   "start-without-checkout": {
     "exit": 4,
-    "stdout": "",
-    "stderr": "错误: 仓库目录不存在: \u003cPATH\u003e\\home\\deepseek-harness\n提示: 用 --repo 或环境变量 DSH_REPO_DIR 指定仓库路径\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir",
       "state/config.json|0666|a7f00f4e6c9380675bef23f1",
       "state/dshctl.lock|0666|2a279291b478982b95c0f49a",
       "state/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: 仓库目录不存在: <PATH>\\home\\deepseek-harness\n提示: 用 --repo 或环境变量 DSH_REPO_DIR 指定仓库路径\n",
+    "stdout": ""
   },
   "status-fresh": {
     "exit": 3,
-    "stdout": "状态: 未运行\n日志: \u003cPATH\u003e\\state\\dsh-web.log\n",
-    "stderr": "",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "",
+    "stdout": "状态: 未运行\n日志: <PATH>\\state\\dsh-web.log\n"
   },
   "status-json-fresh": {
     "exit": 3,
-    "stdout": "{\n  \"status\": {\n    \"state\": \"stopped\",\n    \"url\": \"http://127.0.0.1:3080\",\n    \"port\": 3080,\n    \"ready\": false,\n    \"recordLive\": false,\n    \"recordStale\": false,\n    \"repoDir\": \"\u003cPATH\u003e\\\\home\\\\deepseek-harness\",\n    \"repoReady\": false,\n    \"buildReady\": false,\n    \"logPath\": \"\u003cPATH\u003e\\\\state\\\\dsh-web.log\",\n    \"lockHeld\": false\n  },\n  \"ports\": [\n    {\n      \"state\": \"stopped\",\n      \"url\": \"http://127.0.0.1:3080\",\n      \"port\": 3080,\n      \"ready\": false,\n      \"recordLive\": false,\n      \"recordStale\": false,\n      \"repoDir\": \"\u003cPATH\u003e\\\\home\\\\deepseek-harness\",\n      \"repoReady\": false,\n      \"buildReady\": false,\n      \"logPath\": \"\u003cPATH\u003e\\\\state\\\\dsh-web.log\",\n      \"lockHeld\": false\n    }\n  ]\n}\n",
-    "stderr": "",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "",
+    "stdout": "{\n  \"status\": {\n    \"state\": \"stopped\",\n    \"url\": \"http://127.0.0.1:3080\",\n    \"port\": 3080,\n    \"ready\": false,\n    \"recordLive\": false,\n    \"recordStale\": false,\n    \"repoDir\": \"<PATH>\\\\home\\\\deepseek-harness\",\n    \"repoReady\": false,\n    \"buildReady\": false,\n    \"logPath\": \"<PATH>\\\\state\\\\dsh-web.log\",\n    \"lockHeld\": false\n  },\n  \"ports\": [\n    {\n      \"state\": \"stopped\",\n      \"url\": \"http://127.0.0.1:3080\",\n      \"port\": 3080,\n      \"ready\": false,\n      \"recordLive\": false,\n      \"recordStale\": false,\n      \"repoDir\": \"<PATH>\\\\home\\\\deepseek-harness\",\n      \"repoReady\": false,\n      \"buildReady\": false,\n      \"logPath\": \"<PATH>\\\\state\\\\dsh-web.log\",\n      \"lockHeld\": false\n    }\n  ]\n}\n"
   },
   "status-named-port": {
     "exit": 3,
-    "stdout": "状态: 未运行\n日志: \u003cPATH\u003e\\state\\dsh-web.log\n",
-    "stderr": "",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "",
+    "stdout": "状态: 未运行\n日志: <PATH>\\state\\dsh-web.log\n"
   },
   "status-with-config": {
     "exit": 3,
-    "stdout": "状态: 未运行\n日志: \u003cPATH\u003e\\state\\dsh-web.log\n",
-    "stderr": "",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir",
       "state/config.json|0666|d6d53c2ef589ee1342ad3238",
       "state/|0777|dir"
-    ]
+    ],
+    "stderr": "",
+    "stdout": "状态: 未运行\n日志: <PATH>\\state\\dsh-web.log\n"
   },
   "status-without-probe-tools": {
     "exit": 3,
-    "stdout": "状态: 未运行\n日志: \u003cPATH\u003e\\state\\dsh-web.log\n",
-    "stderr": "",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "",
+    "stdout": "状态: 未运行\n日志: <PATH>\\state\\dsh-web.log\n"
   },
   "stop-nothing-running": {
     "exit": 0,
-    "stdout": "DSH Web 未在运行\n",
-    "stderr": "",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir",
       "state/config.json|0666|a7f00f4e6c9380675bef23f1",
       "state/dshctl.lock|0666|2a279291b478982b95c0f49a",
       "state/|0777|dir"
-    ]
+    ],
+    "stderr": "",
+    "stdout": "DSH Web 未在运行\n"
   },
   "timeline-without-origin": {
     "exit": 4,
-    "stdout": "",
-    "stderr": "错误: 仓库 \u003cPATH\u003e\\repo 没有 origin 远程，无法比较版本\n提示: 确认这是一个 clone，而不是本地目录\n",
     "files": [
       "bin/node.exe|0666|stub",
       "bin/pnpm.exe|0666|stub",
@@ -204,30 +202,30 @@
     "refs": [
       "HEAD 2212e180025f18221295f6cbb6d5eea8903f5543",
       "refs/heads/master 2212e180025f18221295f6cbb6d5eea8903f5543"
-    ]
+    ],
+    "stderr": "错误: 仓库 <PATH>\\repo 没有 origin 远程，无法比较版本\n提示: 确认这是一个 clone，而不是本地目录\n",
+    "stdout": ""
   },
   "unknown-command": {
     "exit": 2,
-    "stdout": "",
-    "stderr": "错误: 未知命令 \"frobnicate\"\n\ndshctl — 管理本机运行的 DeepSeek Harness Web 服务\n\n用法:\n  dshctl [全局参数] \u003c命令\u003e [命令参数]\n  dshctl                        等价于 dshctl start\n  dshctl help [命令]            查看某个命令的完整帮助\n\n  全局参数必须写在命令名之前。\n\n命令:\n  dshctl start                        后台启动 DSH Web(不执行 install/build)\n  dshctl stop                         停止 DSH Web(不加 --port 时停止全部实例)\n  dshctl restart                      重启 DSH Web(不加 --port 时重启全部实例)\n  dshctl status [--json]              查看运行状态(不加 --port 时报告全部实例)\n  dshctl url                          打印带 token 的访问地址\n  dshctl logs [-n \u003cN\u003e] [-f|--follow] [--build]\n                                      查看日志(含 build/update/rollback 记录)\n  dshctl build                        在仓库内执行 pnpm run build\n  dshctl timeline [--json]            查看当前版本与 origin/master 的差距\n  dshctl update [latest|\u003ctag\u003e|\u003ccommit\u003e]\n                                      更新到指定版本并重建，自动停/启服务\n  dshctl rollback [-n \u003cN\u003e] [\u003ctag\u003e|\u003ccommit\u003e]\n                                      回退到之前部署过的位置，不联网\n  dshctl doctor [--json]              体检环境\n  dshctl version [--json]             打印版本信息\n\n常用:\n  dshctl --repo ~/projects/deepseek-harness start   第一次：指定仓库并启动\n  dshctl status                                     看运行状态\n  dshctl url                                        拿带 token 的访问地址\n  dshctl logs -f                                    跟随日志\n  dshctl timeline                                   更新前先看落后多少、有哪些 tag\n  dshctl update                                     更新到 origin/master 最新\n  dshctl update dsh-v0.1.6-alpha.2                  更新到指定 tag\n  dshctl rollback                                   退回上一次 update/rollback 之前\n\n参数:\n  --json           以 JSON 输出，便于脚本消费(status/timeline/doctor/version)\n  -n \u003cN\u003e           logs: 打印最后 N 行(默认 200，小于 1 视为默认值)\n  -f, --follow     logs: 持续跟随输出(跨日志轮转继续跟随)\n  --build          logs: 只显示最近一次 build/update/rollback 记录\n  -n \u003cN\u003e           rollback: 回退几步(默认 1)\n\n全局参数:\n  --repo \u003c路径\u003e     覆盖仓库目录(环境变量 DSH_REPO_DIR)\n  --port \u003c端口\u003e     指定端口(环境变量 DSH_PORT); status/stop/restart/url 不带它\n                    时作用于本状态目录管理的全部服务\n  --node \u003c版本\u003e     指定 Node 版本, 仅本次生效(环境变量 DSH_NODE_VERSION)\n  --config \u003c文件\u003e   覆盖配置文件路径(环境变量 DSHCTL_CONFIG)\n  -v, --verbose     打印生效配置及其来源\n  -h, --help        显示帮助\n  -V, --version     打印版本\n\nNode:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12.0 一律拒绝\n          优先级: --node \u003e DSH_NODE_VERSION \u003e 配置文件 nodeVersion \u003e PATH\n\n状态目录: $DSHCTL_STATE_DIR 或 $DSH_HOME/dshctl 或 ~/.dsh/dshctl\n退出码:   0 成功/运行中, 1 失败, 2 用法或配置错误, 3 未运行, 4 前置检查失败, 5 锁超时\n\n每个命令的完整说明(参数、退出码、注意事项): dshctl help \u003c命令\u003e\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: 未知命令 \"frobnicate\"\n\ndshctl — 管理本机运行的 DeepSeek Harness Web 服务\n\n用法:\n  dshctl [全局参数] <命令> [命令参数]\n  dshctl                        等价于 dshctl start\n  dshctl help [命令]            查看某个命令的完整帮助\n\n  全局参数必须写在命令名之前。\n\n命令:\n  dshctl start                        后台启动 DSH Web(不执行 install/build)\n  dshctl stop                         停止 DSH Web(不加 --port 时停止全部实例)\n  dshctl restart                      重启 DSH Web(不加 --port 时重启全部实例)\n  dshctl status [--json]              查看运行状态(不加 --port 时报告全部实例)\n  dshctl url                          打印带 token 的访问地址\n  dshctl logs [-n <N>] [-f|--follow] [--build]\n                                      查看日志(含 build/update/rollback 记录)\n  dshctl build                        在仓库内执行 pnpm run build\n  dshctl timeline [--json]            查看当前版本与 origin/master 的差距\n  dshctl update [--json] [latest|<tag>|<commit>]\n                                      更新到指定版本并重建，自动停/启服务\n  dshctl rollback [--json] [-n <N>] [<tag>|<commit>]\n                                      回退到之前部署过的位置，不联网\n  dshctl doctor [--json]              体检环境\n  dshctl version [--json]             打印版本信息\n\n常用:\n  dshctl --repo ~/projects/deepseek-harness start   第一次：指定仓库并启动\n  dshctl status                                     看运行状态\n  dshctl url                                        拿带 token 的访问地址\n  dshctl logs -f                                    跟随日志\n  dshctl timeline                                   更新前先看落后多少、有哪些 tag\n  dshctl update                                     更新到 origin/master 最新\n  dshctl update dsh-v0.1.6-alpha.2                  更新到指定 tag\n  dshctl rollback                                   退回上一次 update/rollback 之前\n\n参数:\n  --json           以 JSON 输出，便于脚本消费(status/timeline/doctor/version)\n  -n <N>           logs: 打印最后 N 行(默认 200，小于 1 视为默认值)\n  -f, --follow     logs: 持续跟随输出(跨日志轮转继续跟随)\n  --build          logs: 只显示最近一次 build/update/rollback 记录\n  -n <N>           rollback: 回退几步(默认 1)\n\n全局参数:\n  --repo <路径>     覆盖仓库目录(环境变量 DSH_REPO_DIR)\n  --port <端口>     指定端口(环境变量 DSH_PORT); status/stop/restart/url 不带它\n                    时作用于本状态目录管理的全部服务\n  --node <版本>     指定 Node 版本, 仅本次生效(环境变量 DSH_NODE_VERSION)\n  --config <文件>   覆盖配置文件路径(环境变量 DSHCTL_CONFIG)\n  -v, --verbose     打印生效配置及其来源\n  -h, --help        显示帮助\n  -V, --version     打印版本\n\nNode:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12.0 一律拒绝\n          优先级: --node > DSH_NODE_VERSION > 配置文件 nodeVersion > PATH\n\n状态目录: $DSHCTL_STATE_DIR 或 $DSH_HOME/dshctl 或 ~/.dsh/dshctl\n退出码:   0 成功/运行中, 1 失败, 2 用法或配置错误, 3 未运行, 4 前置检查失败, 5 锁超时\n\n每个命令的完整说明(参数、退出码、注意事项): dshctl help <命令>\n",
+    "stdout": ""
   },
   "unknown-global-flag": {
     "exit": 2,
-    "stdout": "",
-    "stderr": "错误: 未知的全局参数: --frobnicate\n\ndshctl — 管理本机运行的 DeepSeek Harness Web 服务\n\n用法:\n  dshctl [全局参数] \u003c命令\u003e [命令参数]\n  dshctl                        等价于 dshctl start\n  dshctl help [命令]            查看某个命令的完整帮助\n\n  全局参数必须写在命令名之前。\n\n命令:\n  dshctl start                        后台启动 DSH Web(不执行 install/build)\n  dshctl stop                         停止 DSH Web(不加 --port 时停止全部实例)\n  dshctl restart                      重启 DSH Web(不加 --port 时重启全部实例)\n  dshctl status [--json]              查看运行状态(不加 --port 时报告全部实例)\n  dshctl url                          打印带 token 的访问地址\n  dshctl logs [-n \u003cN\u003e] [-f|--follow] [--build]\n                                      查看日志(含 build/update/rollback 记录)\n  dshctl build                        在仓库内执行 pnpm run build\n  dshctl timeline [--json]            查看当前版本与 origin/master 的差距\n  dshctl update [latest|\u003ctag\u003e|\u003ccommit\u003e]\n                                      更新到指定版本并重建，自动停/启服务\n  dshctl rollback [-n \u003cN\u003e] [\u003ctag\u003e|\u003ccommit\u003e]\n                                      回退到之前部署过的位置，不联网\n  dshctl doctor [--json]              体检环境\n  dshctl version [--json]             打印版本信息\n\n常用:\n  dshctl --repo ~/projects/deepseek-harness start   第一次：指定仓库并启动\n  dshctl status                                     看运行状态\n  dshctl url                                        拿带 token 的访问地址\n  dshctl logs -f                                    跟随日志\n  dshctl timeline                                   更新前先看落后多少、有哪些 tag\n  dshctl update                                     更新到 origin/master 最新\n  dshctl update dsh-v0.1.6-alpha.2                  更新到指定 tag\n  dshctl rollback                                   退回上一次 update/rollback 之前\n\n参数:\n  --json           以 JSON 输出，便于脚本消费(status/timeline/doctor/version)\n  -n \u003cN\u003e           logs: 打印最后 N 行(默认 200，小于 1 视为默认值)\n  -f, --follow     logs: 持续跟随输出(跨日志轮转继续跟随)\n  --build          logs: 只显示最近一次 build/update/rollback 记录\n  -n \u003cN\u003e           rollback: 回退几步(默认 1)\n\n全局参数:\n  --repo \u003c路径\u003e     覆盖仓库目录(环境变量 DSH_REPO_DIR)\n  --port \u003c端口\u003e     指定端口(环境变量 DSH_PORT); status/stop/restart/url 不带它\n                    时作用于本状态目录管理的全部服务\n  --node \u003c版本\u003e     指定 Node 版本, 仅本次生效(环境变量 DSH_NODE_VERSION)\n  --config \u003c文件\u003e   覆盖配置文件路径(环境变量 DSHCTL_CONFIG)\n  -v, --verbose     打印生效配置及其来源\n  -h, --help        显示帮助\n  -V, --version     打印版本\n\nNode:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12.0 一律拒绝\n          优先级: --node \u003e DSH_NODE_VERSION \u003e 配置文件 nodeVersion \u003e PATH\n\n状态目录: $DSHCTL_STATE_DIR 或 $DSH_HOME/dshctl 或 ~/.dsh/dshctl\n退出码:   0 成功/运行中, 1 失败, 2 用法或配置错误, 3 未运行, 4 前置检查失败, 5 锁超时\n\n每个命令的完整说明(参数、退出码、注意事项): dshctl help \u003c命令\u003e\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: 未知的全局参数: --frobnicate\n\ndshctl — 管理本机运行的 DeepSeek Harness Web 服务\n\n用法:\n  dshctl [全局参数] <命令> [命令参数]\n  dshctl                        等价于 dshctl start\n  dshctl help [命令]            查看某个命令的完整帮助\n\n  全局参数必须写在命令名之前。\n\n命令:\n  dshctl start                        后台启动 DSH Web(不执行 install/build)\n  dshctl stop                         停止 DSH Web(不加 --port 时停止全部实例)\n  dshctl restart                      重启 DSH Web(不加 --port 时重启全部实例)\n  dshctl status [--json]              查看运行状态(不加 --port 时报告全部实例)\n  dshctl url                          打印带 token 的访问地址\n  dshctl logs [-n <N>] [-f|--follow] [--build]\n                                      查看日志(含 build/update/rollback 记录)\n  dshctl build                        在仓库内执行 pnpm run build\n  dshctl timeline [--json]            查看当前版本与 origin/master 的差距\n  dshctl update [--json] [latest|<tag>|<commit>]\n                                      更新到指定版本并重建，自动停/启服务\n  dshctl rollback [--json] [-n <N>] [<tag>|<commit>]\n                                      回退到之前部署过的位置，不联网\n  dshctl doctor [--json]              体检环境\n  dshctl version [--json]             打印版本信息\n\n常用:\n  dshctl --repo ~/projects/deepseek-harness start   第一次：指定仓库并启动\n  dshctl status                                     看运行状态\n  dshctl url                                        拿带 token 的访问地址\n  dshctl logs -f                                    跟随日志\n  dshctl timeline                                   更新前先看落后多少、有哪些 tag\n  dshctl update                                     更新到 origin/master 最新\n  dshctl update dsh-v0.1.6-alpha.2                  更新到指定 tag\n  dshctl rollback                                   退回上一次 update/rollback 之前\n\n参数:\n  --json           以 JSON 输出，便于脚本消费(status/timeline/doctor/version)\n  -n <N>           logs: 打印最后 N 行(默认 200，小于 1 视为默认值)\n  -f, --follow     logs: 持续跟随输出(跨日志轮转继续跟随)\n  --build          logs: 只显示最近一次 build/update/rollback 记录\n  -n <N>           rollback: 回退几步(默认 1)\n\n全局参数:\n  --repo <路径>     覆盖仓库目录(环境变量 DSH_REPO_DIR)\n  --port <端口>     指定端口(环境变量 DSH_PORT); status/stop/restart/url 不带它\n                    时作用于本状态目录管理的全部服务\n  --node <版本>     指定 Node 版本, 仅本次生效(环境变量 DSH_NODE_VERSION)\n  --config <文件>   覆盖配置文件路径(环境变量 DSHCTL_CONFIG)\n  -v, --verbose     打印生效配置及其来源\n  -h, --help        显示帮助\n  -V, --version     打印版本\n\nNode:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12.0 一律拒绝\n          优先级: --node > DSH_NODE_VERSION > 配置文件 nodeVersion > PATH\n\n状态目录: $DSHCTL_STATE_DIR 或 $DSH_HOME/dshctl 或 ~/.dsh/dshctl\n退出码:   0 成功/运行中, 1 失败, 2 用法或配置错误, 3 未运行, 4 前置检查失败, 5 锁超时\n\n每个命令的完整说明(参数、退出码、注意事项): dshctl help <命令>\n",
+    "stdout": ""
   },
   "update-local-branch": {
     "exit": 4,
-    "stdout": "",
-    "stderr": "警告: 无法获取远程更新，按本地已知状态解析 \"master\": 无法获取远程更新: git -C \u003cPATH\u003e\\repo fetch origin --tags: exit status 128\n错误: 版本不能指向本地分支 \"master\": 用 origin/master 表示远程最新，或改用 tag/commit\n",
     "files": [
       "bin/node.exe|0666|stub",
       "bin/pnpm.exe|0666|stub",
@@ -244,54 +242,56 @@
     "refs": [
       "HEAD 2212e180025f18221295f6cbb6d5eea8903f5543",
       "refs/heads/master 2212e180025f18221295f6cbb6d5eea8903f5543"
-    ]
+    ],
+    "stderr": "警告: 无法获取远程更新，按本地已知状态解析 \"master\": 无法获取远程更新: git -C <PATH>\\repo fetch origin --tags: exit status 128\n错误: 版本不能指向本地分支 \"master\": 用 origin/master 表示远程最新，或改用 tag/commit\n",
+    "stdout": ""
   },
   "update-without-checkout": {
     "exit": 4,
-    "stdout": "",
-    "stderr": "错误: 仓库目录不存在: \u003cPATH\u003e\\home\\deepseek-harness\n提示: 用 --repo 或环境变量 DSH_REPO_DIR 指定仓库路径\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir",
       "state/config.json|0666|a7f00f4e6c9380675bef23f1",
       "state/dshctl.lock|0666|2a279291b478982b95c0f49a",
       "state/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: 仓库目录不存在: <PATH>\\home\\deepseek-harness\n提示: 用 --repo 或环境变量 DSH_REPO_DIR 指定仓库路径\n",
+    "stdout": ""
   },
   "url-fresh": {
     "exit": 3,
-    "stdout": "",
-    "stderr": "错误: DSH Web 未在运行(未运行)，没有可访问的地址\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "错误: DSH Web 未在运行(未运行)，没有可访问的地址\n",
+    "stdout": ""
   },
   "verbose-sources": {
     "exit": 3,
-    "stdout": "状态: 未运行\n日志: \u003cPATH\u003e\\state\\dsh-web.log\n",
-    "stderr": "配置文件: \u003cPATH\u003e\\state\\config.json (default)\n状态目录: \u003cPATH\u003e\\state (env DSHCTL_STATE_DIR)\n仓库目录: \u003cPATH\u003e\\home\\deepseek-harness (default)\n监听端口: 3080 (default)\nNode 版本: (未确定，启动时按 PATH 解析) (default)\n日志文件: \u003cPATH\u003e\\state\\dsh-web.log (default)\n启动超时: 90s (default)\n停止超时: 15s (default)\n锁超时:   10s (default)\n日志轮转: 4194304 字节 (0 表示不轮转) (default)\n",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "配置文件: <PATH>\\state\\config.json (default)\n状态目录: <PATH>\\state (env DSHCTL_STATE_DIR)\n仓库目录: <PATH>\\home\\deepseek-harness (default)\n监听端口: 3080 (default)\nNode 版本: (未确定，启动时按 PATH 解析) (default)\n日志文件: <PATH>\\state\\dsh-web.log (default)\n启动超时: 90s (default)\n停止超时: 15s (default)\n锁超时:   10s (default)\n日志轮转: 4194304 字节 (0 表示不轮转) (default)\n日志级别: info (default)\n",
+    "stdout": "状态: 未运行\n日志: <PATH>\\state\\dsh-web.log\n"
   },
   "version": {
     "exit": 0,
-    "stdout": "dshctl \u003cV\u003e (windows/amd64, commit \u003cC\u003e, built \u003cB\u003e)\n",
-    "stderr": "",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "",
+    "stdout": "dshctl <V> (windows/amd64, commit <C>, built <B>)\n"
   },
   "version-json": {
     "exit": 0,
-    "stdout": "{\n  \"version\": \"\u003cV\u003e\",\n  \"commit\": \"\u003cC\u003e\",\n  \"buildDate\": \"\u003cB\u003e\",\n  \"platform\": \"windows/amd64\"\n}\n",
-    "stderr": "",
     "files": [
       "bin/|0777|dir",
       "home/|0777|dir"
-    ]
+    ],
+    "stderr": "",
+    "stdout": "{\n  \"version\": \"<V>\",\n  \"commit\": \"<C>\",\n  \"buildDate\": \"<B>\",\n  \"platform\": \"windows/amd64\",\n  \"goVersion\": \"go1.25.14\",\n  \"module\": \"github.com/rhczz/dshctl\"\n}\n"
   }
 }
