@@ -414,6 +414,44 @@ func TestTimelineReportsACorruptHistory(t *testing.T) {
 	}
 }
 
+// TestTimelineTakesTheCurrentPositionFromGit pins the split the history file
+// must not blur: where the checkout is now comes from git, and the record only
+// says where dshctl has deployed it. A hand-made checkout makes the two differ,
+// and the report has to side with git.
+func TestTimelineTakesTheCurrentPositionFromGit(t *testing.T) {
+	f := newFixture(t)
+	current := fakeSHA(1000)
+	recorded := fakeSHA(999)
+	f.host.gitHead = current
+	f.host.gitRemote = fakeSHA(2000)
+	f.host.gitBehind = 1
+	f.host.gitLog = []fakeGitCommit{fakeCommit(fakeSHA(2000), "upstream work")}
+	f.seedHistory(t, history.File{Repos: []history.Group{{Repo: f.repo, Records: []history.Record{
+		{Commit: recorded, Selector: "latest", At: 1},
+	}}}})
+
+	report, err := f.Timeline(context.Background())
+	if err != nil {
+		t.Fatalf("Timeline: %v", err)
+	}
+	if report.Current.Commit != current {
+		t.Fatalf("current = %q, want the commit git reports %q", report.Current.Commit, current)
+	}
+	if len(report.History) != 1 || report.History[0].Commit != recorded {
+		t.Fatalf("history = %+v, want the recorded position untouched", report.History)
+	}
+	var out strings.Builder
+	if err := PrintTimeline(&out, report); err != nil {
+		t.Fatalf("PrintTimeline: %v", err)
+	}
+	if strings.Contains(out.String(), "● "+recorded[:7]) {
+		t.Fatalf("output = %q, want the recorded position not marked as current", out.String())
+	}
+	if !strings.Contains(out.String(), "● "+current[:7]) {
+		t.Fatalf("output = %q, want the git position marked as current", out.String())
+	}
+}
+
 // TestTimelineRefusesACheckoutWithoutOrigin pins the preflight: "latest" has no
 // meaning without a remote, and a fetch failure message would not say that.
 func TestTimelineRefusesACheckoutWithoutOrigin(t *testing.T) {

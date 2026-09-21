@@ -155,9 +155,6 @@ func (s *Service) otherPortsServing(ctx context.Context) (servingPorts, error) {
 	return serving, nil
 }
 
-// shutdownMessage explains a service left stopped after a failed update.
-const shutdownMessage = "服务保持停止状态\n提示: 修复问题后可运行 dshctl build && dshctl start"
-
 // prune removes residue left by packages upstream deleted.
 func (s *Service) prune(ctx context.Context) error {
 	result, err := s.Repo.Prune(ctx, s.report)

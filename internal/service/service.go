@@ -2,7 +2,7 @@
 // observing it, starting it, stopping it, restarting it, building and updating
 // the checkout, and the diagnostics the command line exposes.
 //
-// Three invariants shape every operation in this package.
+// Five invariants shape every operation in this package.
 //
 //  1. Ownership comes from the runtime record, never from a guess. dshctl stops
 //     a process only when the record names that pid *and* the process start time
@@ -19,10 +19,16 @@
 //     port as the only instance is how a server started with `--port` kept
 //     serving while `status` reported nothing running and `stop` refused to
 //     touch it — an orphan nothing in the tool could name again.
+//  5. The deployment position is git's to state; dshctl's history is only a
+//     record of where the checkout has been. `update` and `rollback` move the
+//     tree to a commit resolved from git, and the position stack in
+//     updates.json exists so a move can be undone — it is never the answer to
+//     "where is the checkout now".
 //
-// Rules 1-3 are per instance and rule 4 is about which instances an operation
-// covers; an operation that covers several holds one lock for all of them, so no
-// other command sees half of it.
+// Rules 1-3 are per instance, rule 4 is about which instances an operation
+// covers, and rule 5 separates the two answers a version question has; an
+// operation that covers several holds one lock for all of them, so no other
+// command sees half of it.
 package service
 
 import (

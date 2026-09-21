@@ -18,6 +18,9 @@ import (
 // latestTarget is the selector that means origin/master's tip.
 const latestTarget = "latest"
 
+// shutdownMessage explains a service left stopped after a failed deployment.
+const shutdownMessage = "服务保持停止状态\n提示: 修复问题后可运行 dshctl build && dshctl start"
+
 // deployRequest is one version move: what to move to, and how to name it.
 type deployRequest struct {
 	// verb names the operation in messages ("更新" / "回退").
