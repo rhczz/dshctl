@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/service"
@@ -39,27 +40,30 @@ func Commands() []Command {
 		},
 		{
 			Name:    "stop",
-			Summary: "停止 DSH Web",
+			Summary: "停止 DSH Web(不加 --port 时停止全部实例)",
 			Help: `停止 DSH Web。
 
 不加 --port 时停止本状态目录管理的每一个服务；--port 或 DSH_PORT 指定端口时
 只停止该端口上的服务。只有运行记录中记录、且启动时间仍然吻合的进程会被结束；
 端口被其他程序占用时只提示，绝不误杀。
 
-退出码: 0 成功, 4 不点名时有服务因无法确认归属而未被停止。`,
+退出码: 0 成功(无事可做也算), 4 不点名时有服务因无法确认归属而未被停止。`,
 			Run: runStop,
 		},
 		{
 			Name:    "restart",
-			Summary: "重启 DSH Web",
+			Summary: "重启 DSH Web(不加 --port 时重启全部实例)",
 			Help: `重启 DSH Web。不加 --port 时重启本状态目录中正在运行的每一个服务，
 指定端口时只重启该端口。停与启在同一个操作锁内完成，其他 dshctl 操作无法
-插入两者之间；任何一个端口无法确认归属时会在停任何服务之前拒绝。`,
+插入两者之间；任何一个端口无法确认归属时会在停任何服务之前拒绝。
+
+退出码: 0 成功(没有运行中的实例也算), 4 前置检查失败(有实例无法确认归属)。`,
 			Run: runRestart,
 		},
 		{
 			Name:    "status",
-			Summary: "查看运行状态",
+			Summary: "查看运行状态(不加 --port 时报告全部实例)",
+			Usage:   "[--json]",
 			Help: `查看运行状态。端口是"有没有服务"的判据，运行记录是"是不是我们的"的判据。
 
 不加 --port 时报告本状态目录管理的每一个服务，第一个是配置里那个端口；指定
@@ -83,11 +87,14 @@ func Commands() []Command {
 		{
 			Name:    "logs",
 			Summary: "查看日志(含 build/update/rollback 记录)",
+			Usage:   "[-n <N>] [-f|--follow] [--build]",
 			Help: `查看日志。服务输出、构建输出、更新输出共用同一份日志。
 
   -n <行数>      打印最后 N 行(默认 200，小于 1 视为默认值)
   -f, --follow   持续跟随输出(跨日志轮转继续跟随)
-  --build        只显示最近一次 build/update/rollback 记录，用于排查上次部署`,
+  --build        只显示最近一次 build/update/rollback 记录，用于排查上次部署
+
+退出码: 0 成功, 1 日志文件不存在或无法读取。`,
 			Run: runLogs,
 		},
 		{
@@ -97,12 +104,15 @@ func Commands() []Command {
 输出实时显示并同时写入日志。
 
 配置里没有写明 repoDir 时，构建成功后会把这个 checkout 写入配置。服务正在运行时
-拒绝构建(会替换它正在使用的产物)。`,
+拒绝构建(会替换它正在使用的产物)。
+
+退出码: 0 成功, 1 构建失败, 4 前置检查失败(仓库/依赖/产物缺失，或服务在运行)。`,
 			Run: runBuild,
 		},
 		{
 			Name:    "timeline",
-			Summary: "查看仓库版本与 origin/master 的差距",
+			Summary: "查看当前版本与 origin/master 的差距",
+			Usage:   "[--json]",
 			Help: `对比当前 checkout 与远程 origin/master：落后/领先的提交数、差距内的
 tag、最近的提交列表，以及 dshctl 自己记录过的部署历史。
 
@@ -118,7 +128,8 @@ fetch 失败或 git 读取失败。`,
 		},
 		{
 			Name:    "update",
-			Summary: "更新到指定版本(latest/tag/commit，自动停/启服务)",
+			Summary: "更新到指定版本并重建，自动停/启服务",
+			Usage:   "[latest|<tag>|<commit>]",
 			Help: `更新流程: 解析目标版本 → 停止服务(原本在运行才停) → git 切换 →
 清理残留 → pnpm install → pnpm run build → 恢复启动。
 
@@ -135,12 +146,15 @@ latest，要具体提交用 tag 或 hash。
 不会重启服务。工作区有已跟踪文件的未提交修改时拒绝执行(未跟踪文件不受影响)。
 切换成功但 install/build 失败时服务保持停止，可用 dshctl rollback 退回。
 
-配置里没有写明 repoDir 时，更新成功后会把这个 checkout 写入配置。`,
+配置里没有写明 repoDir 时，更新成功后会把这个 checkout 写入配置。
+
+退出码: 0 成功(含无需更新), 1 切换/install/构建失败, 4 前置检查失败。`,
 			Run: runUpdate,
 		},
 		{
 			Name:    "rollback",
-			Summary: "回退到之前的版本(不联网)",
+			Summary: "回退到之前部署过的位置，不联网",
+			Usage:   "[-n <N>] [<tag>|<commit>]",
 			Help: `回退流程与 update 相同(解析目标 → 停服 → git 切换 → 清理 → install →
 构建 → 恢复启动)，但目标来自 dshctl 记录的部署历史或指定的版本，且不联网：
 回到已知位置是救火路径，必须能在断网时工作。
@@ -150,13 +164,17 @@ latest，要具体提交用 tag 或 hash。
   dshctl rollback <tag>      回到该 tag 所在的提交
   dshctl rollback <commit>   回到该 commit(支持完整或缩写 hash)
 
--n 与版本参数不能同时给出。没有历史可退或步数超过历史时以退出码 4 结束。
-工作区有已跟踪文件的未提交修改时拒绝执行(未跟踪文件不受影响)。`,
+-n 与版本参数不能同时给出。工作区有已跟踪文件的未提交修改时拒绝执行
+(未跟踪文件不受影响)。
+
+退出码: 0 成功(含无需回退), 1 切换/install/构建失败, 4 没有历史可退、步数越界、
+版本无法解析或前置检查失败。`,
 			Run: runRollback,
 		},
 		{
 			Name:    "doctor",
 			Summary: "体检环境",
+			Usage:   "[--json]",
 			Help: `只读体检: 状态目录、配置文件、仓库版本、依赖与构建产物、Node、pnpm、
 端口归属、运行记录、操作锁、日志大小。
 
@@ -168,6 +186,7 @@ latest，要具体提交用 tag 或 hash。
 		{
 			Name:    "version",
 			Summary: "打印版本信息",
+			Usage:   "[--json]",
 			Help: `打印版本、提交、构建时间与目标平台。
 
   --json   以 JSON 输出`,
@@ -176,20 +195,54 @@ latest，要具体提交用 tag 或 hash。
 	}
 }
 
+// usageColumn is where a command's summary starts in the top-level help.
+// Invocations longer than this put their summary on the next line, so the
+// column stays readable and no CJK text has to be padded by byte count.
+const usageColumn = 34
+
 // Usage writes the top-level help.
+//
+// The first screen has to be enough to use the tool: what each command is
+// called, which arguments it takes, what it does, and the examples for the
+// first run. Details (exit codes, failure modes) stay in `dshctl help <命令>`.
 func Usage(w io.Writer) {
 	fmt.Fprint(w, `dshctl — 管理本机运行的 DeepSeek Harness Web 服务
 
 用法:
   dshctl [全局参数] <命令> [命令参数]
-  dshctl                      等价于 dshctl start
+  dshctl                        等价于 dshctl start
+  dshctl help [命令]            查看某个命令的完整帮助
+
+  全局参数必须写在命令名之前。
 
 命令:
 `)
 	for _, command := range Commands() {
-		fmt.Fprintf(w, "  %-9s %s\n", command.Name, command.Summary)
+		invocation := strings.TrimSpace("dshctl " + command.Name + " " + command.Usage)
+		if len(invocation) <= usageColumn {
+			fmt.Fprintf(w, "  %-*s  %s\n", usageColumn, invocation, command.Summary)
+			continue
+		}
+		fmt.Fprintf(w, "  %s\n  %-*s%s\n", invocation, usageColumn+2, "", command.Summary)
 	}
 	fmt.Fprint(w, `
+常用:
+  dshctl --repo ~/projects/deepseek-harness start   第一次：指定仓库并启动
+  dshctl status                                     看运行状态
+  dshctl url                                        拿带 token 的访问地址
+  dshctl logs -f                                    跟随日志
+  dshctl timeline                                   更新前先看落后多少、有哪些 tag
+  dshctl update                                     更新到 origin/master 最新
+  dshctl update dsh-v0.1.6-alpha.2                  更新到指定 tag
+  dshctl rollback                                   退回上一次 update/rollback 之前
+
+参数:
+  --json           以 JSON 输出，便于脚本消费(status/timeline/doctor/version)
+  -n <N>           logs: 打印最后 N 行(默认 200，小于 1 视为默认值)
+  -f, --follow     logs: 持续跟随输出(跨日志轮转继续跟随)
+  --build          logs: 只显示最近一次 build/update/rollback 记录
+  -n <N>           rollback: 回退几步(默认 1)
+
 全局参数:
   --repo <路径>     覆盖仓库目录(环境变量 DSH_REPO_DIR)
   --port <端口>     指定端口(环境变量 DSH_PORT); status/stop/restart/url 不带它
@@ -205,6 +258,8 @@ Node:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12
 
 状态目录: $DSHCTL_STATE_DIR 或 $DSH_HOME/dshctl 或 ~/.dsh/dshctl
 退出码:   `+helpExitCodes+`
+
+每个命令的完整说明(参数、退出码、注意事项): dshctl help <命令>
 `)
 }
 

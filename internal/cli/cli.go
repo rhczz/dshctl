@@ -48,6 +48,11 @@ type Command struct {
 	Name string
 	// Summary is the one-line description used in the command list.
 	Summary string
+	// Usage is the argument tail shown after the name, in the spelling the
+	// command line accepts ("[--json]", "[-n N] [<tag>|<commit>]"). It is
+	// empty for a command that takes no arguments, and it is what makes the
+	// top-level help answer "how do I call this" without a second command.
+	Usage string
 	// Help is the full help text.
 	Help string
 	// Run executes the command with the arguments that followed its name.
@@ -347,8 +352,16 @@ func versionSelector(args []string, command string) (string, error) {
 }
 
 // printCommandHelp writes one command's help.
+//
+// The usage line comes first and is built from the same Usage the top-level
+// help lists, so "how do I call this" is answered before the details.
 func printCommandHelp(w io.Writer, command Command) {
 	fmt.Fprintf(w, "dshctl %s — %s\n\n", command.Name, command.Summary)
+	fmt.Fprintf(w, "用法: dshctl [全局参数] %s", command.Name)
+	if command.Usage != "" {
+		fmt.Fprintf(w, " %s", command.Usage)
+	}
+	fmt.Fprint(w, "\n\n")
 	if command.Help != "" {
 		fmt.Fprintln(w, strings.TrimSpace(command.Help))
 	}

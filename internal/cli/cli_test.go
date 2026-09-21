@@ -417,12 +417,15 @@ func TestAllCommandsAreComplete(t *testing.T) {
 		if command.Summary == "" || command.Run == nil || command.Name == "" {
 			t.Fatalf("incomplete command registration: %+v", command)
 		}
+		if command.Usage != strings.TrimSpace(command.Usage) {
+			t.Fatalf("command %s has an untrimmed usage: %q", command.Name, command.Usage)
+		}
 		if seen[command.Name] {
 			t.Fatalf("duplicate command %q", command.Name)
 		}
 		seen[command.Name] = true
 	}
-	for _, expected := range []string{"start", "stop", "restart", "status", "url", "logs", "build", "update", "doctor", "version"} {
+	for _, expected := range []string{"start", "stop", "restart", "status", "url", "logs", "build", "timeline", "update", "rollback", "doctor", "version"} {
 		if !seen[expected] {
 			t.Fatalf("command %q is missing from the registry", expected)
 		}
