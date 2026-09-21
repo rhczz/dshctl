@@ -12,7 +12,7 @@ README 与 `readonly_test.go` 的承诺冲突："报告命令零写盘"。两者
 
 `timeline` 是这条规则的**具名例外**，边界写进 README、AGENTS.md 与包文档：
 
-- 它联网 `git fetch origin --tags --prune`，只写 `.git` 的远程跟踪引用；
+- 它联网 `git fetch origin --tags`（不 `--prune`：删除上游已删的远程跟踪引用是操作者的清理，不是读差距的副作用），只写 `.git` 的远程跟踪引用；
 - 不写状态目录、不写配置文件、不改工作区（真实二进制测试逐字节断言）；
 - 不拿操作锁：看差距不应该被一次长更新挡在锁外；
 - fetch 失败时仍打印本地已知的时间线，头部写"远程: 无法获取（原因）"，差距行
@@ -53,4 +53,4 @@ README 与 `readonly_test.go` 的承诺冲突："报告命令零写盘"。两者
 - `internal/service/timeline_test.go`：窗口/tag/省略行、分叉、脏工作区、历史段、
   fetch 失败的本地状态与"远程未确认"。
 - `scripts/mutation-check.py`：`a failed fetch still reports the timeline as
-  confirmed`。
+  confirmed`、`fetch prunes remote-tracking refs the remote no longer has`。

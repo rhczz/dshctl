@@ -62,8 +62,12 @@ func (r Repo) HasOrigin(ctx context.Context) (bool, error) {
 }
 
 // Fetch updates the remote-tracking references and tags from origin.
+//
+// It does not prune: deleting a remote-tracking ref the remote no longer has is
+// the operator's cleanup, not a side effect of reading the version gap. The
+// action stays "learn what the remote has".
 func (r Repo) Fetch(ctx context.Context, out, errOut io.Writer) error {
-	if err := r.stream(ctx, out, errOut, "fetch", originRemote, "--tags", "--prune"); err != nil {
+	if err := r.stream(ctx, out, errOut, "fetch", originRemote, "--tags"); err != nil {
 		return fmt.Errorf("无法获取远程更新: %w", err)
 	}
 	return nil
@@ -137,10 +141,15 @@ func (r Repo) ResolveRevision(ctx context.Context, selector string) (string, err
 	if strings.HasPrefix(selector, "-") {
 		return "", fmt.Errorf("版本不能以 - 开头: %q", selector)
 	}
-	if name, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--symbolic-full-name", selector)); err == nil {
-		if strings.HasPrefix(strings.TrimSpace(name), "refs/heads/") {
-			return "", fmt.Errorf("版本不能指向本地分支 %q: 用 %s 表示远程最新，或改用 tag/commit",
-				selector, RemoteTipName)
+	// HEAD is not a branch name even though git resolves it through one: it
+	// names the commit the checkout is already at, which the caller's short
+	// circuit turns into a no-op.
+	if selector != "HEAD" {
+		if name, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--symbolic-full-name", selector)); err == nil {
+			if strings.HasPrefix(strings.TrimSpace(name), "refs/heads/") {
+				return "", fmt.Errorf("版本不能指向本地分支 %q: 用 %s 表示远程最新，或改用 tag/commit",
+					selector, RemoteTipName)
+			}
 		}
 	}
 	var lastErr error

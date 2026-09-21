@@ -215,6 +215,52 @@ func TestUpdateAfterARollbackReturnsToMaster(t *testing.T) {
 	}
 }
 
+// TestRollbackNamesTheTagItReturnsTo pins the target line of a step rollback:
+// the position is named by its tag when it has one, so the operator can see
+// which release they are going back to.
+func TestRollbackNamesTheTagItReturnsTo(t *testing.T) {
+	f := newFixture(t)
+	target := fakeSHA(500)
+	head := f.host.gitHead
+	f.host.gitLog = []fakeGitCommit{
+		fakeCommit(head, "head"),
+		fakeCommit(target, "target"),
+	}
+	f.host.gitTags = map[string]string{"dsh-v0.1.0": target}
+	f.seedDeployments(t,
+		history.Record{Commit: head, Selector: "latest", At: 2},
+		history.Record{Commit: target, Selector: "latest", At: 1},
+	)
+
+	if err := f.RunRollback(context.Background(), "", 1); err != nil {
+		t.Fatalf("RunRollback: %v", err)
+	}
+	want := "回退: " + head[:7] + " → " + target[:7] + "（dsh-v0.1.0）\n"
+	if !strings.Contains(f.out.String(), want) {
+		t.Fatalf("stdout = %q, want %q", f.out.String(), want)
+	}
+}
+
+// TestRollbackRefusesAnUnknownRefWithoutFetching pins the firefighting rule for
+// a typo: the rollback never reaches the network, and the failure says the
+// version could not be resolved.
+func TestRollbackRefusesAnUnknownRefWithoutFetching(t *testing.T) {
+	f := newFixture(t)
+	f.host.fail = func(cmd run.Command) error {
+		if hasArgument(cmd, "fetch") {
+			return &run.ExitError{Command: cmd.String(), Code: 128}
+		}
+		return nil
+	}
+
+	err := f.RunRollback(context.Background(), "no-such-version", 0)
+	wantCode(t, err, exitcode.Preflight)
+	wantContains(t, err, "no-such-version")
+	if strings.Contains(f.describeCommands(), "fetch") {
+		t.Fatalf("a rollback fetched: %v", f.describeCommands())
+	}
+}
+
 // TestRollbackShortCircuitsAtTheCurrentPosition pins that rolling back to the
 // commit the checkout is already at changes nothing.
 func TestRollbackShortCircuitsAtTheCurrentPosition(t *testing.T) {

@@ -366,6 +366,85 @@ func TestRollbackWithoutHistoryIsAPreflight(t *testing.T) {
 	}
 }
 
+// TestUpdateThenRollbackThroughTheRealBinary pins the whole operator workflow
+// against a real repository: deploy a tag, roll back one step, and read the
+// history back. The service tests exercise the same path against a fictional
+// machine; this one proves the command line wires it together.
+func TestUpdateThenRollbackThroughTheRealBinary(t *testing.T) {
+	root := t.TempDir()
+	seedGitCheckout(t, root)
+	repoDir := filepath.Join(root, "repo")
+	before := worktreeSnapshot(t, repoDir)
+	original := strings.TrimSpace(cliGit(t, repoDir, "rev-parse", "HEAD"))
+	env := map[string]string{"PATH": toolPathWithGit(t, "pnpm", "node")}
+
+	update := runBinaryIn(t, root, env, "update", "dsh-v0.1.0")
+	if update.code != 0 {
+		t.Fatalf("update exit = %d, want 0 (stderr = %s)", update.code, update.stderr)
+	}
+	tagged := strings.TrimSpace(cliGit(t, repoDir, "rev-parse", "HEAD"))
+	if tagged == original {
+		t.Fatal("update did not move the checkout to the tag")
+	}
+	if !strings.Contains(update.stdout, "更新完成") {
+		t.Fatalf("update stdout = %q, want the completion report", update.stdout)
+	}
+
+	rollback := runBinaryIn(t, root, env, "rollback")
+	if rollback.code != 0 {
+		t.Fatalf("rollback exit = %d, want 0 (stderr = %s)", rollback.code, rollback.stderr)
+	}
+	if got := strings.TrimSpace(cliGit(t, repoDir, "rev-parse", "HEAD")); got != original {
+		t.Fatalf("head = %q, want the original commit %q", got, original)
+	}
+	if diff := firstTreeDifference(before, worktreeSnapshot(t, repoDir)); diff != "" {
+		t.Fatalf("the cycle changed the working tree:\n%s", diff)
+	}
+	if !strings.Contains(rollback.stdout, "回退完成") {
+		t.Fatalf("rollback stdout = %q, want the completion report", rollback.stdout)
+	}
+
+	timeline := runBinaryIn(t, root, env, "timeline")
+	if timeline.code != 0 {
+		t.Fatalf("timeline exit = %d, want 0 (stderr = %s)", timeline.code, timeline.stderr)
+	}
+	for _, want := range []string{"更新历史:", "-n 1", "← 当前"} {
+		if !strings.Contains(timeline.stdout, want) {
+			t.Fatalf("timeline stdout = %q, want it to contain %q", timeline.stdout, want)
+		}
+	}
+}
+
+// TestUpdateHEADIsANoOpThroughTheRealBinary pins the selector edge at the
+// command line: HEAD names the commit the checkout is already at, so nothing is
+// installed, built or moved.
+func TestUpdateHEADIsANoOpThroughTheRealBinary(t *testing.T) {
+	root := t.TempDir()
+	seedGitCheckout(t, root)
+	repoDir := filepath.Join(root, "repo")
+	before := worktreeSnapshot(t, repoDir)
+	head := strings.TrimSpace(cliGit(t, repoDir, "rev-parse", "HEAD"))
+
+	result := runBinaryIn(t, root, map[string]string{
+		"PATH": toolPathWithGit(t, "pnpm", "node"),
+	}, "update", "HEAD")
+	if result.code != 0 {
+		t.Fatalf("update HEAD exit = %d, want 0 (stderr = %s)", result.code, result.stderr)
+	}
+	if !strings.Contains(result.stdout, "无需更新") {
+		t.Fatalf("stdout = %q, want the no-op report", result.stdout)
+	}
+	if strings.Contains(result.stdout, "pnpm install") {
+		t.Fatalf("stdout = %q, want no install for a no-op", result.stdout)
+	}
+	if got := strings.TrimSpace(cliGit(t, repoDir, "rev-parse", "HEAD")); got != head {
+		t.Fatalf("head = %q, want it untouched at %q", got, head)
+	}
+	if diff := firstTreeDifference(before, worktreeSnapshot(t, repoDir)); diff != "" {
+		t.Fatalf("a no-op update changed the working tree:\n%s", diff)
+	}
+}
+
 // TestTimelineFailsPreflightOutsideACheckout pins the exit code a script
 // branches on when the configured path is not a repository at all.
 func TestTimelineFailsPreflightOutsideACheckout(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // FuzzLoadNeverInventsAPosition pins the two answers Load may give for bytes
@@ -48,6 +49,9 @@ func FuzzLoadNeverInventsAPosition(f *testing.F) {
 			for _, record := range group.Records {
 				if record.Commit == "" {
 					t.Fatalf("a loaded record has no commit: %+v", file)
+				}
+				if record.At <= 0 {
+					t.Fatalf("a loaded record has no time: %+v", file)
 				}
 			}
 		}
@@ -154,7 +158,9 @@ func FuzzSaveLoadRoundTrips(f *testing.F) {
 	f.Add(strings.Repeat("x", 1500), "/checkouts/big")
 
 	f.Fuzz(func(t *testing.T, commits, repo string) {
-		if repo == "" || commits == "" {
+		// JSON cannot carry arbitrary bytes: an invalid UTF-8 checkout path is
+		// replaced by U+FFFD on the way out, so it is outside the property.
+		if repo == "" || commits == "" || !utf8.ValidString(repo) {
 			return
 		}
 		records := make([]Record, 0, len(commits))
@@ -162,15 +168,16 @@ func FuzzSaveLoadRoundTrips(f *testing.F) {
 			records = append(records, Record{
 				Commit:   fmt.Sprintf("%c-%d", commit, index),
 				Selector: "latest",
-				At:       int64(index),
+				At:       int64(index + 1),
 			})
 		}
 		file := File{Repos: []Group{{Repo: repo, Records: records}}}
 		box := Store{Path: filepath.Join(t.TempDir(), "updates.json")}
 		if err := box.Save(file); err != nil {
-			// The only document a caller can build that Save may refuse is one
-			// too large to be read back; any other error is a bug.
-			if !strings.Contains(err.Error(), "过大") {
+			// Save may refuse a document its reader would reject — too large,
+			// or carrying a position without a commit or a time. Any other
+			// error is a bug.
+			if !strings.Contains(err.Error(), "过大") && !strings.Contains(err.Error(), "拒绝写入") {
 				t.Fatalf("Save: %v", err)
 			}
 			return

@@ -44,11 +44,21 @@ type deployTarget struct {
 	commit string
 	// selector is what the operator asked for, recorded verbatim.
 	selector string
-	// name names the target in messages.
+	// name names the target in messages, empty when the selector is only an
+	// abbreviation of the commit.
 	name string
 	// latest marks the remote tip: the switch returns to the master branch and
 	// fast-forwards instead of detaching.
 	latest bool
+}
+
+// label names the target in a message: the short commit, and the selector only
+// when it says something the commit does not.
+func (t deployTarget) label() string {
+	if t.name == "" {
+		return shortCommit(t.commit)
+	}
+	return fmt.Sprintf("%s（%s）", shortCommit(t.commit), t.name)
 }
 
 // RunUpdate moves the checkout to the requested version, reinstalls
@@ -183,7 +193,7 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 			s.Settings.RepoDir, s.Settings.RepoDir)
 	}
 	if target.commit == current {
-		fmt.Fprintf(s.Out, "已在 %s（%s），无需%s\n", shortCommit(current), target.name, request.verb)
+		fmt.Fprintf(s.Out, "已在 %s，无需%s\n", target.label(), request.verb)
 		// A no-op is still a successful run against this checkout, and the
 		// document records the checkout a successful run used.
 		s.writeBack(s.Settings.RepoDir, "")
@@ -218,8 +228,7 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 
-	fmt.Fprintf(s.Out, "%s: %s → %s（%s）\n",
-		request.verb, shortCommit(current), shortCommit(target.commit), target.name)
+	fmt.Fprintf(s.Out, "%s: %s → %s\n", request.verb, shortCommit(current), target.label())
 	if err := s.switchToTarget(ctx, target); err != nil {
 		// A half-completed latest (the checkout to master succeeded, the
 		// merge failed) has already moved the tree; the record must not claim
@@ -328,7 +337,13 @@ func (s *Service) resolveDeployTarget(ctx context.Context, request deployRequest
 	if err != nil {
 		return deployTarget{}, exitcode.Wrap(exitcode.Preflight, err)
 	}
-	return deployTarget{commit: commit, selector: request.target, name: request.target}, nil
+	name := request.target
+	if strings.HasPrefix(commit, request.target) {
+		// The selector is an abbreviation of the commit, so repeating it in
+		// parentheses says nothing.
+		name = ""
+	}
+	return deployTarget{commit: commit, selector: request.target, name: name}, nil
 }
 
 // rollbackTarget resolves the position a step count names.

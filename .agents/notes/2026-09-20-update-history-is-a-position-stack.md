@@ -33,9 +33,10 @@
 - 写入时机：HEAD 实际变化后立刻写（checkout/merge 成功那一刻），即使随后
   install/build 失败。写失败不中止部署：继续构建与恢复启动，最后以退出码 1
   报告"更新历史未写入"。
-- 损坏（非普通文件、非法 JSON、非对象、空 repo/commit、重复位置、超过 64 KiB）：
-  `timeline` 警告并跳过历史段；`rollback` 拒绝（退出 4）；`update` 以当前 HEAD
-  重建并警告。`Save` 拒绝写出自己 `Load` 会拒收的文档。
+- 损坏（非普通文件、非法 JSON、非对象、空 repo/commit、重复位置、没有时间戳、空组、
+  超过 64 KiB）：`timeline` 警告并跳过历史段；`rollback` 拒绝（退出 4）；`update`
+  以当前 HEAD 重建并警告。`Save` 与 `Load` 共用同一个 `validate`：写入器拒绝一切
+  读取器会拒收的形状，包括 `at <= 0` 与没有任何位置的组。
 - `selector` 是操作者输入原样（`latest`、tag、sha、`-n 2`）；空串只表示"某次移动
   的起点"。
 
@@ -60,8 +61,9 @@
   成"没有历史"。
 - 代价：50 条上限之外的旧位置不可回退（可用 `update <sha>` 定点弥补）；手工
   `git checkout` 会产生一条 selector 为空的起点记录。
-- fuzz 抓到过两个真实缺陷并已修复：栈中出现重复 commit 时 `Visit` 不再保留重复；
-  `Save` 拒绝写出超过 64 KiB、`Load` 必然拒收的文档。
+- fuzz 抓到过三个真实缺陷并已修复：栈中出现重复 commit 时 `Visit` 会保留重复；
+  `Save` 会写出超过 64 KiB、`Load` 必然拒收的文档；非 UTF-8 的 checkout 路径在
+  JSON 往返中被替换成 U+FFFD（属性测试因此显式排除不可表达的输入，并保留反例语料）。
 
 ## 验证
 

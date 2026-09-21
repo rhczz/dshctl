@@ -85,6 +85,16 @@ func (b *releaseBox) revParse(revision string) string {
 	return strings.TrimSpace(b.git("rev-parse", revision))
 }
 
+// revParseQuiet resolves a revision, returning empty when it does not exist.
+func (b *releaseBox) revParseQuiet(revision string) string {
+	b.t.Helper()
+	cmd := exec.Command("git", "-c", "core.hooksPath=", "rev-parse", "--verify", "--quiet", revision)
+	cmd.Dir = b.dir
+	cmd.Env = fixtureGitEnv()
+	out, _ := cmd.CombinedOutput()
+	return strings.TrimSpace(string(out))
+}
+
 // runFixtureGit runs a git command with the fixture's sanitised environment.
 func runFixtureGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
@@ -120,6 +130,32 @@ func TestHasOriginReportsAMissingRemote(t *testing.T) {
 	}
 	if !has {
 		t.Fatal("a checkout with an origin reported none")
+	}
+}
+
+// TestFetchDoesNotPruneRemoteTrackingRefs pins the minimal action: fetching
+// updates what the remote has, it does not delete what the remote no longer
+// has. A remote-tracking ref is the operator's own view of the remote, and
+// dshctl has no business cleaning it up.
+func TestFetchDoesNotPruneRemoteTrackingRefs(t *testing.T) {
+	ctx := context.Background()
+	box := newReleaseBox(t)
+	box.peerGit("checkout", "-q", "-b", "side")
+	box.peerCommit("side.txt", "side", "the side commit")
+	box.peerGit("push", "-q", "origin", "side")
+	if err := box.repo.Fetch(ctx, io.Discard, io.Discard); err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+	if box.revParseQuiet("refs/remotes/origin/side") == "" {
+		t.Fatal("the fixture did not create the remote-tracking branch")
+	}
+
+	box.peerGit("push", "-q", "origin", "--delete", "side")
+	if err := box.repo.Fetch(ctx, io.Discard, io.Discard); err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+	if got := box.revParseQuiet("refs/remotes/origin/side"); got == "" {
+		t.Fatal("fetch pruned a remote-tracking ref the remote no longer has")
 	}
 }
 
@@ -259,6 +295,133 @@ func TestResolveRevisionAcceptsARemoteTrackingRef(t *testing.T) {
 	}
 	if want := box.revParse("origin/master"); got != want {
 		t.Fatalf("ResolveRevision(origin/master) = %q, want %q", got, want)
+	}
+}
+
+// TestResolveRevisionAcceptsHEAD pins the boundary of the branch refusal: HEAD
+// is not a branch name even though git resolves it through one. It names the
+// commit the checkout is already at, which the caller turns into a no-op.
+func TestResolveRevisionAcceptsHEAD(t *testing.T) {
+	box := newReleaseBox(t)
+	got, err := box.repo.ResolveRevision(context.Background(), "HEAD")
+	if err != nil {
+		t.Fatalf("ResolveRevision(HEAD): %v", err)
+	}
+	if want := box.revParse("HEAD"); got != want {
+		t.Fatalf("ResolveRevision(HEAD) = %q, want %q", got, want)
+	}
+}
+
+// TestResolveRevisionPrefersATagOverABranchOfTheSameName pins the
+// disambiguation order: a name that is both a tag and a branch deploys the tag,
+// which is the version the operator can see and name.
+func TestResolveRevisionPrefersATagOverABranchOfTheSameName(t *testing.T) {
+	ctx := context.Background()
+	box := newReleaseBox(t)
+	box.write("tagged.txt", "tagged")
+	box.commit()
+	tagged := box.revParse("HEAD")
+	box.git("tag", "v1", tagged)
+	box.write("branched.txt", "branched")
+	box.commit()
+	branched := box.revParse("HEAD")
+	box.git("branch", "v1", branched)
+
+	got, err := box.repo.ResolveRevision(ctx, "v1")
+	if err != nil {
+		t.Fatalf("ResolveRevision(v1): %v", err)
+	}
+	if got != tagged {
+		t.Fatalf("ResolveRevision(v1) = %q, want the tag %q, not the branch %q", got, tagged, branched)
+	}
+}
+
+// TestCommitInfoDescribesARevision pins the one-revision query the timeline
+// uses for the position a range excludes.
+func TestCommitInfoDescribesARevision(t *testing.T) {
+	ctx := context.Background()
+	box := newReleaseBox(t)
+	box.write("second.txt", "second")
+	box.commit()
+	older := box.revParse("HEAD~1")
+	head := box.revParse("HEAD")
+
+	info, err := box.repo.CommitInfo(ctx, older)
+	if err != nil {
+		t.Fatalf("CommitInfo: %v", err)
+	}
+	if info.Full != older || info.Short == "" || info.Short == info.Full {
+		t.Fatalf("info = %+v, want the older commit with a short sha", info)
+	}
+	if info.Subject != "fixture" {
+		t.Fatalf("subject = %q, want the commit subject", info.Subject)
+	}
+	if head == older {
+		t.Fatal("the fixture did not create two commits")
+	}
+	if _, err := box.repo.CommitInfo(ctx, "no-such-revision"); err == nil {
+		t.Fatal("CommitInfo answered for an unknown revision")
+	}
+}
+
+// TestCountRangeOnAnEmptyRange pins the arithmetic at the boundary: a range
+// from a commit to itself holds nothing.
+func TestCountRangeOnAnEmptyRange(t *testing.T) {
+	ctx := context.Background()
+	box := newReleaseBox(t)
+	head, err := box.repo.HeadCommit(ctx)
+	if err != nil {
+		t.Fatalf("HeadCommit: %v", err)
+	}
+	count, err := box.repo.CountRange(ctx, head, head)
+	if err != nil {
+		t.Fatalf("CountRange: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("count = %d, want 0", count)
+	}
+}
+
+// TestFastForwardMasterAtTheRemoteTipIsANoOp pins that the latest path tolerates
+// being already there: the switch is idempotent, so a caller that raced another
+// update does not fail.
+func TestFastForwardMasterAtTheRemoteTipIsANoOp(t *testing.T) {
+	ctx := context.Background()
+	box := newReleaseBox(t)
+	box.peerCommit("next.txt", "next", "the next commit")
+	box.peerPush()
+	if err := box.repo.Fetch(ctx, io.Discard, io.Discard); err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+	if err := box.repo.FastForwardMaster(ctx, io.Discard, io.Discard); err != nil {
+		t.Fatalf("FastForwardMaster: %v", err)
+	}
+	tip := box.revParse("HEAD")
+
+	if err := box.repo.FastForwardMaster(ctx, io.Discard, io.Discard); err != nil {
+		t.Fatalf("FastForwardMaster (second time): %v", err)
+	}
+	if head := box.revParse("HEAD"); head != tip {
+		t.Fatalf("head = %q, want it still at %q", head, tip)
+	}
+}
+
+// TestCheckoutDetachToTheSameCommitIsANoOp pins that detaching where the
+// checkout already is succeeds and leaves the tree alone.
+func TestCheckoutDetachToTheSameCommitIsANoOp(t *testing.T) {
+	ctx := context.Background()
+	box := newReleaseBox(t)
+	head := box.revParse("HEAD")
+	master := box.revParse("master")
+
+	if err := box.repo.CheckoutDetach(ctx, head, io.Discard, io.Discard); err != nil {
+		t.Fatalf("CheckoutDetach: %v", err)
+	}
+	if got := box.revParse("HEAD"); got != head {
+		t.Fatalf("head = %q, want %q", got, head)
+	}
+	if got := box.revParse("master"); got != master {
+		t.Fatalf("master = %q, want it untouched", got)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
 )
 
@@ -49,6 +50,21 @@ func (h *fakeHost) gitResult(cmd run.Command) run.Result {
 			return fail(128)
 		}
 		return run.Result{Stderr: "fake git: fetch\n"}
+	case hasArgument(cmd, "rev-parse", "--symbolic-full-name"):
+		// The answer the branch refusal reads: a branch (and HEAD while it
+		// points at one) resolves through refs/heads; a remote-tracking ref
+		// through refs/remotes; a commit does not resolve at all.
+		selector := lastArgument(cmd)
+		switch {
+		case selector == "HEAD" && h.gitBranch != "":
+			return run.Result{Stdout: "refs/heads/" + h.gitBranch}
+		case selector == h.gitBranch && h.gitBranch != "":
+			return run.Result{Stdout: "refs/heads/" + h.gitBranch}
+		case selector == repo.RemoteTipName:
+			return run.Result{Stdout: "refs/remotes/" + repo.RemoteTipName}
+		default:
+			return run.Result{}
+		}
 	case hasArgument(cmd, "rev-parse", "--verify", "origin/master^{commit}"):
 		if h.gitRemote == "" {
 			return fail(128)
@@ -111,11 +127,11 @@ func (h *fakeHost) resolveVerify(cmd run.Command, fail func(int) run.Result) run
 	if sha, ok := h.gitTags[selector]; ok {
 		return run.Result{Stdout: sha}
 	}
-	switch selector {
-	case h.gitHead, h.gitRemote, h.masterTip():
-		if selector != "" {
-			return run.Result{Stdout: selector}
-		}
+	if selector == "HEAD" {
+		return run.Result{Stdout: h.gitHead}
+	}
+	if sha := h.commitByPrefix(selector); sha != "" {
+		return run.Result{Stdout: sha}
 	}
 	return fail(128)
 }
@@ -136,23 +152,28 @@ func (h *fakeHost) checkoutDetach(cmd run.Command, fail func(int) run.Result) ru
 // knownCommit reports whether the fixture has this commit. The caller holds the
 // host lock.
 func (h *fakeHost) knownCommit(sha string) bool {
-	if sha == "" {
-		return false
+	return h.commitByPrefix(sha) != ""
+}
+
+// commitByPrefix resolves a full or abbreviated commit the fixture knows, the
+// way git resolves a short sha. The caller holds the host lock.
+func (h *fakeHost) commitByPrefix(selector string) string {
+	if selector == "" {
+		return ""
 	}
-	if sha == h.gitHead || sha == h.gitRemote || sha == h.masterTip() {
-		return true
+	known := []string{h.gitHead, h.gitRemote, h.masterTip()}
+	for _, commit := range h.gitLog {
+		known = append(known, commit.Full)
 	}
 	for _, tagSha := range h.gitTags {
-		if tagSha == sha {
-			return true
+		known = append(known, tagSha)
+	}
+	for _, sha := range known {
+		if sha != "" && (sha == selector || strings.HasPrefix(sha, selector)) {
+			return sha
 		}
 	}
-	for _, commit := range h.gitLog {
-		if commit.Full == sha {
-			return true
-		}
-	}
-	return false
+	return ""
 }
 
 // commitInfo answers `log -1 --format=... <revision>`. The caller holds the host
