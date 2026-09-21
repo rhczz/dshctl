@@ -401,7 +401,7 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "the version already deployed is rebuilt and restarted anyway",
         "internal/kernel/update.go",
-        "\tif target.commit == current {",
+        "\tif target.Commit == current {",
         "\tif false {",
         ["./internal/kernel/"],
     ),
