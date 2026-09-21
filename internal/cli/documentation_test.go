@@ -42,6 +42,7 @@ func TestTheReadmeDocumentsEverySetting(t *testing.T) {
 		paths.EnvPort,
 		paths.EnvNodeVersion,
 		paths.EnvLang,
+		paths.EnvLogLevel,
 	}
 	for _, name := range variables {
 		if !strings.Contains(documented, name) {

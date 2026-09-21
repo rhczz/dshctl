@@ -37,7 +37,7 @@ type Check struct {
 
 // Doctor inspects the environment without changing it.
 func (s *Service) Doctor(ctx context.Context) []Check {
-	checks := make([]Check, 0, 14)
+	checks := make([]Check, 0, 15)
 	add := func(name, status, detail string) {
 		checks = append(checks, Check{Name: name, Status: status, Detail: detail})
 	}
@@ -99,6 +99,9 @@ func (s *Service) Doctor(ctx context.Context) []Check {
 		add("日志", CheckOK, fmt.Sprintf("%s (%s)", s.Settings.LogPath, humanBytes(size)))
 	}
 	add("进程分离方式", CheckOK, detach.Describe())
+	if s.BuildInfo.GoVersion != "" {
+		add("构建信息", CheckOK, s.BuildInfo.GoVersion+" · "+s.BuildInfo.Module)
+	}
 	return checks
 }
 

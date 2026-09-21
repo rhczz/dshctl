@@ -467,6 +467,7 @@ func baselineChecks(t *testing.T, f *fixture) []Check {
 		// zero rather than as an error.
 		{Name: "日志", Status: CheckOK, Detail: f.Settings.LogPath + " (0 B)"},
 		{Name: "进程分离方式", Status: CheckOK, Detail: detach.Describe()},
+		{Name: "构建信息", Status: CheckOK, Detail: "go1.test · github.com/rhczz/dshctl"},
 	}
 }
 
@@ -547,4 +548,29 @@ func renderChecks(checks []Check) string {
 		builder.WriteString(check.Detail)
 	}
 	return builder.String()
+}
+
+// TestDoctorCarriesTheBuildFacts pins the row that says which toolchain and
+// module the running binary is: a bug report needs them, and doctor is where an
+// operator looks before writing one.
+// findCheck returns the named row of a doctor report.
+func findCheck(checks []Check, name string) (Check, bool) {
+	for _, check := range checks {
+		if check.Name == name {
+			return check, true
+		}
+	}
+	return Check{}, false
+}
+
+func TestDoctorCarriesTheBuildFacts(t *testing.T) {
+	f := newFixture(t)
+	checks := f.Doctor(context.Background())
+	row, ok := findCheck(checks, "构建信息")
+	if !ok {
+		t.Fatalf("doctor has no 构建信息 row: %+v", checks)
+	}
+	if row.Status != CheckOK || !strings.Contains(row.Detail, "go") {
+		t.Fatalf("row = %+v, want the toolchain and module", row)
+	}
 }

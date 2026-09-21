@@ -172,6 +172,8 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 				"提示: 先运行 git -C %s status 查看并处理（未跟踪文件不受影响）",
 			s.Settings.RepoDir, s.Settings.RepoDir)
 	}
+	s.Log.Debug(fmt.Sprintf("%s: %s -> %s (selector=%q fetch=%v)",
+		request.verb, domain.ShortCommit(current), domain.ShortCommit(target.Commit), request.target, request.fetch))
 	if target.Commit == current {
 		s.narrate(fmt.Sprintf("已在 %s，无需%s", target.Label(), request.verb))
 		// A no-op is still a successful run against this checkout, and the

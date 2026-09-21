@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -189,6 +190,8 @@ func (s *Service) observe(ctx context.Context) (observed, error) {
 		stale := record
 		status.StaleRecord = &stale
 	}
+	s.Log.Debug(fmt.Sprintf("观测端口 %d: state=%s record=%v survivor=%v",
+		status.Port, status.State, hasRecord, status.Survivor))
 	return observed{status: status, record: record, hasRecord: hasRecord, corrupt: corrupt}, nil
 }
 

@@ -3,15 +3,15 @@
     "id": "mutating-json",
     "surface": "--json on start/stop/restart/build/update/rollback",
     "consumer": "scripts and operators that drive dshctl from a supervisor",
-    "test": "",
-    "readme": ""
+    "test": "internal/cli/commands_test.go::TestMutatingJSONIsOneDocument",
+    "readme": "README 命令表与 --json 说明段"
   },
   {
     "id": "log-level",
     "surface": "--log-level / DSHCTL_LOG_LEVEL",
     "consumer": "operators diagnosing a failing start without reading the log file",
-    "test": "internal/logging/logging_test.go::TestDebugIsSilentUntilTheLevelAsksForIt",
-    "readme": ""
+    "test": "internal/cli/commands_test.go::TestVerboseDescribesEverySetting",
+    "readme": "README 全局参数表、配置项表与环境变量表"
   },
   {
     "id": "log-step-lines",
@@ -27,14 +27,14 @@
     "id": "version-json-fields",
     "surface": "version --json carries the toolchain and module",
     "consumer": "bug reports and the reproducibility check",
-    "test": "",
-    "readme": ""
+    "test": "internal/version/version_test.go::TestGetCarriesTheToolchain",
+    "readme": "README 命令表 version 行"
   },
   {
     "id": "doctor-json-fields",
     "surface": "doctor --json carries the same build facts",
     "consumer": "the same, without a second command",
-    "test": "",
-    "readme": ""
+    "test": "internal/service/doctor_test.go::TestDoctorCarriesTheBuildFacts",
+    "readme": "README 命令表 doctor 行"
   }
 ]

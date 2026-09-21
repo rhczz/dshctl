@@ -35,6 +35,7 @@ func Commands() []Command {
 目录，不会重新启动。
 
 环境变量: DSH_REPO_DIR, DSH_PORT, DSH_NODE_VERSION。
+--json: 把整次运行输出为一份文档（ok、命令自己的结果、以及运行过程中说过的话）。
 退出码: 0 成功(含已在运行), 4 前置检查失败。`,
 			Run: runStart,
 		},
@@ -47,6 +48,7 @@ func Commands() []Command {
 只停止该端口上的服务。只有运行记录中记录、且启动时间仍然吻合的进程会被结束；
 端口被其他程序占用时只提示，绝不误杀。
 
+--json: 把整次运行输出为一份文档（ok、命令自己的结果、以及运行过程中说过的话）。
 退出码: 0 成功(无事可做也算), 4 不点名时有服务因无法确认归属而未被停止。`,
 			Run: runStop,
 		},
@@ -57,6 +59,7 @@ func Commands() []Command {
 指定端口时只重启该端口。停与启在同一个操作锁内完成，其他 dshctl 操作无法
 插入两者之间；任何一个端口无法确认归属时会在停任何服务之前拒绝。
 
+--json: 把整次运行输出为一份文档（ok、命令自己的结果、以及运行过程中说过的话）。
 退出码: 0 成功(没有运行中的实例也算), 4 前置检查失败(有实例无法确认归属)。`,
 			Run: runRestart,
 		},
@@ -106,6 +109,7 @@ func Commands() []Command {
 配置里没有写明 repoDir 时，构建成功后会把这个 checkout 写入配置。服务正在运行时
 拒绝构建(会替换它正在使用的产物)。
 
+--json: 把整次运行输出为一份文档（ok、命令自己的结果、以及运行过程中说过的话）。
 退出码: 0 成功, 1 构建失败, 4 前置检查失败(仓库/依赖/产物缺失，或服务在运行)。`,
 			Run: runBuild,
 		},
@@ -129,7 +133,7 @@ fetch 失败或 git 读取失败。`,
 		{
 			Name:    "update",
 			Summary: "更新到指定版本并重建，自动停/启服务",
-			Usage:   "[latest|<tag>|<commit>]",
+			Usage:   "[--json] [latest|<tag>|<commit>]",
 			Help: `更新流程: 解析目标版本 → 停止服务(原本在运行才停) → git 切换 →
 清理残留 → pnpm install → pnpm run build → 恢复启动。
 
@@ -148,13 +152,14 @@ latest，要具体提交用 tag 或 hash。
 
 配置里没有写明 repoDir 时，更新成功后会把这个 checkout 写入配置。
 
+--json: 把整次运行输出为一份文档（ok、命令自己的结果、以及运行过程中说过的话）。
 退出码: 0 成功(含无需更新), 1 切换/install/构建失败, 4 前置检查失败。`,
 			Run: runUpdate,
 		},
 		{
 			Name:    "rollback",
 			Summary: "回退到之前部署过的位置，不联网",
-			Usage:   "[-n <N>] [<tag>|<commit>]",
+			Usage:   "[--json] [-n <N>] [<tag>|<commit>]",
 			Help: `回退流程与 update 相同(解析目标 → 停服 → git 切换 → 清理 → install →
 构建 → 恢复启动)，但目标来自 dshctl 记录的部署历史或指定的版本，且不联网：
 回到已知位置是救火路径，必须能在断网时工作。
@@ -167,6 +172,7 @@ latest，要具体提交用 tag 或 hash。
 -n 与版本参数不能同时给出。工作区有已跟踪文件的未提交修改时拒绝执行
 (未跟踪文件不受影响)。
 
+--json: 把整次运行输出为一份文档（ok、命令自己的结果、以及运行过程中说过的话）。
 退出码: 0 成功(含无需回退), 1 切换/install/构建失败, 4 没有历史可退、步数越界、
 版本无法解析或前置检查失败。`,
 			Run: runRollback,
@@ -266,12 +272,18 @@ Node:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12
 // runStart implements `dshctl start`.
 func runStart(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "start")
+	asJSON := jsonFlag(flags)
 	help, err := parseFlags(flags, args)
 	if err != nil {
 		return err
 	}
 	if help {
 		return nil
+	}
+	if *asJSON {
+		return runJSON(env, "start", func(app *service.Service) (any, error) {
+			return app.Start(ctx)
+		}, nil)
 	}
 	_, err = newApp(env).Start(ctx)
 	return err
@@ -280,12 +292,23 @@ func runStart(ctx context.Context, env *Env, args []string) error {
 // runStop implements `dshctl stop`.
 func runStop(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "stop")
+	asJSON := jsonFlag(flags)
 	help, err := parseFlags(flags, args)
 	if err != nil {
 		return err
 	}
 	if help {
 		return nil
+	}
+	if *asJSON {
+		return runJSON(env, "stop", func(app *service.Service) (any, error) {
+			return app.StopAll(ctx)
+		}, func(result any) error {
+			if stopped, ok := result.(service.StopAllResult); ok && stopped.Unverifiable {
+				return exitcode.New(exitcode.Preflight, "有实例无法确认归属，未能确认全部停止")
+			}
+			return nil
+		})
 	}
 	result, err := newApp(env).StopAll(ctx)
 	if err != nil {
@@ -300,12 +323,18 @@ func runStop(ctx context.Context, env *Env, args []string) error {
 // runRestart implements `dshctl restart`.
 func runRestart(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "restart")
+	asJSON := jsonFlag(flags)
 	help, err := parseFlags(flags, args)
 	if err != nil {
 		return err
 	}
 	if help {
 		return nil
+	}
+	if *asJSON {
+		return runJSON(env, "restart", func(app *service.Service) (any, error) {
+			return app.RestartAll(ctx)
+		}, nil)
 	}
 	_, err = newApp(env).RestartAll(ctx)
 	return err
@@ -402,12 +431,18 @@ func runLogs(ctx context.Context, env *Env, args []string) error {
 // runBuild implements `dshctl build`.
 func runBuild(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "build")
+	asJSON := jsonFlag(flags)
 	help, err := parseFlags(flags, args)
 	if err != nil {
 		return err
 	}
 	if help {
 		return nil
+	}
+	if *asJSON {
+		return runJSON(env, "build", func(app *service.Service) (any, error) {
+			return nil, app.RunBuild(ctx)
+		}, nil)
 	}
 	return newApp(env).RunBuild(ctx)
 }
@@ -446,6 +481,7 @@ func runTimeline(ctx context.Context, env *Env, args []string) error {
 // runUpdate implements `dshctl update [latest|<tag>|<sha>]`.
 func runUpdate(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "update")
+	asJSON := jsonFlag(flags)
 	help, rest, err := parseFlagsWithArgs(flags, args)
 	if err != nil {
 		return err
@@ -457,12 +493,18 @@ func runUpdate(ctx context.Context, env *Env, args []string) error {
 	if err != nil {
 		return err
 	}
+	if *asJSON {
+		return runJSON(env, "update", func(app *service.Service) (any, error) {
+			return nil, app.RunUpdate(ctx, target)
+		}, nil)
+	}
 	return newApp(env).RunUpdate(ctx, target)
 }
 
 // runRollback implements `dshctl rollback [<tag>|<sha>] [-n <步数>]`.
 func runRollback(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "rollback")
+	asJSON := jsonFlag(flags)
 	steps := flags.Int("n", 0, "回退的步数(默认 1)")
 	help, rest, err := parseFlagsWithArgs(flags, args)
 	if err != nil {
@@ -488,10 +530,20 @@ func runRollback(ctx context.Context, env *Env, args []string) error {
 		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("命令 rollback 的 -n 必须是正整数: %d", *steps))
 	}
 	if target != "" {
+		if *asJSON {
+			return runJSON(env, "rollback", func(app *service.Service) (any, error) {
+				return nil, app.RunRollback(ctx, target, 0)
+			}, nil)
+		}
 		return newApp(env).RunRollback(ctx, target, 0)
 	}
 	if !given {
 		*steps = 1
+	}
+	if *asJSON {
+		return runJSON(env, "rollback", func(app *service.Service) (any, error) {
+			return nil, app.RunRollback(ctx, "", *steps)
+		}, nil)
 	}
 	return newApp(env).RunRollback(ctx, "", *steps)
 }

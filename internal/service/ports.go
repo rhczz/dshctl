@@ -82,12 +82,12 @@ func (s *Service) unobservable(port int, cause error) domain.Status {
 // StopAllResult is what a multi-instance stop did, one entry per instance.
 type StopAllResult struct {
 	// Results is one outcome per selected instance, in selection order.
-	Results []StopResult
+	Results []StopResult `json:"results"`
 	// Unverifiable reports that a *multi-instance* stop could not cover
 	// everything it was asked to: something dshctl cannot vouch for holds one of
 	// the ports. It is not about a named port, where leaving the occupant alone
 	// is the answer the operator asked for and the report already says so.
-	Unverifiable bool
+	Unverifiable bool `json:"unverifiable,omitempty"`
 }
 
 // StopAll ends every instance the command was asked about: one port when the

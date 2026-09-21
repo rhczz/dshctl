@@ -114,7 +114,12 @@ LAYERS = {
         "internal/state",
         "internal/version",
     },
-    "internal/config": {"internal/atomically", "internal/exitcode", "internal/paths"},
+    "internal/config": {
+        "internal/atomically",
+        "internal/exitcode",
+        "internal/logging",
+        "internal/paths",
+    },
     "internal/state": {"internal/atomically", "internal/domain"},
     "internal/history": {"internal/atomically"},
     "internal/nodejs": {"internal/paths", "internal/run"},

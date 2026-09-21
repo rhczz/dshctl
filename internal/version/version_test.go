@@ -49,3 +49,17 @@ func TestJSONFieldNames(t *testing.T) {
 		}
 	}
 }
+
+// TestGetCarriesTheToolchain pins the facts a bug report needs: the release that
+// compiled this binary and the module it came from. They are read from the build
+// info rather than declared, so a binary built outside module mode reports
+// nothing instead of a guess.
+func TestGetCarriesTheToolchain(t *testing.T) {
+	info := Get()
+	if info.GoVersion == "" {
+		t.Error("goVersion is empty: the toolchain that built this binary was not recorded")
+	}
+	if info.Module != "github.com/rhczz/dshctl" {
+		t.Errorf("module = %q, want this module", info.Module)
+	}
+}

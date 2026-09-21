@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"os/exec"
@@ -26,6 +28,7 @@ import (
 	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
 	"github.com/rhczz/dshctl/internal/state"
+	"github.com/rhczz/dshctl/internal/version"
 )
 
 // fixtureStartTime is the start time every fictional process shares, so that a
@@ -723,7 +726,11 @@ func newFixture(t *testing.T) *fixture {
 		Log:     logging.New(logfile.New(logPath, settings.LogRotateBytes), logging.LevelInfo),
 		Emit:    TextEmitter{Out: out, Err: errOut},
 		Record:  state.Store{Path: settings.StateFile()},
-		Getenv:  envLookup,
+		BuildInfo: version.Info{
+			Version: "test", Platform: "test/arch",
+			GoVersion: "go1.test", Module: "github.com/rhczz/dshctl",
+		},
+		Getenv: envLookup,
 		LookPath: func(name string) (string, error) {
 			return "/fake/bin/" + name, nil
 		},
@@ -1151,6 +1158,29 @@ func minDuration(a, b time.Duration) time.Duration {
 		return a
 	}
 	return b
+}
+
+// setLogLevel relogs the fixture's diagnostics at another level, which is what
+// the command line does from --log-level before a command runs.
+func (f *fixture) setLogLevel(t *testing.T, level logging.Level) {
+	t.Helper()
+	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+	f.Log = logging.New(f.LogFile, level)
+}
+
+// logContent reads the fixture's log file for assertions about what was
+// recorded. A log that was never written reads as empty, which is what "nothing
+// was recorded" means here.
+func (f *fixture) logContent(t *testing.T) string {
+	t.Helper()
+	data, err := os.ReadFile(f.Settings.LogPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return ""
+	}
+	if err != nil {
+		t.Fatalf("reading the log: %v", err)
+	}
+	return string(data)
 }
 
 // wantNoSpawn fails the test when the service started a process.

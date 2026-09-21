@@ -437,14 +437,14 @@ func TestVerboseDescribesEverySetting(t *testing.T) {
 	}
 	for _, want := range []string{
 		"配置文件: ", "状态目录: ", "仓库目录: ", "监听端口: ", "Node 版本: ",
-		"日志文件: ", "启动超时: ", "停止超时: ", "锁超时:   ", "日志轮转: ",
+		"日志文件: ", "启动超时: ", "停止超时: ", "锁超时:   ", "日志轮转: ", "日志级别: ",
 	} {
 		if !strings.Contains(stderr, want) {
 			t.Fatalf("verbose output is missing %q:\n%s", want, stderr)
 		}
 	}
-	if lines := strings.Count(stderr, "\n"); lines != 10 {
-		t.Fatalf("verbose output has %d lines, want 10:\n%s", lines, stderr)
+	if lines := strings.Count(stderr, "\n"); lines != 11 {
+		t.Fatalf("verbose output has %d lines, want 11:\n%s", lines, stderr)
 	}
 }
 
@@ -836,5 +836,59 @@ func TestConfigFlagPointsAtAnotherDocument(t *testing.T) {
 	}
 	if !strings.Contains(stdout, strconv.Itoa(port)) {
 		t.Fatalf("stdout = %q, want the document's port probed", stdout)
+	}
+}
+
+// TestMutatingJSONIsOneDocument pins the shape a supervisor consumes: the
+// command, whether it succeeded, the result, and the lines the text rendering
+// would have printed — all in one stdout document, with nothing on stderr.
+func TestMutatingJSONIsOneDocument(t *testing.T) {
+	code, stdout, stderr, _ := execute(t, "stop", "--json")
+	if code != exitcode.OK {
+		t.Fatalf("stop --json exit = %d, stderr = %s", code, stderr)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("stop --json wrote to stderr: %q", stderr)
+	}
+	var document struct {
+		Command string `json:"command"`
+		OK      bool   `json:"ok"`
+		Events  []struct {
+			Kind string `json:"kind"`
+			Text string `json:"text"`
+		} `json:"events"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &document); err != nil {
+		t.Fatalf("stop --json is not one document: %v\n%s", err, stdout)
+	}
+	if document.Command != "stop" || !document.OK {
+		t.Fatalf("document = %+v, want stop with ok", document)
+	}
+	if len(document.Events) == 0 || document.Events[0].Kind != "narrative" {
+		t.Fatalf("events = %+v, want the narrative the text rendering would print", document.Events)
+	}
+}
+
+// TestMutatingJSONCarriesTheFailure pins that a failed run is still one
+// document: the exit code says what happened, and the document says why, with no
+// prose on standard error to parse around.
+func TestMutatingJSONCarriesTheFailure(t *testing.T) {
+	empty := t.TempDir()
+	code, stdout, stderr, _ := execute(t, "--repo", empty, "build", "--json")
+	if code != exitcode.Preflight {
+		t.Fatalf("build --json exit = %d, want %d (stderr = %s)", code, exitcode.Preflight, stderr)
+	}
+	if strings.TrimSpace(stderr) != "" {
+		t.Fatalf("build --json wrote to stderr: %q", stderr)
+	}
+	var document struct {
+		OK    bool   `json:"ok"`
+		Error string `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &document); err != nil {
+		t.Fatalf("build --json is not one document: %v\n%s", err, stdout)
+	}
+	if document.OK || document.Error == "" {
+		t.Fatalf("document = %+v, want a failure with its reason", document)
 	}
 }

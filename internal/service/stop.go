@@ -14,12 +14,12 @@ import (
 // StopResult describes what a stop found and did.
 type StopResult struct {
 	// Status is the service state after the call.
-	Status domain.Status
+	Status domain.Status `json:"status"`
 	// Unverifiable reports that a process dshctl cannot vouch for owns the port,
 	// so the caller cannot be told the port is free. For one named port that is
 	// the whole answer; a multi-instance stop reads it as incomplete only when a
 	// record of ours was there to be ended (see StopAllResult).
-	Unverifiable bool
+	Unverifiable bool `json:"unverifiable,omitempty"`
 }
 
 // Stop ends the managed server.

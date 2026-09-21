@@ -43,18 +43,22 @@ dshctl stop                   # 停止
 
 | 命令 | 说明 |
 | --- | --- |
-| `start` | 后台启动并等待端口就绪（不加命令名时的默认命令）；已在运行时不会启动第二个 |
-| `stop` | 停止服务并结束它所在的整棵进程树；不加 `--port` 时停止本状态目录管理的每一个服务 |
-| `restart` | 在同一把锁内先停后启；不加 `--port` 时重启本状态目录中正在运行的每一个服务 |
+| `start` | 后台启动并等待端口就绪（不加命令名时的默认命令）；已在运行时不会启动第二个；`--json` 输出一份运行文档 |
+| `stop` | 停止服务并结束它所在的整棵进程树；不加 `--port` 时停止本状态目录管理的每一个服务；`--json` 输出一份运行文档 |
+| `restart` | 在同一把锁内先停后启；不加 `--port` 时重启本状态目录中正在运行的每一个服务；`--json` 输出一份运行文档 |
 | `status` | 运行状态；不加 `--port` 时报告本状态目录管理的每一个服务；`--json` 输出结构化结果 |
 | `url` | 打印带 token 的访问地址；不加 `--port` 时每个运行中的实例一行；一个地址都没有时退出码 3 |
 | `logs` | 日志；`-n <行数>`（默认 200 行，见 `internal/service.DefaultLogLines`）、`-f/--follow` 跟随、`--build` 只看最近一次 build/update/rollback 记录 |
-| `build` | 清理已删除包的残留目录后执行 `pnpm run build` |
+| `build` | 清理已删除包的残留目录后执行 `pnpm run build`；`--json` 输出一份运行文档 |
 | `timeline` | 查看当前版本与 `origin/master` 的差距：落后/领先的提交数、差距内的 tag、最近的提交与部署历史；`--json` 输出结构化结果 |
-| `update` | 更新到指定版本（`latest`/tag/commit，默认 `latest`）：停服 → `git fetch` → 切换 → 清理 → `pnpm install` → 构建 → 恢复启动 |
-| `rollback` | 回退到之前部署过的位置：不带参数退 1 步、`-n <步数>` 退多步、`<tag>/<commit>` 定点回退；不联网 |
-| `doctor` | 只读体检；`--json` 输出结构化结果 |
-| `version` | 版本、提交、构建时间与目标平台；`--json` 输出结构化结果 |
+| `update` | 更新到指定版本（`latest`/tag/commit，默认 `latest`）：停服 → `git fetch` → 切换 → 清理 → `pnpm install` → 构建 → 恢复启动；`--json` 输出一份运行文档 |
+| `rollback` | 回退到之前部署过的位置：不带参数退 1 步、`-n <步数>` 退多步、`<tag>/<commit>` 定点回退；不联网；`--json` 输出一份运行文档 |
+| `doctor` | 只读体检（含编译工具链与 module 一行）；`--json` 输出结构化结果 |
+| `version` | 版本、提交、构建时间与目标平台；`--json` 另外带上编译用的 Go 工具链与 module |
+
+可变命令（`start`/`stop`/`restart`/`build`/`update`/`rollback`）的 `--json` 把整次运行输出成
+一份文档：`{"command": "...", "ok": true, "result": {...}, "events": [{"kind": "narrative", "text": "..."}]}`；
+失败时 `ok` 为 false、`error` 带上原因，且不再往标准错误写散文（退出码仍然说明结果）。
 
 `dshctl -h` 在一屏里列出每个命令的用法、参数与示例；`dshctl help <命令>`（或
 `dshctl <命令> -h`）打印单个命令的完整说明：参数、退出码与注意事项。
@@ -67,6 +71,7 @@ dshctl stop                   # 停止
 | `--port <端口>` | `DSH_PORT` | 监听端口，默认 `3080`；同时是「只操作这一个实例」的选择器（见「多个实例」） |
 | `--node <版本>` | `DSH_NODE_VERSION` | 指定 Node 版本；配置里没写明时成功启动后写入（见「Node 版本」） |
 | `--config <文件>` | `DSHCTL_CONFIG` | 配置文件路径 |
+| `--log-level <级别>` | `DSHCTL_LOG_LEVEL` | 日志文件记录到哪一级：`debug` / `info`（默认）/ `warn` / `error` |
 | `-v` | — | 打印生效配置及每一项的来源 |
 | `-h` / `-V` | — | 帮助 / 版本 |
 
@@ -83,6 +88,7 @@ dshctl stop                   # 停止
 | `stopTimeoutSeconds` | 整数 | `15` | 等待服务停止的上限，1–86400 秒 |
 | `lockTimeoutSeconds` | 整数 | `10` | 等待另一把操作锁的上限，1–86400 秒 |
 | `logRotateBytes` | 整数 | `4194304`（4 MiB） | 日志轮转阈值；`0` 表示不轮转；非 0 时不得小于 `65536` |
+| `logLevel` | 字符串 | `"info"` | 日志文件记录到哪一级：`debug`、`info`、`warn`、`error` |
 
 ```json
 {
@@ -112,6 +118,7 @@ dshctl stop                   # 停止
 | `DSHCTL_STATE_DIR` | 状态目录（dshctl 自己的文件都放这里） | `$DSH_HOME/dshctl`，再退回 `~/.dsh/dshctl` |
 | `DSH_HOME` | DSH 主目录，状态目录的父目录 | `~/.dsh` |
 | `DSHCTL_CONFIG` | 配置文件路径 | `<状态目录>/config.json` |
+| `DSHCTL_LOG_LEVEL` | 日志级别，等价 `--log-level` | `info` |
 | `DSH_LOG_FILE` | 日志文件路径 | `<状态目录>/dsh-web.log` |
 | `DSH_REPO_DIR` | 仓库目录，等价 `--repo` | `~/deepseek-harness` |
 | `DSH_PORT` | 监听端口，等价 `--port` | `3080` |

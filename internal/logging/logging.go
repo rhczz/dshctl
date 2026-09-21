@@ -39,6 +39,9 @@ const (
 
 func (l Level) String() string {
 	switch l {
+	case Level(0):
+		// The zero value is not a level: it means the caller did not choose one.
+		return "unset"
 	case LevelDebug:
 		return "debug"
 	case LevelInfo:

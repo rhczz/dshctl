@@ -1376,3 +1376,24 @@ func emitStdout(w interface{ Write([]byte) (int, error) }, text string) error {
 	_, err := w.Write([]byte(text))
 	return err
 }
+
+// TestTheLogLevelDecidesWhatTheFileCarries pins the setting's only consumer: the
+// observation's detail is recorded at debug and not at the default level.
+func TestTheLogLevelDecidesWhatTheFileCarries(t *testing.T) {
+	quiet := newFixture(t)
+	if _, err := quiet.Status(context.Background(), quiet.Settings.Port); err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if content := quiet.logContent(t); strings.Contains(content, "观测端口") {
+		t.Fatalf("a debug line was recorded at the default level:\n%s", content)
+	}
+
+	loud := newFixture(t)
+	loud.setLogLevel(t, logging.LevelDebug)
+	if _, err := loud.Status(context.Background(), loud.Settings.Port); err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if content := loud.logContent(t); !strings.Contains(content, "观测端口") {
+		t.Fatalf("no debug line was recorded at debug level:\n%s", content)
+	}
+}

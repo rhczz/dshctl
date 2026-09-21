@@ -29,11 +29,11 @@ var webURLPattern = regexp.MustCompile(`(?m)^dsh web:[ \t]+(https?://\S+)[ \t]*$
 // StartResult describes what a start did.
 type StartResult struct {
 	// Status is the service state after the call.
-	Status domain.Status
+	Status domain.Status `json:"status"`
 	// AlreadyRunning reports that the server was up before the call.
-	AlreadyRunning bool
+	AlreadyRunning bool `json:"alreadyRunning"`
 	// SpawnedPID is the process this call started, or 0.
-	SpawnedPID int
+	SpawnedPID int `json:"spawnedPid,omitempty"`
 }
 
 // Start launches the Web server in the background and waits for its port.

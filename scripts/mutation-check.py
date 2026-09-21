@@ -483,6 +483,27 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         ["./internal/i18n/"],
     ),
     (
+        "a failed mutating run is reported as a success in its document",
+        "internal/cli/jsonmode.go",
+        "\tdocument := mutatingDocument{Command: name, OK: err == nil, Result: result, Events: events.list()}",
+        "\tdocument := mutatingDocument{Command: name, OK: true, Result: result, Events: events.list()}",
+        ["./internal/cli/"],
+    ),
+    (
+        "the log level flag is ignored, so only the file and environment decide",
+        "internal/cli/cli.go",
+        "\tif parsed.logLevelSet {",
+        "\tif false {",
+        ["./internal/cli/"],
+    ),
+    (
+        "the toolchain that built the binary is left unnamed",
+        "internal/version/version.go",
+        "\treturn info.GoVersion, info.Main.Path",
+        '\treturn "", info.Main.Path',
+        ["./internal/version/"],
+    ),
+    (
         "a failed fetch still reports the timeline as confirmed",
         "internal/cli/commands.go",
         "\tif !report.Fetched {",

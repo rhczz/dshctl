@@ -68,6 +68,8 @@ type globals struct {
 	repoSet     bool
 	nodeVersion string
 	nodeSet     bool
+	logLevel    string
+	logLevelSet bool
 	port        *int
 	verbose     bool
 	help        bool
@@ -212,7 +214,7 @@ func parseGlobals(args []string) (globals, []string, error) {
 			parsed.version = true
 		case "-v", "--verbose":
 			parsed.verbose = true
-		case "--config", "--repo", "--node", "--port":
+		case "--config", "--repo", "--node", "--port", "--log-level":
 			if !hasValue {
 				if index+1 >= len(args) {
 					return parsed, nil, fmt.Errorf("参数 %s 需要一个值", name)
@@ -239,6 +241,9 @@ func parseGlobals(args []string) (globals, []string, error) {
 					return parsed, nil, fmt.Errorf("参数 --port 不是数字: %q", value)
 				}
 				parsed.port = &port
+			case "--log-level":
+				parsed.logLevel = value
+				parsed.logLevelSet = true
 			}
 		default:
 			return parsed, nil, fmt.Errorf("未知的全局参数: %s", arg)
@@ -262,6 +267,10 @@ func loadSettings(parsed globals, getenv func(string) string) (config.Settings, 
 	if parsed.nodeSet {
 		nodeVersion := parsed.nodeVersion
 		overrides.NodeVersion = &nodeVersion
+	}
+	if parsed.logLevelSet {
+		logLevel := parsed.logLevel
+		overrides.LogLevel = &logLevel
 	}
 	return config.Load(getenv, overrides)
 }
@@ -390,9 +399,10 @@ func printCommandHelp(w io.Writer, command Command) {
 // newApp builds the application for one command.
 func newApp(env *Env) *service.Service {
 	application := service.New(env.Settings, service.Dependencies{
-		Exec:    env.Executor,
-		Emit:    service.TextEmitter{Out: env.Stdout, Err: env.Stderr},
-		Version: env.Version,
+		Exec:     env.Executor,
+		Emit:     service.TextEmitter{Out: env.Stdout, Err: env.Stderr},
+		Version:  env.Version,
+		LogLevel: env.Settings.LogLevel,
 	})
 	// The command line owns the process-wide lookups, so they are injected here
 	// rather than read from the environment inside the app.
