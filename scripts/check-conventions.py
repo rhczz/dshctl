@@ -119,6 +119,7 @@ LAYERS = {
     "internal/config": {
         "internal/atomically",
         "internal/exitcode",
+        "internal/i18n",
         "internal/logging",
         "internal/paths",
     },

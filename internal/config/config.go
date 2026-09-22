@@ -352,7 +352,7 @@ func (s Settings) Provision() error {
 	if paths.IsDir(s.ConfigPath) {
 		// A directory at the config path cannot be read as a settings document;
 		// failing here is clearer than failing on every later load.
-		return fmt.Errorf("配置路径 %s 是目录，无法写入默认配置", s.ConfigPath)
+		return fmt.Errorf("%s", i18nLine(MsgConfigPathIsDir, s.ConfigPath))
 	}
 	// A symlink or other residue falls through: WriteFile renames the document
 	// over it, which is how a stale symlink is retired without following it.
@@ -364,7 +364,7 @@ func (s Settings) Provision() error {
 	// default to write, and a document holding a path derived from nowhere is
 	// exactly the file every later run would honour.
 	if s.Home == "" {
-		return errors.New("无法确定用户主目录: 运行环境未提供")
+		return errors.New(i18nLine(MsgNoHome))
 	}
 	data, err := encode(provisionedDocument(Default(s.Home), DefaultRepoDir(s.Home)))
 	if err != nil {
@@ -380,13 +380,13 @@ func (s Settings) Provision() error {
 //   - a Usage-coded error naming the first invalid field.
 func (s Settings) Validate() error {
 	if strings.TrimSpace(s.RepoDir) == "" {
-		return usagef("repoDir 不能为空")
+		return usagef("%s", i18nLine(MsgRepoDirEmpty))
 	}
 	if !filepath.IsAbs(s.RepoDir) {
-		return usagef("repoDir 必须是绝对路径: %s", s.RepoDir)
+		return usagef("%s", i18nLine(MsgRepoDirNotAbsolute, s.RepoDir))
 	}
 	if s.Port < MinPort || s.Port > MaxPort {
-		return usagef("port 必须在 %d-%d 之间: %d", MinPort, MaxPort, s.Port)
+		return usagef("%s", i18nLine(MsgPortOutOfRange, MinPort, MaxPort, s.Port))
 	}
 	// NodeVersion is deliberately not validated here. An empty value is legal and
 	// means "not determined yet"; a value that names no installed release is a
@@ -403,16 +403,16 @@ func (s Settings) Validate() error {
 		return err
 	}
 	if s.LogRotateBytes < 0 {
-		return usagef("logRotateBytes 不能为负: %d", s.LogRotateBytes)
+		return usagef("%s", i18nLine(MsgRotateNegative, s.LogRotateBytes))
 	}
 	if s.LogRotateBytes > 0 && s.LogRotateBytes < MinRotateBytes {
-		return usagef("logRotateBytes 不能小于 %d (否则每次写入都会轮转): %d", MinRotateBytes, s.LogRotateBytes)
+		return usagef("%s", i18nLine(MsgRotateTooSmall, MinRotateBytes, s.LogRotateBytes))
 	}
 	if !filepath.IsAbs(s.StateDir) {
-		return usagef("状态目录必须是绝对路径: %s", s.StateDir)
+		return usagef("%s", i18nLine(MsgStateDirNotAbsolute, s.StateDir))
 	}
 	if !filepath.IsAbs(s.LogPath) {
-		return usagef("日志文件必须是绝对路径: %s", s.LogPath)
+		return usagef("%s", i18nLine(MsgLogPathNotAbsolute, s.LogPath))
 	}
 	return nil
 }
@@ -471,7 +471,7 @@ func (s Settings) StateSelection() (StateSelection, error) {
 	matches, err := filepath.Glob(StateFileGlob(s.StateDir))
 	if err != nil {
 		return StateSelection{}, exitcode.Wrap(exitcode.Failure,
-			fmt.Errorf("无法定位状态目录 %s 中的运行记录: %w", s.StateDir, err))
+			fmt.Errorf("%s", i18nLine(MsgStateGlobFailed, s.StateDir, err)))
 	}
 	// filepath.Glob reports a directory it cannot read as "no matches" rather
 	// than as an error, and "no matches" is exactly how this selection concludes
@@ -482,7 +482,7 @@ func (s Settings) StateSelection() (StateSelection, error) {
 	if len(matches) == 0 {
 		if _, err := os.ReadDir(s.StateDir); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return StateSelection{}, exitcode.Wrap(exitcode.Failure,
-				fmt.Errorf("无法读取状态目录 %s: %w", s.StateDir, err))
+				fmt.Errorf("%s", i18nLine(MsgStateDirUnreadable, s.StateDir, err)))
 		}
 	}
 	ports := make([]int, 0, len(matches)+1)
@@ -617,7 +617,7 @@ func (s Settings) BuildRecordPath() string {
 // line stays readable and says what the next start will do about it.
 func nodeVersionDisplay(version string) string {
 	if strings.TrimSpace(version) == "" {
-		return "(未确定，启动时按 PATH 解析)"
+		return i18nLine(MsgNodeUndetermined)
 	}
 	return version
 }
@@ -626,17 +626,17 @@ func nodeVersionDisplay(version string) string {
 func (s Settings) Describe() []string {
 	seconds := func(d time.Duration) string { return strconv.Itoa(int(d/time.Second)) + "s" }
 	return []string{
-		"配置文件: " + s.ConfigPath + " (" + s.Sources.ConfigPath + ")",
-		"状态目录: " + s.StateDir + " (" + s.Sources.StateDir + ")",
-		"仓库目录: " + s.RepoDir + " (" + s.Sources.RepoDir + ")",
-		"监听端口: " + strconv.Itoa(s.Port) + " (" + s.Sources.Port + ")",
-		"Node 版本: " + nodeVersionDisplay(s.NodeVersion) + " (" + s.Sources.NodeVersion + ")",
-		"日志文件: " + s.LogPath + " (" + s.Sources.LogPath + ")",
-		"启动超时: " + seconds(s.StartTimeout) + " (" + s.Sources.Timeouts + ")",
-		"停止超时: " + seconds(s.StopTimeout) + " (" + s.Sources.Timeouts + ")",
-		"锁超时:   " + seconds(s.LockTimeout) + " (" + s.Sources.Timeouts + ")",
-		"日志轮转: " + strconv.FormatInt(s.LogRotateBytes, 10) + " 字节 (0 表示不轮转) (" + s.Sources.Timeouts + ")",
-		"日志级别: " + s.LogLevel.String() + " (" + s.Sources.LogLevel + ")",
+		i18nLine(MsgDescribeConfig, s.ConfigPath, s.Sources.ConfigPath),
+		i18nLine(MsgDescribeStateDir, s.StateDir, s.Sources.StateDir),
+		i18nLine(MsgDescribeRepoDir, s.RepoDir, s.Sources.RepoDir),
+		i18nLine(MsgDescribePort, strconv.Itoa(s.Port), s.Sources.Port),
+		i18nLine(MsgDescribeNode, nodeVersionDisplay(s.NodeVersion), s.Sources.NodeVersion),
+		i18nLine(MsgDescribeLog, s.LogPath, s.Sources.LogPath),
+		i18nLine(MsgDescribeStartTO, seconds(s.StartTimeout), s.Sources.Timeouts),
+		i18nLine(MsgDescribeStopTO, seconds(s.StopTimeout), s.Sources.Timeouts),
+		i18nLine(MsgDescribeLockTO, seconds(s.LockTimeout), s.Sources.Timeouts),
+		i18nLine(MsgDescribeRotate, strconv.FormatInt(s.LogRotateBytes, 10), s.Sources.Timeouts),
+		i18nLine(MsgDescribeLogLevel, s.LogLevel.String(), s.Sources.LogLevel),
 	}
 }
 
@@ -684,7 +684,7 @@ func provisionedDocument(settings Settings, guessRepoDir string) File {
 func encode(document File) ([]byte, error) {
 	data, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("无法序列化配置: %w", err)
+		return nil, fmt.Errorf("%s", i18nLine(MsgEncodeFailed, err))
 	}
 	return append(data, '\n'), nil
 }
@@ -733,7 +733,7 @@ func (s Settings) RecordRuntime(repoDir, nodeVersion string) (Wrote, error) {
 	}
 	release := strings.TrimSpace(nodeVersion)
 	if checkout == "" && release == "" {
-		return wrote, errors.New("拒绝写入空的运行信息(仓库目录与 Node 版本都为空)")
+		return wrote, errors.New(i18nLine(MsgRuntimeEmpty))
 	}
 
 	document, found, err := readFile(s.ConfigPath)
@@ -796,7 +796,7 @@ func recordedCheckout(repoDir string) (string, error) {
 	}
 	resolved, err := paths.Resolve(repoDir)
 	if err != nil {
-		return "", fmt.Errorf("拒绝把仓库路径写入配置: %w", err)
+		return "", fmt.Errorf("%s", i18nLine(MsgRuntimeRepoFailed, err))
 	}
 	return resolved, nil
 }
@@ -847,7 +847,7 @@ func readFile(path string) (File, bool, error) {
 		if errors.Is(err, fs.ErrNotExist) {
 			return File{}, false, nil
 		}
-		return File{}, false, fmt.Errorf("无法读取配置文件 %s: %w", path, err)
+		return File{}, false, fmt.Errorf("%s", i18nLine(MsgReadFailed, path, err))
 	}
 	info, err := os.Stat(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -856,13 +856,13 @@ func readFile(path string) (File, bool, error) {
 		return File{}, false, nil
 	}
 	if err != nil {
-		return File{}, false, fmt.Errorf("无法读取配置文件 %s: %w", path, err)
+		return File{}, false, fmt.Errorf("%s", i18nLine(MsgReadFailed, path, err))
 	}
 	if !info.Mode().IsRegular() {
-		return File{}, false, fmt.Errorf("配置文件 %s 不是普通文件，无法作为配置读取", path)
+		return File{}, false, fmt.Errorf("%s", i18nLine(MsgNotRegularFile, path))
 	}
 	if info.Size() > maxConfigBytes {
-		return File{}, false, fmt.Errorf("配置文件 %s 过大 (%d 字节，上限 %d)", path, info.Size(), maxConfigBytes)
+		return File{}, false, fmt.Errorf("%s", i18nLine(MsgTooLarge, path, info.Size(), maxConfigBytes))
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -871,7 +871,7 @@ func readFile(path string) (File, bool, error) {
 		// reported as that failure rather than as a usage error — exactly like
 		// the non-regular and oversized branches above — so the same condition
 		// does not change status depending on which step noticed it.
-		return File{}, false, fmt.Errorf("无法读取配置文件 %s: %w", path, err)
+		return File{}, false, fmt.Errorf("%s", i18nLine(MsgReadFailed, path, err))
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(data))
@@ -881,10 +881,10 @@ func readFile(path string) (File, bool, error) {
 			// An empty file is a legal way to say "everything at its default".
 			return File{}, true, nil
 		}
-		return File{}, false, usagef("配置文件 %s 解析失败: %v", path, err)
+		return File{}, false, usagef("%s", i18nLine(MsgParseFailed, path, err))
 	}
 	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
-		return File{}, false, usagef("配置文件 %s 在第一个 JSON 值之后还有内容", path)
+		return File{}, false, usagef("%s", i18nLine(MsgTrailingContent, path))
 	}
 	return document, true, nil
 }
@@ -899,7 +899,7 @@ func applyFile(settings *Settings, document File, guess string) error {
 	if document.RepoDir != nil {
 		resolved, err := paths.Resolve(*document.RepoDir)
 		if err != nil {
-			return fmt.Errorf("配置文件 repoDir: %w", err)
+			return fmt.Errorf("%s", i18nLine(MsgFileRepoDir, err))
 		}
 		settings.RepoDir = resolved
 		if resolved != guess {
@@ -910,7 +910,7 @@ func applyFile(settings *Settings, document File, guess string) error {
 		settings.Port = *document.Port
 	}
 	if document.LogLevel != nil {
-		level, err := applyLogLevel("配置文件 logLevel", *document.LogLevel)
+		level, err := applyLogLevel(i18nLine(MsgFileLogLevel), *document.LogLevel)
 		if err != nil {
 			return err
 		}
@@ -947,7 +947,7 @@ func applyFile(settings *Settings, document File, guess string) error {
 // the built-in default although the document names the same path. It says so
 // rather than claiming the file decided, because an operator reading `-v` would
 // otherwise see a path their file carries and wonder why an override still wins.
-const SourceRepoDirRepeatsDefault = "default(配置文件中的 repoDir 与默认值相同)"
+var SourceRepoDirRepeatsDefault = i18nLine(MsgSourceRepeatsGuess)
 
 // markFileSources records "file" for every field the document decided. It is
 // called before applyEnv so that a later environment value can overwrite the
@@ -991,19 +991,19 @@ func applyEnv(settings *Settings, getenv paths.Getenv) error {
 	if raw := getenv(paths.EnvRepoDir); strings.TrimSpace(raw) != "" {
 		resolved, err := paths.Resolve(raw)
 		if err != nil {
-			return fmt.Errorf("环境变量 %s: %w", paths.EnvRepoDir, err)
+			return fmt.Errorf("%s", i18nLine(MsgEnvRepoDir, paths.EnvRepoDir, err))
 		}
 		settings.RepoDir = resolved
 	}
 	if raw := getenv(paths.EnvPort); strings.TrimSpace(raw) != "" {
 		port, err := strconv.Atoi(strings.TrimSpace(raw))
 		if err != nil {
-			return usagef("环境变量 %s 不是数字: %q", paths.EnvPort, raw)
+			return usagef("%s", i18nLine(MsgEnvPortNotANumber, paths.EnvPort, raw))
 		}
 		settings.Port = port
 	}
 	if raw := strings.TrimSpace(getenv(paths.EnvLogLevel)); raw != "" {
-		level, err := applyLogLevel("环境变量 "+paths.EnvLogLevel, raw)
+		level, err := applyLogLevel(i18nLine(MsgEnvLogLevel, paths.EnvLogLevel), raw)
 		if err != nil {
 			return err
 		}
@@ -1030,7 +1030,7 @@ func applyOverrides(settings *Settings, overrides Overrides) error {
 	if overrides.RepoDir != nil {
 		resolved, err := paths.Resolve(*overrides.RepoDir)
 		if err != nil {
-			return fmt.Errorf("参数 --repo: %w", err)
+			return fmt.Errorf("%s", i18nLine(MsgFlagRepo, err))
 		}
 		settings.RepoDir = resolved
 	}
@@ -1038,7 +1038,7 @@ func applyOverrides(settings *Settings, overrides Overrides) error {
 		settings.Port = *overrides.Port
 	}
 	if overrides.LogLevel != nil {
-		level, err := applyLogLevel("参数 --log-level", *overrides.LogLevel)
+		level, err := applyLogLevel(i18nLine(MsgFlagLogLevel), *overrides.LogLevel)
 		if err != nil {
 			return err
 		}
@@ -1105,7 +1105,7 @@ func resolveConfigPath(getenv paths.Getenv, stateDir string, override *string) (
 	if override != nil && strings.TrimSpace(*override) != "" {
 		path, err := paths.Resolve(*override)
 		if err != nil {
-			return "", "", fmt.Errorf("参数 --config: %w", err)
+			return "", "", fmt.Errorf("%s", i18nLine(MsgFlagConfig, err))
 		}
 		return path, "flag", nil
 	}
@@ -1124,7 +1124,7 @@ func resolveLogPath(getenv paths.Getenv, stateDir string) (string, string, error
 	if raw := getenv(paths.EnvLogFile); strings.TrimSpace(raw) != "" {
 		path, err := paths.Resolve(raw)
 		if err != nil {
-			return "", "", fmt.Errorf("环境变量 %s: %w", paths.EnvLogFile, err)
+			return "", "", fmt.Errorf("%s", i18nLine(MsgEnvLogFile, paths.EnvLogFile, err))
 		}
 		return path, "env " + paths.EnvLogFile, nil
 	}
@@ -1143,10 +1143,10 @@ func resolveLogPath(getenv paths.Getenv, stateDir string) (string, string, error
 // the case it is.
 func durationFromSeconds(name string, seconds int) (time.Duration, error) {
 	if seconds > MaxTimeoutSeconds {
-		return 0, usagef("%s 不能超过 %d 秒: %d", name, MaxTimeoutSeconds, seconds)
+		return 0, usagef("%s", i18nLine(MsgTimeoutTooLong, name, MaxTimeoutSeconds, seconds))
 	}
 	if seconds < 1 {
-		return 0, usagef("%s 必须至少为 1 秒: %d", name, seconds)
+		return 0, usagef("%s", i18nLine(MsgTimeoutTooShort, name, seconds))
 	}
 	return time.Duration(seconds) * time.Second, nil
 }
@@ -1155,10 +1155,10 @@ func durationFromSeconds(name string, seconds int) (time.Duration, error) {
 func validateTimeout(name string, value time.Duration) error {
 	seconds := int(value / time.Second)
 	if seconds < 1 {
-		return usagef("%s 必须至少为 1 秒: %s", name, value)
+		return usagef("%s", i18nLine(MsgTimeoutTooShortText, name, value))
 	}
 	if seconds > MaxTimeoutSeconds {
-		return usagef("%s 不能超过 %d 秒: %s", name, MaxTimeoutSeconds, value)
+		return usagef("%s", i18nLine(MsgTimeoutTooLongText, name, MaxTimeoutSeconds, value))
 	}
 	return nil
 }
