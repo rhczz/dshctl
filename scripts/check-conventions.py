@@ -127,7 +127,7 @@ LAYERS = {
     "internal/history": {"internal/atomically", "internal/state"},
     "internal/nodejs": {"internal/paths", "internal/run"},
     "internal/logging": {"internal/logfile"},
-    "internal/repo": {"internal/run"},
+    "internal/repo": {"internal/i18n", "internal/run"},
     "internal/version": {"internal/buildinfo"},
     # Every remaining package is a leaf: it may import the standard library and
     # nothing else of ours.

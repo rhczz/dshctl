@@ -542,12 +542,12 @@ var Messages = i18n.Catalog{
 		ZH: "已被持有，但锁文件里没有可读的 pid 记录",
 	},
 	MsgRecordUnreadable: {
-		EN: "the runtime record %s could not be read, so whether it is using %s cannot be confirmed: %w",
-		ZH: "无法读取 %s 的运行记录，无法确认它是否在使用 %s: %w",
+		EN: "the runtime record %s could not be read, so whether it is using %s cannot be confirmed",
+		ZH: "无法读取 %s 的运行记录，无法确认它是否在使用 %s",
 	},
 	MsgPortServiceUnconfirmable: {
-		EN: "whether the service on port %d is using %s could not be confirmed: %w",
-		ZH: "无法确认端口 %d 上的服务是否在使用 %s: %w",
+		EN: "whether the service on port %d is using %s could not be confirmed",
+		ZH: "无法确认端口 %d 上的服务是否在使用 %s",
 	},
 	MsgPruneRemoved: {
 		EN: "removed %d residue directories",
@@ -634,20 +634,20 @@ var Messages = i18n.Catalog{
 		ZH: "DSH Web 正在运行，先停止服务 ...",
 	},
 	MsgUpdateSwitchFailed: {
-		EN: "error: %s failed: %v",
-		ZH: "错误: %s失败: %v",
+		EN: "error: %s failed",
+		ZH: "错误: %s失败",
 	},
 	MsgUpdateRestore: {
 		EN: "the old build is intact; starting the old version again ...",
 		ZH: "仓库旧构建仍然完好，恢复启动旧版本 ...",
 	},
 	MsgUpdateRestoreFailed: {
-		EN: "restoring the service failed: %v",
-		ZH: "恢复启动失败: %v",
+		EN: "restoring the service failed",
+		ZH: "恢复启动失败",
 	},
 	MsgUpdateFailed: {
-		EN: "%s failed: %w",
-		ZH: "%s失败: %w",
+		EN: "%s failed",
+		ZH: "%s失败",
 	},
 	MsgInstallSection: {
 		EN: "pnpm install",
@@ -686,8 +686,8 @@ var Messages = i18n.Catalog{
 		ZH: "仓库 %s 没有 origin 远程，无法解析 latest\n提示: 用 dshctl update <tag|commit> 指定本地已知的版本",
 	},
 	MsgUpdateFetchFailed: {
-		EN: "the remote could not be fetched; resolving %q from what is known locally: %v",
-		ZH: "无法获取远程更新，按本地已知状态解析 %q: %v",
+		EN: "the remote could not be fetched; resolving %q from what is known locally",
+		ZH: "无法获取远程更新，按本地已知状态解析 %q",
 	},
 	MsgHistoryUnreadable: {
 		EN: "the deployment history cannot be read: %v\nhint: delete %s and switch to a named version with dshctl update <version>",
@@ -722,8 +722,8 @@ var Messages = i18n.Catalog{
 		ZH: "更新历史无法读取(%v)，将以当前版本重建",
 	},
 	MsgHistoryWriteFailed: {
-		EN: "the deployment history could not be written: %w",
-		ZH: "更新历史未写入: %w",
+		EN: "the deployment history could not be written",
+		ZH: "更新历史未写入",
 	},
 	MsgShutdownMessage: {
 		EN: "the service stays stopped\nhint: fix the problem and run dshctl build && dshctl start",
@@ -738,12 +738,12 @@ var Messages = i18n.Catalog{
 		ZH: "%s 不是 git 仓库",
 	},
 	MsgTimelineFetchFailed: {
-		EN: "the remote could not be fetched; the gap below is against the last known state: %v",
-		ZH: "无法获取远程更新，以下差距基于本地已知状态: %v",
+		EN: "the remote could not be fetched; the gap below is against the last known state",
+		ZH: "无法获取远程更新，以下差距基于本地已知状态",
 	},
 	MsgTimelineHistoryRead: {
-		EN: "the deployment history %s could not be read: %v",
-		ZH: "无法读取更新历史 %s: %v",
+		EN: "the deployment history %s could not be read",
+		ZH: "无法读取更新历史 %s",
 	},
 	MsgPortsRestartOccupant: {
 		EN: "port %d is held by a process dshctl cannot claim (pid=%d): %s\nhint: confirm and handle it first, then restart",
@@ -786,8 +786,8 @@ var Messages = i18n.Catalog{
 		ZH: "提示: 先运行 dshctl stop(会按记录结束它),或确认该进程可以安全结束后手动处理",
 	},
 	MsgAdoptFailed: {
-		EN: "a service left over from an interrupted start was found (pid=%d), but its runtime record could not be rebuilt: %v",
-		ZH: "无法收养上次启动遗留的服务 (pid=%d): %v",
+		EN: "a service left over from an interrupted start was found (pid=%d), but its runtime record could not be rebuilt",
+		ZH: "无法收养上次启动遗留的服务 (pid=%d)",
 	},
 	MsgLaunching: {
 		EN: "starting DSH Web in the background ... (log: %s)",
@@ -798,12 +798,12 @@ var Messages = i18n.Catalog{
 		ZH: "start 失败",
 	},
 	MsgCloseLogFailed: {
-		EN: "closing the log handle failed: %v",
-		ZH: "关闭日志句柄时出错: %v",
+		EN: "closing the log handle failed",
+		ZH: "关闭日志句柄时出错",
 	},
 	MsgRecordWrapperFailed: {
-		EN: "the started process could not be recorded (pid=%d): %v",
-		ZH: "无法记录启动的进程 (pid=%d): %v",
+		EN: "the started process could not be recorded (pid=%d)",
+		ZH: "无法记录启动的进程 (pid=%d)",
 	},
 	MsgFingerprintUnreadable: {
 		EN: "the start time of DSH Web (pid=%d) could not be read, so this run relies on port ownership alone",
@@ -818,8 +818,8 @@ var Messages = i18n.Catalog{
 		ZH: "服务进程 (pid=%d) 在记录其启动时间之前退出了",
 	},
 	MsgRecordUpdateFailed: {
-		EN: "the runtime record could not be updated: %v",
-		ZH: "无法更新运行记录: %v",
+		EN: "the runtime record could not be updated",
+		ZH: "无法更新运行记录",
 	},
 	MsgListenerGoneAfter: {
 		EN: "the service process (pid=%d) was no longer running when the start finished",
@@ -874,8 +874,8 @@ var Messages = i18n.Catalog{
 		ZH: "已清理。日志尾部:",
 	},
 	MsgCleanupPortBusy: {
-		EN: "port %d is still occupied; not every process this start created has exited: %v",
-		ZH: "端口 %d 仍被占用，本次启动的进程没有全部退出: %v",
+		EN: "port %d is still occupied; not every process this start created has exited",
+		ZH: "端口 %d 仍被占用，本次启动的进程没有全部退出",
 	},
 	MsgWithLog: {
 		EN: " (log: %s)",

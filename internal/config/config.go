@@ -471,7 +471,7 @@ func (s Settings) StateSelection() (StateSelection, error) {
 	matches, err := filepath.Glob(StateFileGlob(s.StateDir))
 	if err != nil {
 		return StateSelection{}, exitcode.Wrap(exitcode.Failure,
-			fmt.Errorf("%s", i18nLine(MsgStateGlobFailed, s.StateDir, err)))
+			fmt.Errorf("%s: %w", i18nLine(MsgStateGlobFailed, s.StateDir), err))
 	}
 	// filepath.Glob reports a directory it cannot read as "no matches" rather
 	// than as an error, and "no matches" is exactly how this selection concludes
@@ -482,7 +482,7 @@ func (s Settings) StateSelection() (StateSelection, error) {
 	if len(matches) == 0 {
 		if _, err := os.ReadDir(s.StateDir); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return StateSelection{}, exitcode.Wrap(exitcode.Failure,
-				fmt.Errorf("%s", i18nLine(MsgStateDirUnreadable, s.StateDir, err)))
+				fmt.Errorf("%s: %w", i18nLine(MsgStateDirUnreadable, s.StateDir), err))
 		}
 	}
 	ports := make([]int, 0, len(matches)+1)
@@ -684,7 +684,7 @@ func provisionedDocument(settings Settings, guessRepoDir string) File {
 func encode(document File) ([]byte, error) {
 	data, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("%s", i18nLine(MsgEncodeFailed, err))
+		return nil, fmt.Errorf("%s: %w", i18nLine(MsgEncodeFailed), err)
 	}
 	return append(data, '\n'), nil
 }
@@ -796,7 +796,7 @@ func recordedCheckout(repoDir string) (string, error) {
 	}
 	resolved, err := paths.Resolve(repoDir)
 	if err != nil {
-		return "", fmt.Errorf("%s", i18nLine(MsgRuntimeRepoFailed, err))
+		return "", fmt.Errorf("%s: %w", i18nLine(MsgRuntimeRepoFailed), err)
 	}
 	return resolved, nil
 }
@@ -847,7 +847,7 @@ func readFile(path string) (File, bool, error) {
 		if errors.Is(err, fs.ErrNotExist) {
 			return File{}, false, nil
 		}
-		return File{}, false, fmt.Errorf("%s", i18nLine(MsgReadFailed, path, err))
+		return File{}, false, fmt.Errorf("%s: %w", i18nLine(MsgReadFailed, path), err)
 	}
 	info, err := os.Stat(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -856,7 +856,7 @@ func readFile(path string) (File, bool, error) {
 		return File{}, false, nil
 	}
 	if err != nil {
-		return File{}, false, fmt.Errorf("%s", i18nLine(MsgReadFailed, path, err))
+		return File{}, false, fmt.Errorf("%s: %w", i18nLine(MsgReadFailed, path), err)
 	}
 	if !info.Mode().IsRegular() {
 		return File{}, false, fmt.Errorf("%s", i18nLine(MsgNotRegularFile, path))
@@ -871,7 +871,7 @@ func readFile(path string) (File, bool, error) {
 		// reported as that failure rather than as a usage error — exactly like
 		// the non-regular and oversized branches above — so the same condition
 		// does not change status depending on which step noticed it.
-		return File{}, false, fmt.Errorf("%s", i18nLine(MsgReadFailed, path, err))
+		return File{}, false, fmt.Errorf("%s: %w", i18nLine(MsgReadFailed, path), err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(data))
@@ -899,7 +899,7 @@ func applyFile(settings *Settings, document File, guess string) error {
 	if document.RepoDir != nil {
 		resolved, err := paths.Resolve(*document.RepoDir)
 		if err != nil {
-			return fmt.Errorf("%s", i18nLine(MsgFileRepoDir, err))
+			return fmt.Errorf("%s: %w", i18nLine(MsgFileRepoDir), err)
 		}
 		settings.RepoDir = resolved
 		if resolved != guess {
@@ -991,7 +991,7 @@ func applyEnv(settings *Settings, getenv paths.Getenv) error {
 	if raw := getenv(paths.EnvRepoDir); strings.TrimSpace(raw) != "" {
 		resolved, err := paths.Resolve(raw)
 		if err != nil {
-			return fmt.Errorf("%s", i18nLine(MsgEnvRepoDir, paths.EnvRepoDir, err))
+			return fmt.Errorf("%s: %w", i18nLine(MsgEnvRepoDir, paths.EnvRepoDir), err)
 		}
 		settings.RepoDir = resolved
 	}
@@ -1030,7 +1030,7 @@ func applyOverrides(settings *Settings, overrides Overrides) error {
 	if overrides.RepoDir != nil {
 		resolved, err := paths.Resolve(*overrides.RepoDir)
 		if err != nil {
-			return fmt.Errorf("%s", i18nLine(MsgFlagRepo, err))
+			return fmt.Errorf("%s: %w", i18nLine(MsgFlagRepo), err)
 		}
 		settings.RepoDir = resolved
 	}
@@ -1105,7 +1105,7 @@ func resolveConfigPath(getenv paths.Getenv, stateDir string, override *string) (
 	if override != nil && strings.TrimSpace(*override) != "" {
 		path, err := paths.Resolve(*override)
 		if err != nil {
-			return "", "", fmt.Errorf("%s", i18nLine(MsgFlagConfig, err))
+			return "", "", fmt.Errorf("%s: %w", i18nLine(MsgFlagConfig), err)
 		}
 		return path, "flag", nil
 	}
@@ -1124,7 +1124,7 @@ func resolveLogPath(getenv paths.Getenv, stateDir string) (string, string, error
 	if raw := getenv(paths.EnvLogFile); strings.TrimSpace(raw) != "" {
 		path, err := paths.Resolve(raw)
 		if err != nil {
-			return "", "", fmt.Errorf("%s", i18nLine(MsgEnvLogFile, paths.EnvLogFile, err))
+			return "", "", fmt.Errorf("%s: %w", i18nLine(MsgEnvLogFile, paths.EnvLogFile), err)
 		}
 		return path, "env " + paths.EnvLogFile, nil
 	}

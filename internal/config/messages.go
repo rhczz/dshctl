@@ -95,12 +95,12 @@ var Messages = i18n.Catalog{
 		ZH: "日志文件必须是绝对路径: %s",
 	},
 	MsgStateGlobFailed: {
-		EN: "the runtime records in %s could not be located: %w",
-		ZH: "无法定位状态目录 %s 中的运行记录: %w",
+		EN: "the runtime records in %s could not be located",
+		ZH: "无法定位状态目录 %s 中的运行记录",
 	},
 	MsgStateDirUnreadable: {
-		EN: "the state directory %s could not be read: %w",
-		ZH: "无法读取状态目录 %s: %w",
+		EN: "the state directory %s could not be read",
+		ZH: "无法读取状态目录 %s",
 	},
 	MsgNodeUndetermined: {
 		EN: "(not determined; resolved from PATH at start)",
@@ -151,20 +151,20 @@ var Messages = i18n.Catalog{
 		ZH: "日志级别: %s (%s)",
 	},
 	MsgEncodeFailed: {
-		EN: "the settings document could not be encoded: %w",
-		ZH: "无法序列化配置: %w",
+		EN: "the settings document could not be encoded",
+		ZH: "无法序列化配置",
 	},
 	MsgRuntimeEmpty: {
 		EN: "refusing to write an empty runtime record (no checkout and no Node version)",
 		ZH: "拒绝写入空的运行信息(仓库目录与 Node 版本都为空)",
 	},
 	MsgRuntimeRepoFailed: {
-		EN: "refusing to write the checkout into the document: %w",
-		ZH: "拒绝把仓库路径写入配置: %w",
+		EN: "refusing to write the checkout into the document",
+		ZH: "拒绝把仓库路径写入配置",
 	},
 	MsgReadFailed: {
-		EN: "the settings document %s could not be read: %w",
-		ZH: "无法读取配置文件 %s: %w",
+		EN: "the settings document %s could not be read",
+		ZH: "无法读取配置文件 %s",
 	},
 	MsgNotRegularFile: {
 		EN: "the settings document %s is not a regular file, so it cannot be read as settings",
@@ -175,24 +175,24 @@ var Messages = i18n.Catalog{
 		ZH: "配置文件 %s 过大 (%d 字节，上限 %d)",
 	},
 	MsgParseFailed: {
-		EN: "the settings document %s could not be parsed: %v",
-		ZH: "配置文件 %s 解析失败: %v",
+		EN: "the settings document %s could not be parsed",
+		ZH: "配置文件 %s 解析失败",
 	},
 	MsgTrailingContent: {
 		EN: "the settings document %s has content after its first JSON value",
 		ZH: "配置文件 %s 在第一个 JSON 值之后还有内容",
 	},
 	MsgFileRepoDir: {
-		EN: "the settings document's repoDir: %w",
-		ZH: "配置文件 repoDir: %w",
+		EN: "the settings document's repoDir",
+		ZH: "配置文件 repoDir",
 	},
 	MsgFileLogLevel: {
 		EN: "the settings document's logLevel",
 		ZH: "配置文件 logLevel",
 	},
 	MsgEnvRepoDir: {
-		EN: "the environment variable %s: %w",
-		ZH: "环境变量 %s: %w",
+		EN: "the environment variable %s",
+		ZH: "环境变量 %s",
 	},
 	MsgEnvPortNotANumber: {
 		EN: "the environment variable %s is not a number: %q",
@@ -203,20 +203,20 @@ var Messages = i18n.Catalog{
 		ZH: "环境变量 %s",
 	},
 	MsgFlagRepo: {
-		EN: "the flag --repo: %w",
-		ZH: "参数 --repo: %w",
+		EN: "the flag --repo",
+		ZH: "参数 --repo",
 	},
 	MsgFlagLogLevel: {
 		EN: "the flag --log-level",
 		ZH: "参数 --log-level",
 	},
 	MsgFlagConfig: {
-		EN: "the flag --config: %w",
-		ZH: "参数 --config: %w",
+		EN: "the flag --config",
+		ZH: "参数 --config",
 	},
 	MsgEnvLogFile: {
-		EN: "the environment variable %s: %w",
-		ZH: "环境变量 %s: %w",
+		EN: "the environment variable %s",
+		ZH: "环境变量 %s",
 	},
 	MsgTimeoutTooLong: {
 		EN: "%s cannot exceed %d seconds: %d",

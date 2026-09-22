@@ -432,7 +432,7 @@ func (s *Service) recordDeploy(ctx context.Context, before string, target domain
 		Commit: target.Commit, Selector: target.Selector, At: now,
 	})
 	if err := store.Save(file.With(s.Settings.RepoDir, records)); err != nil {
-		return fmt.Errorf("%s", i18nLine(MsgHistoryWriteFailed, err))
+		return fmt.Errorf("%s: %w", i18nLine(MsgHistoryWriteFailed), err)
 	}
 	return nil
 }
