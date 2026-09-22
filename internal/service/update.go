@@ -12,7 +12,6 @@ import (
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/history"
 	"github.com/rhczz/dshctl/internal/paths"
-	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
 )
 
@@ -311,7 +310,7 @@ func (s *Service) resolveDeployTarget(ctx context.Context, request deployRequest
 			return domain.Target{}, exitcode.Wrap(exitcode.Preflight, err)
 		}
 		return domain.Target{
-			Commit: tip, Selector: domain.Latest, Name: repo.RemoteTipName, Latest: true,
+			Commit: tip, Selector: domain.Latest, Name: s.Repo.RemoteTipName(), Latest: true,
 		}, nil
 	}
 	if request.fetch {
@@ -361,7 +360,7 @@ func (s *Service) rollbackTarget(ctx context.Context, steps int) (domain.Target,
 	position, ok := history.Step(records, now, steps)
 	if !ok {
 		return domain.Target{}, exitcode.New(exitcode.Preflight,
-			i18nLine(MsgNoHistorySteps), len(history.Visit(records, now))-1)
+			i18nLine(MsgNoHistorySteps), len(history.Visit(records, now, history.MaxRecords()))-1)
 	}
 	name := i18nLine(MsgRecordedPosition)
 	if tags, err := s.Repo.Tags(ctx); err == nil {
@@ -408,7 +407,7 @@ func (s *Service) warnWhenOutsideOrigin(ctx context.Context, target domain.Targe
 	if err != nil || ok {
 		return
 	}
-	s.warning(i18nLine(MsgTargetOutsideOrigin, domain.ShortCommit(target.Commit), repo.RemoteTipName))
+	s.warning(i18nLine(MsgTargetOutsideOrigin, domain.ShortCommit(target.Commit), s.Repo.RemoteTipName()))
 }
 
 // recordDeploy writes the move into the deployment history: where the tree was
@@ -426,11 +425,11 @@ func (s *Service) recordDeploy(ctx context.Context, before string, target domain
 	if before != "" && (len(records) == 0 || records[0].Commit != before) {
 		// The starting point is recorded only when the stack does not already
 		// name it: it is what a bare rollback returns to.
-		records = history.Visit(records, history.Record{Commit: before, At: now})
+		records = history.Visit(records, history.Record{Commit: before, At: now}, history.MaxRecords())
 	}
 	records = history.Visit(records, history.Record{
 		Commit: target.Commit, Selector: target.Selector, At: now,
-	})
+	}, history.MaxRecords())
 	if err := store.Save(file.With(s.Settings.RepoDir, records)); err != nil {
 		return fmt.Errorf("%s: %w", i18nLine(MsgHistoryWriteFailed), err)
 	}

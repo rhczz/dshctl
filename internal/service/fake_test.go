@@ -724,13 +724,13 @@ func newFixture(t *testing.T) *fixture {
 		Settings: settings,
 		Exec:     h,
 		Host:     h,
-		Repo: repo.Repo{
+		Repo: checkoutLayout(repo.Repo{
 			Dir:                  repoDir,
 			Ex:                   h,
 			ManifestRel:          config.ServerManifestRel,
 			WorkspaceManifestRel: config.WorkspaceManifestRel,
 			BuildRecordRel:       buildRecordRel,
-		},
+		}),
 		Node: &nodejs.Resolver{
 			Output: run.NewCollector(h),
 			LookPath: func(name string) (string, error) {

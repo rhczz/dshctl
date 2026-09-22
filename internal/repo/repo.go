@@ -21,6 +21,25 @@ type Repo struct {
 	WorkspaceManifestRel string
 	// BuildRecordRel is the build marker, relative to Dir.
 	BuildRecordRel string
+	// Remote and Branch name the deployment contract: the ref `latest` means
+	// and the branch a fast-forward returns to. Empty means the usual
+	// convention (origin and master); the product states its own choice.
+	Remote string
+	Branch string
+	// Residue is the set of build leftovers a deleted package can leave behind,
+	// and Areas describe where a package directory can live. Both are the
+	// checkout's layout, which the product owns.
+	Residue map[string]struct{}
+	Areas   []PruneArea
+}
+
+// PruneArea describes where a package directory can live, and how deep the
+// pattern has to reach to name one.
+type PruneArea struct {
+	// Name is the repository-relative area root.
+	Name string
+	// Depth is the number of pattern segments below the area root.
+	Depth int
 }
 
 // output collects a command's standard output.

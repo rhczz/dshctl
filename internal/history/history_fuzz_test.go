@@ -73,10 +73,10 @@ func FuzzVisitKeepsTheStackASubsequence(f *testing.F) {
 			records = append(records, Record{Commit: string(commit), At: at})
 		}
 		position := Record{Commit: top, Selector: "latest", At: at}
-		got := Visit(records, position)
+		got := Visit(records, position, MaxRecords())
 
-		if len(got) > MaxRecords {
-			t.Fatalf("stack length = %d, want at most %d", len(got), MaxRecords)
+		if len(got) > MaxRecords() {
+			t.Fatalf("stack length = %d, want at most %d", len(got), MaxRecords())
 		}
 		if len(got) == 0 || got[0] != position {
 			t.Fatalf("stack top = %+v, want the new position", got)

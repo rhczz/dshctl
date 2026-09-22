@@ -26,10 +26,14 @@ import (
 	"github.com/rhczz/dshctl/internal/state"
 )
 
-// MaxRecords bounds one checkout's stack. The oldest positions fall off: the
-// file stays small enough to read during an incident, and an operator who needs
-// something older can still name it explicitly with `dshctl update <sha>`.
-const MaxRecords = 50
+// MaxRecords is the bound a caller that states none gets.
+func MaxRecords() int { return maxRecordsDefault }
+
+// maxRecordsDefault is the bound a caller that states none gets: the oldest
+// positions fall off so the file stays small enough to read during an incident,
+// and an operator who needs something older can name it with `dshctl update
+// <sha>`. A product with a different appetite passes Store.s.maxRecords().
+const maxRecordsDefault = 50
 
 // maxFileBytes bounds the history file. A document larger than this is not one,
 // and reading it whole would let a corrupt file allocate without limit.
@@ -224,8 +228,8 @@ func (f File) With(repo string, records []Record) File {
 // Visit returns the stack with position on top. A position the stack already
 // holds truncates everything newer than it; a new one is prepended. The result
 // never repeats a commit — a stack that (through hand editing) does is
-// deduplicated — and is capped at MaxRecords.
-func Visit(records []Record, position Record) []Record {
+// deduplicated — and is capped at limit, which the caller states.
+func Visit(records []Record, position Record, limit int) []Record {
 	index := -1
 	for at, existing := range records {
 		if existing.Commit == position.Commit {
@@ -246,8 +250,8 @@ func Visit(records []Record, position Record) []Record {
 		seen[existing.Commit] = struct{}{}
 		kept = append(kept, existing)
 	}
-	if len(kept) > MaxRecords {
-		kept = kept[:MaxRecords]
+	if len(kept) > limit {
+		kept = kept[:limit]
 	}
 	return kept
 }
@@ -255,9 +259,9 @@ func Visit(records []Record, position Record) []Record {
 // Step returns the n-th position back from current, counting current as step
 // zero: n=1 is where the previous move started.
 //
-// The virtual stack is Visit(records, current), so a current position the stack
-// already holds makes everything newer than it unreachable — those positions
-// are not "before" where the operator is now.
+// The virtual stack is Visit(records, current, MaxRecords()): a current position
+// the stack already holds makes everything newer than it unreachable — those
+// positions are not "before" where the operator is now.
 //
 // Returns false when n is not a positive step or the stack is shorter than n+1
 // entries.
@@ -265,7 +269,7 @@ func Step(records []Record, current Record, n int) (Record, bool) {
 	if n < 1 {
 		return Record{}, false
 	}
-	virtual := Visit(records, current)
+	virtual := Visit(records, current, MaxRecords())
 	if n >= len(virtual) {
 		return Record{}, false
 	}

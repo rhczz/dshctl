@@ -14,31 +14,9 @@ import (
 	"github.com/rhczz/dshctl/internal/run"
 )
 
-// residueEntries are the build leftovers a deleted package can leave behind.
-// The classification matches the repository's own scripts/clean.ts:
-// node_modules, lib and .typecheck, plus stray TypeScript incremental state.
-var residueEntries = map[string]struct{}{
-	"node_modules": {},
-	"lib":          {},
-	".typecheck":   {},
-}
-
-// pruneAreas describe where a package directory can live, and how deep the
-// pattern has to reach to name one.
-//
-// depth counts the path segments used by the pattern itself, so the candidate a
-// match names is the segment at that depth: "packages" with depth 2 matches
-// packages/<group>/<name>, and "vendor" with depth 1 matches vendor/<name>.
-// Residue is then looked for inside that candidate.
-var pruneAreas = []struct {
-	// name is the repository-relative area root.
-	name string
-	// depth is the number of pattern segments below the area root.
-	depth int
-}{
-	{name: "packages", depth: 2},
-	{name: "vendor", depth: 1},
-}
+// The residue entries and prune areas are the checkout's layout, so they come
+// from the caller (see Repo.Residue and Repo.Areas) rather than being written
+// into the mechanism: another product's checkout keeps different things.
 
 // Candidate is one directory scheduled for removal.
 type Candidate struct {
@@ -91,8 +69,8 @@ func (r Repo) PruneCandidates(ctx context.Context) ([]Candidate, error) {
 	}
 
 	var candidates []Candidate
-	for _, area := range pruneAreas {
-		pattern := area.name + strings.Repeat("/*", area.depth)
+	for _, area := range r.Areas {
+		pattern := area.Name + strings.Repeat("/*", area.Depth)
 		matches, err := fs.Glob(rootFS, pattern)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", i18nLine(MsgGlobFailed, pattern), err)
@@ -123,8 +101,8 @@ func (r Repo) PruneCandidates(ctx context.Context) ([]Candidate, error) {
 // nothing.
 func (r Repo) trackedDirectories(ctx context.Context) (map[string]struct{}, error) {
 	args := []string{"-C", r.Dir, "ls-files", "-z", "--"}
-	for _, area := range pruneAreas {
-		args = append(args, area.name)
+	for _, area := range r.Areas {
+		args = append(args, area.Name)
 	}
 	output, err := r.output().Output(ctx, run.Command{Name: "git", Args: args})
 	if err != nil {
@@ -172,7 +150,7 @@ func (r Repo) classify(root string, rootFS fs.FS, relative string, tracked map[s
 	found := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		name := entry.Name()
-		if _, ok := residueEntries[name]; ok {
+		if _, ok := r.Residue[name]; ok {
 			found = append(found, name)
 			continue
 		}

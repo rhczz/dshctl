@@ -160,7 +160,7 @@ func (s *Service) Timeline(ctx context.Context) (TimelineReport, error) {
 		return report, exitcode.Wrap(exitcode.Preflight, err)
 	}
 	report.Remote = TimelineRemote{
-		Name: repo.RemoteTipName, Commit: remote, Short: domain.ShortCommit(remote),
+		Name: s.Repo.RemoteTipName(), Commit: remote, Short: domain.ShortCommit(remote),
 		Tag: firstTag(tags[remote]),
 	}
 

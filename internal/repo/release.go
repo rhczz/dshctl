@@ -10,16 +10,31 @@ import (
 	"github.com/rhczz/dshctl/internal/run"
 )
 
-// The deployment contract names one remote and one branch. `latest` is
-// origin/master, not "whatever the checked-out branch happens to track": a
-// checkout on a topic branch would otherwise deploy that branch's upstream
-// while the operator believes they are following the harness releases.
-const (
-	originRemote = "origin"
-	masterBranch = "master"
-	// RemoteTipName is the ref `latest` means.
-	RemoteTipName = originRemote + "/" + masterBranch
-)
+// The deployment contract names one remote and one branch, and which ones is the
+// caller's decision: this package knows how to read and move a checkout, not
+// that a particular product follows origin/master. The service layer states its
+// choice (see internal/service/checkout.go); `latest` is that ref and not
+// "whatever the checked-out branch happens to track", because a checkout on a
+// topic branch would otherwise deploy that branch's upstream while the operator
+// believes they are following the harness releases.
+//
+// The zero value means the usual convention: origin and master.
+func (r Repo) remote() string {
+	if r.Remote == "" {
+		return "origin"
+	}
+	return r.Remote
+}
+
+func (r Repo) branch() string {
+	if r.Branch == "" {
+		return "master"
+	}
+	return r.Branch
+}
+
+// r.RemoteTipName() is the ref `latest` means for this checkout.
+func (r Repo) RemoteTipName() string { return r.remote() + "/" + r.branch() }
 
 // Commit is one entry of the first-parent history.
 type Commit struct {
@@ -67,7 +82,7 @@ func (r Repo) HasOrigin(ctx context.Context) (bool, error) {
 // the operator's cleanup, not a side effect of reading the version gap. The
 // action stays "learn what the remote has".
 func (r Repo) Fetch(ctx context.Context, out, errOut io.Writer) error {
-	if err := r.stream(ctx, out, errOut, "fetch", originRemote, "--tags"); err != nil {
+	if err := r.stream(ctx, out, errOut, "fetch", r.remote(), "--tags"); err != nil {
 		return fmt.Errorf("%s: %w", i18nLine(MsgFetchFailed), err)
 	}
 	return nil
@@ -108,13 +123,13 @@ func (r Repo) HeadName(ctx context.Context) (string, string, error) {
 
 // RemoteTip reports the commit origin/master points at.
 func (r Repo) RemoteTip(ctx context.Context) (string, error) {
-	out, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--verify", RemoteTipName+"^{commit}"))
+	out, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--verify", r.RemoteTipName()+"^{commit}"))
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", i18nLine(MsgRemoteTipFailed, RemoteTipName), err)
+		return "", fmt.Errorf("%s: %w", i18nLine(MsgRemoteTipFailed, r.RemoteTipName()), err)
 	}
 	sha := strings.TrimSpace(out)
 	if sha == "" {
-		return "", fmt.Errorf("%s", i18nLine(MsgRemoteTipNoCommit, RemoteTipName))
+		return "", fmt.Errorf("%s", i18nLine(MsgRemoteTipNoCommit, r.RemoteTipName()))
 	}
 	return sha, nil
 }
@@ -147,7 +162,7 @@ func (r Repo) ResolveRevision(ctx context.Context, selector string) (string, err
 	if selector != "HEAD" {
 		if name, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--symbolic-full-name", selector)); err == nil {
 			if strings.HasPrefix(strings.TrimSpace(name), "refs/heads/") {
-				return "", fmt.Errorf("%s", i18nLine(MsgSelectorLocalBranch, selector, RemoteTipName))
+				return "", fmt.Errorf("%s", i18nLine(MsgSelectorLocalBranch, selector, r.RemoteTipName()))
 			}
 		}
 	}
@@ -284,11 +299,11 @@ func (r Repo) CheckoutDetach(ctx context.Context, commit string, out, errOut io.
 // FastForwardMaster returns to the master branch and advances it to
 // origin/master. A local commit makes the merge refuse; nothing is discarded.
 func (r Repo) FastForwardMaster(ctx context.Context, out, errOut io.Writer) error {
-	if err := r.stream(ctx, out, errOut, "checkout", masterBranch); err != nil {
-		return fmt.Errorf("%s: %w", i18nLine(MsgSwitchMasterFailed, masterBranch), err)
+	if err := r.stream(ctx, out, errOut, "checkout", r.branch()); err != nil {
+		return fmt.Errorf("%s: %w", i18nLine(MsgSwitchMasterFailed, r.branch()), err)
 	}
-	if err := r.stream(ctx, out, errOut, "merge", "--ff-only", RemoteTipName); err != nil {
-		return fmt.Errorf("%s: %w", i18nLine(MsgFastForwardFailed, RemoteTipName), err)
+	if err := r.stream(ctx, out, errOut, "merge", "--ff-only", r.RemoteTipName()); err != nil {
+		return fmt.Errorf("%s: %w", i18nLine(MsgFastForwardFailed, r.RemoteTipName()), err)
 	}
 	return nil
 }
