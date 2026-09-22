@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/rhczz/dshctl/internal/config"
@@ -96,7 +97,7 @@ func (s *Service) Doctor(ctx context.Context) []Check {
 	if size, err := s.LogFile.Size(); err != nil {
 		add("日志", CheckWarn, err.Error())
 	} else {
-		add("日志", CheckOK, fmt.Sprintf("%s (%s)", s.Settings.LogPath, humanBytes(size)))
+		add("日志", CheckOK, fmt.Sprintf("%s (%s)", s.Settings.LogPath, HumanBytes(size)))
 	}
 	add("进程分离方式", CheckOK, detach.Describe())
 	if s.BuildInfo.GoVersion != "" {
@@ -233,18 +234,22 @@ func ChecksFailed(checks []Check) bool {
 	return false
 }
 
-// humanBytes renders a byte count for people.
-func humanBytes(size int64) string {
+// HumanBytes renders a byte count for people.
+//
+// It formats a value that goes into a Check's detail, which is data the service
+// returns rather than text a front-end draws: the row's shape is part of the
+// `--json` contract, so the rendering lives where the row is built.
+func HumanBytes(size int64) string {
 	const unit = 1024
 	if size < unit {
-		return fmt.Sprintf("%d B", size)
+		return strconv.FormatInt(size, 10) + " B"
 	}
 	value := float64(size)
-	for _, name := range []string{"KB", "MB", "GB"} {
+	for _, suffix := range []string{"KB", "MB", "GB", "TB"} {
 		value /= unit
 		if value < unit {
-			return fmt.Sprintf("%.1f %s", value, name)
+			return strconv.FormatFloat(value, 'f', 1, 64) + " " + suffix
 		}
 	}
-	return fmt.Sprintf("%.1f TB", value/unit)
+	return strconv.FormatFloat(value, 'f', 1, 64) + " PB"
 }

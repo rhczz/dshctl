@@ -495,12 +495,15 @@ func TestStatusNamesTheCheckoutTheRunningServiceUses(t *testing.T) {
 	if status.RecordedRepoDir != f.repo {
 		t.Fatalf("status = %+v, want the running instance's checkout", status)
 	}
-	var out strings.Builder
-	if err := PrintStatus(&out, status); err != nil {
-		t.Fatalf("PrintStatus: %v", err)
+	// The rendered line is the shell's business (internal/cli renders it); what
+	// this test pins is that the observation carries both checkouts, which is
+	// what any renderer needs to name them: the running instance serves the
+	// recorded one, while the configuration points somewhere else.
+	if status.RecordedRepoDir != f.repo {
+		t.Fatalf("status = %+v, want the checkout this instance serves", status)
 	}
-	if !strings.Contains(out.String(), "仓库: "+f.repo) || !strings.Contains(out.String(), decided) {
-		t.Fatalf("status output names neither checkout:\n%s", out.String())
+	if status.RepoDir == status.RecordedRepoDir {
+		t.Fatalf("status = %+v, want the configured checkout to differ from the served one", status)
 	}
 }
 

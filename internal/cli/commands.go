@@ -360,13 +360,13 @@ func runStatus(ctx context.Context, env *Env, args []string) error {
 		if err := printJSON(env.Stdout, report); err != nil {
 			return err
 		}
-	} else if err := service.PrintStatuses(env.Stdout, env.Stderr, report); err != nil {
+	} else if err := printStatuses(env.Stdout, env.Stderr, report); err != nil {
 		return err
 	}
 	// The exit code answers the question the command was asked: the port the
 	// configuration names, or the one that was named on the command line. Other
 	// instances are reported beside it, never instead of it.
-	if service.ServeExitCode(report.Status) != exitcode.OK {
+	if serveExitCode(report.Status) != exitcode.OK {
 		return exitcode.SilentExit(exitcode.NotRunning)
 	}
 	return nil
@@ -386,7 +386,7 @@ func runURL(ctx context.Context, env *Env, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := service.PrintURLs(env.Stdout, env.Stderr, report); err != nil {
+	if err := printURLs(env.Stdout, env.Stderr, report); err != nil {
 		return err
 	}
 	// `url` succeeds exactly when it handed out an address, which is the promise
@@ -466,7 +466,7 @@ func runTimeline(ctx context.Context, env *Env, args []string) error {
 		if err := printJSON(env.Stdout, report); err != nil {
 			return err
 		}
-	} else if err := service.PrintTimeline(env.Stdout, report); err != nil {
+	} else if err := printTimeline(env.Stdout, report); err != nil {
 		return err
 	}
 	// A failed fetch is a failed preflight, even though the locally known
@@ -564,7 +564,7 @@ func runDoctor(ctx context.Context, env *Env, args []string) error {
 		if err := printJSON(env.Stdout, checks); err != nil {
 			return err
 		}
-	} else if err := service.PrintChecks(env.Stdout, checks); err != nil {
+	} else if err := printChecks(env.Stdout, checks); err != nil {
 		return err
 	}
 	if service.ChecksFailed(checks) {

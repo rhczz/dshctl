@@ -936,6 +936,69 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/cli/render_test.go::TestTheStatusReportNamesOnlyInstancesThatMatter",
+    "file": "internal/cli/render_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "渲染器搬进接入层，测试随之移动"
+  },
+  {
+    "test": "internal/cli/render_test.go::TestPrintStatusNamesTheState",
+    "file": "internal/cli/render_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "渲染器搬进接入层，测试随之移动"
+  },
+  {
+    "test": "internal/cli/render_test.go::TestServeExitCode",
+    "file": "internal/cli/render_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "渲染器搬进接入层，测试随之移动"
+  },
+  {
+    "test": "internal/cli/render_test.go::TestPrintChecksLabelsEveryStatus",
+    "file": "internal/cli/render_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "渲染器搬进接入层，测试随之移动"
+  },
+  {
+    "test": "internal/cli/render_test.go::TestChecksFailed",
+    "file": "internal/cli/render_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "渲染器搬进接入层，测试随之移动"
+  },
+  {
+    "test": "internal/cli/render_test.go::TestHumanBytes",
+    "file": "internal/cli/render_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "渲染器搬进接入层，测试随之移动"
+  },
+  {
+    "test": "internal/cli/render_timeline_test.go::TestTimelineRendersTheExactFormat",
+    "file": "internal/cli/render_timeline_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
     "test": "internal/cli/repodir_test.go::TestACheckoutNamedForOneRunIsTheCheckoutEveryLaterCommandUses",
     "file": "internal/cli/repodir_test.go",
     "package": "internal/cli",
@@ -6192,67 +6255,13 @@
     "note": "随包从 internal/service 迁移到 internal/service，行为未变"
   },
   {
-    "test": "internal/service/print_test.go::TestTheStatusReportNamesOnlyInstancesThatMatter",
-    "file": "internal/service/print_test.go",
+    "test": "internal/service/print_helpers_test.go::TestDescribeFacts",
+    "file": "internal/service/print_helpers_test.go",
     "package": "internal/service",
     "behavior": "",
     "disposition": "kept",
     "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
-  },
-  {
-    "test": "internal/service/print_test.go::TestPrintStatusNamesTheState",
-    "file": "internal/service/print_test.go",
-    "package": "internal/service",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
-  },
-  {
-    "test": "internal/service/print_test.go::TestServeExitCode",
-    "file": "internal/service/print_test.go",
-    "package": "internal/service",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
-  },
-  {
-    "test": "internal/service/print_test.go::TestPrintChecksLabelsEveryStatus",
-    "file": "internal/service/print_test.go",
-    "package": "internal/service",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
-  },
-  {
-    "test": "internal/service/print_test.go::TestChecksFailed",
-    "file": "internal/service/print_test.go",
-    "package": "internal/service",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
-  },
-  {
-    "test": "internal/service/print_test.go::TestHumanBytes",
-    "file": "internal/service/print_test.go",
-    "package": "internal/service",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
-  },
-  {
-    "test": "internal/service/print_test.go::TestDescribeFacts",
-    "file": "internal/service/print_test.go",
-    "package": "internal/service",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+    "note": "重写后仍在树中，钉住同一行为"
   },
   {
     "test": "internal/service/repodir_test.go::TestASuccessfulStartMakesTheNextCommandUseTheSameCheckout",
@@ -6858,15 +6867,6 @@
     "note": "随包从 internal/service 迁移到 internal/service，行为未变"
   },
   {
-    "test": "internal/service/timeline_test.go::TestPrintTimelineRendersTheExactFormat",
-    "file": "internal/service/timeline_test.go",
-    "package": "internal/service",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
-  },
-  {
     "test": "internal/service/tolerance_test.go::TestTheFingerprintToleranceAbsorbsTheGranularityOfTheClock",
     "file": "internal/service/tolerance_test.go",
     "package": "internal/service",
@@ -7405,6 +7405,24 @@
     "disposition": "new-test",
     "evidence": "version --json 带上编译工具链与 module",
     "note": ""
+  },
+  {
+    "test": "internal/cli/render_test.go::TestDescribeFacts",
+    "file": "internal/cli/render_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "渲染器搬进接入层，测试随之移动"
+  },
+  {
+    "test": "internal/service/timeline_test.go::TestPrintTimelineRendersTheExactFormat",
+    "file": "internal/service/timeline_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "",
+    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
   },
   {
     "test": "internal/state/state_extra_test.go::TestDescribeAnEmptyRecord",

@@ -90,7 +90,9 @@ LAYERS = {
     "cmd/dshctl": {"internal/cli"},
     "internal/cli": {
         "internal/config",
+        "internal/domain",
         "internal/exitcode",
+        "internal/history",
         "internal/i18n",
         "internal/run",
         "internal/service",

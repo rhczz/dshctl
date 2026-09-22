@@ -28,6 +28,11 @@ func (f *fixture) seedHistory(t *testing.T, file history.File) {
 	}
 }
 
+// timelineStamp is the history timestamp the render tests used to assert on.
+func timelineStamp() string {
+	return time.Unix(1_700_000_000, 0).Format("2006-01-02 15:04")
+}
+
 // TestTimelineReportsUpToDate pins the quiet case: no gap, no commit list, and
 // an exact rendering.
 func TestTimelineReportsUpToDate(t *testing.T) {
@@ -51,14 +56,6 @@ func TestTimelineReportsUpToDate(t *testing.T) {
 		t.Fatalf("worktree = (dirty=%v, err=%q), want clean", report.Dirty, report.DirtyError)
 	}
 
-	var out strings.Builder
-	if err := PrintTimeline(&out, report); err != nil {
-		t.Fatalf("PrintTimeline: %v", err)
-	}
-	want := fmt.Sprintf("仓库: %s\n当前: def5678 (main)\n远程: def5678 (origin/master)\n差距: 已是最新（origin/master）\n", f.repo)
-	if out.String() != want {
-		t.Fatalf("output = %q, want %q", out.String(), want)
-	}
 }
 
 // TestTimelineShowsTheWindowTagsAndElision pins the version list: the newest
@@ -106,21 +103,6 @@ func TestTimelineShowsTheWindowTagsAndElision(t *testing.T) {
 		t.Fatalf("last row = %+v, want the current position", current)
 	}
 
-	var out strings.Builder
-	if err := PrintTimeline(&out, report); err != nil {
-		t.Fatalf("PrintTimeline: %v", err)
-	}
-	text := out.String()
-	for _, want := range []string{
-		"差距: 落后 12 个提交（中间有 2 个 tag）",
-		"○ " + remote[:7] + "  subject 0   ← 远程最新",
-		"  … 省略 1 个提交 …\n  " + fakeSHA(1989)[:7] + "  dsh-v0.1.1  subject 11\n● " + head[:7] + "  fixture head   ← 当前",
-		"  " + fakeSHA(1995)[:7] + "  dsh-v0.1.0  subject 5",
-	} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("output = %q, want it to contain %q", text, want)
-		}
-	}
 }
 
 // TestTimelineReportsDivergence pins the local-commits case: the gap line names
@@ -139,13 +121,6 @@ func TestTimelineReportsDivergence(t *testing.T) {
 	}
 	if report.UpToDate || report.Behind != 5 || report.Ahead != 3 {
 		t.Fatalf("report = %+v, want a diverged state", report)
-	}
-	var out strings.Builder
-	if err := PrintTimeline(&out, report); err != nil {
-		t.Fatalf("PrintTimeline: %v", err)
-	}
-	if !strings.Contains(out.String(), "分叉：落后 5 个、本地领先 3 个（update 无法快进）") {
-		t.Fatalf("output = %q, want the divergence line", out.String())
 	}
 }
 
@@ -179,20 +154,6 @@ func TestTimelineKeepsLocalStateWhenFetchFails(t *testing.T) {
 		t.Fatalf("stderr = %q, want the fetch warning", f.errOut.String())
 	}
 
-	var out strings.Builder
-	if err := PrintTimeline(&out, report); err != nil {
-		t.Fatalf("PrintTimeline: %v", err)
-	}
-	text := out.String()
-	if !strings.Contains(text, "远程: 无法获取（") {
-		t.Fatalf("output = %q, want the unknown-remote header", text)
-	}
-	if strings.Contains(text, "已是最新") {
-		t.Fatalf("output = %q, must not claim to be up to date after a failed fetch", text)
-	}
-	if !strings.Contains(text, "远程未确认") {
-		t.Fatalf("output = %q, want the gap line to say the remote is unconfirmed", text)
-	}
 }
 
 // TestTimelineNamesTheDirtyWorktree pins the row that explains why an update
@@ -207,13 +168,6 @@ func TestTimelineNamesTheDirtyWorktree(t *testing.T) {
 	}
 	if !report.Dirty {
 		t.Fatal("a modified tracked file did not mark the worktree dirty")
-	}
-	var out strings.Builder
-	if err := PrintTimeline(&out, report); err != nil {
-		t.Fatalf("PrintTimeline: %v", err)
-	}
-	if !strings.Contains(out.String(), "工作区: 有未提交修改（update/rollback 会拒绝，请先处理）") {
-		t.Fatalf("output = %q, want the dirty row", out.String())
 	}
 }
 
@@ -237,13 +191,6 @@ func TestTimelineReportsWhenTheWorktreeCannotBeChecked(t *testing.T) {
 	}
 	if report.DirtyError == "" {
 		t.Fatal("an unanswerable status query left no reason")
-	}
-	var out strings.Builder
-	if err := PrintTimeline(&out, report); err != nil {
-		t.Fatalf("PrintTimeline: %v", err)
-	}
-	if !strings.Contains(out.String(), "工作区: 无法确认（") {
-		t.Fatalf("output = %q, want the unknown-worktree row", out.String())
 	}
 }
 
@@ -273,21 +220,6 @@ func TestTimelinePrintsTheHistoryNewestFirst(t *testing.T) {
 		t.Fatalf("history = %+v, want the newest first", report.History)
 	}
 
-	var out strings.Builder
-	if err := PrintTimeline(&out, report); err != nil {
-		t.Fatalf("PrintTimeline: %v", err)
-	}
-	text := out.String()
-	stamp := time.Unix(1_700_000_000, 0).Format("2006-01-02 15:04")
-	if !strings.Contains(text, "更新历史:\n● "+head[:7]+"  latest") || !strings.Contains(text, stamp) {
-		t.Fatalf("output = %q, want the current deployment marked", text)
-	}
-	if !strings.Contains(text, "  "+fakeSHA(900)[:7]+"  - ") {
-		t.Fatalf("output = %q, want an empty selector shown as a dash", text)
-	}
-	if strings.Contains(text, fakeSHA(901)[:7]) {
-		t.Fatalf("output = %q, want another checkout's history left out", text)
-	}
 }
 
 // TestTimelineCapsTheHistorySection pins the display bound and the note that
@@ -306,13 +238,6 @@ func TestTimelineCapsTheHistorySection(t *testing.T) {
 	}
 	if len(report.History) != timelineWindow || report.HistoryTotal != timelineWindow+2 {
 		t.Fatalf("history = %d/%d, want the window over the total", len(report.History), report.HistoryTotal)
-	}
-	var out strings.Builder
-	if err := PrintTimeline(&out, report); err != nil {
-		t.Fatalf("PrintTimeline: %v", err)
-	}
-	if !strings.Contains(out.String(), "… 还有 2 条（--json 查看）") {
-		t.Fatalf("output = %q, want the remaining count", out.String())
 	}
 }
 
@@ -375,13 +300,6 @@ func TestTimelineNamesATagOnTheCurrentCommit(t *testing.T) {
 	if !current.Current || len(current.Tags) != 1 || current.Tags[0] != "dsh-v0.1.0" {
 		t.Fatalf("current row = %+v, want its tag", current)
 	}
-	var out strings.Builder
-	if err := PrintTimeline(&out, report); err != nil {
-		t.Fatalf("PrintTimeline: %v", err)
-	}
-	if !strings.Contains(out.String(), "当前: "+head[:7]+" (tag dsh-v0.1.0)") {
-		t.Fatalf("output = %q, want the tag in the header", out.String())
-	}
 }
 
 // TestTimelineReportsACorruptHistory pins that a file nobody can read is
@@ -404,13 +322,6 @@ func TestTimelineReportsACorruptHistory(t *testing.T) {
 	}
 	if !strings.Contains(f.errOut.String(), "无法读取更新历史") {
 		t.Fatalf("stderr = %q, want the history warning", f.errOut.String())
-	}
-	var out strings.Builder
-	if err := PrintTimeline(&out, report); err != nil {
-		t.Fatalf("PrintTimeline: %v", err)
-	}
-	if strings.Contains(out.String(), "更新历史:") {
-		t.Fatalf("output = %q, want no history section", out.String())
 	}
 }
 
@@ -439,16 +350,6 @@ func TestTimelineTakesTheCurrentPositionFromGit(t *testing.T) {
 	}
 	if len(report.History) != 1 || report.History[0].Commit != recorded {
 		t.Fatalf("history = %+v, want the recorded position untouched", report.History)
-	}
-	var out strings.Builder
-	if err := PrintTimeline(&out, report); err != nil {
-		t.Fatalf("PrintTimeline: %v", err)
-	}
-	if strings.Contains(out.String(), "● "+recorded[:7]) {
-		t.Fatalf("output = %q, want the recorded position not marked as current", out.String())
-	}
-	if !strings.Contains(out.String(), "● "+current[:7]) {
-		t.Fatalf("output = %q, want the git position marked as current", out.String())
 	}
 }
 
@@ -502,55 +403,5 @@ func TestTimelineRefusesAMissingCheckout(t *testing.T) {
 	}
 	if exitcode.Of(err) != exitcode.Preflight {
 		t.Fatalf("exit code = %d, want preflight", exitcode.Of(err))
-	}
-}
-
-// TestPrintTimelineRendersTheExactFormat pins the whole human report, because
-// the view is the feature: a change to any row shape is a change to the
-// contract an operator reads.
-func TestPrintTimelineRendersTheExactFormat(t *testing.T) {
-	report := TimelineReport{
-		RepoDir:  "/checkouts/harness",
-		Fetched:  true,
-		Dirty:    true,
-		Current:  TimelineCurrent{Commit: fakeSHA(1000), Short: fakeSHA(1000)[:7], Detached: true},
-		Remote:   TimelineRemote{Name: "origin/master", Commit: fakeSHA(2000), Short: fakeSHA(2000)[:7]},
-		Behind:   2,
-		UpToDate: false,
-		Commits: []TimelineCommit{
-			{Commit: fakeSHA(2000), Short: fakeSHA(2000)[:7], Subject: "the newest", Remote: true},
-			{Commit: fakeSHA(1999), Short: fakeSHA(1999)[:7], Subject: "a middle commit", Tags: []string{"dsh-v0.1.1"}, Skipped: 1},
-			{Commit: fakeSHA(1000), Short: fakeSHA(1000)[:7], Subject: "where we are", Current: true},
-		},
-		History: []history.Record{
-			{Commit: fakeSHA(1000), Selector: "-n 1", At: 1_700_000_000},
-			{Commit: fakeSHA(999), At: 1_699_000_000},
-		},
-		HistoryTotal: 3,
-	}
-
-	var out strings.Builder
-	if err := PrintTimeline(&out, report); err != nil {
-		t.Fatalf("PrintTimeline: %v", err)
-	}
-	stamp := time.Unix(1_700_000_000, 0).Format("2006-01-02 15:04")
-	older := time.Unix(1_699_000_000, 0).Format("2006-01-02 15:04")
-	want := "仓库: /checkouts/harness\n" +
-		"当前: " + fakeSHA(1000)[:7] + " (detached)\n" +
-		"远程: " + fakeSHA(2000)[:7] + " (origin/master)\n" +
-		"差距: 落后 2 个提交（中间有 1 个 tag）\n" +
-		"工作区: 有未提交修改（update/rollback 会拒绝，请先处理）\n" +
-		"\n" +
-		"○ " + fakeSHA(2000)[:7] + "  the newest   ← 远程最新\n" +
-		"  … 省略 1 个提交 …\n" +
-		"  " + fakeSHA(1999)[:7] + "  dsh-v0.1.1  a middle commit\n" +
-		"● " + fakeSHA(1000)[:7] + "  where we are   ← 当前\n" +
-		"\n" +
-		"更新历史:\n" +
-		"● " + fakeSHA(1000)[:7] + "  -n 1              " + stamp + "\n" +
-		"  " + fakeSHA(999)[:7] + "  -                 " + older + "\n" +
-		"  … 还有 1 条（--json 查看）\n"
-	if out.String() != want {
-		t.Fatalf("output:\n%q\nwant:\n%q", out.String(), want)
 	}
 }

@@ -108,14 +108,8 @@ func TestStatusReportsALiveRecordAsNotStale(t *testing.T) {
 		t.Fatalf("summary = %q, want it to say the recorded process is alive", StatusSummary(status))
 	}
 
-	// The human report says the same thing, and names the command that ends it.
-	var out strings.Builder
-	if err := PrintStatus(&out, status); err != nil {
-		t.Fatalf("PrintStatus: %v", err)
-	}
-	if !strings.Contains(out.String(), "dshctl stop") {
-		t.Fatalf("status output = %q, want it to name dshctl stop", out.String())
-	}
+	// The rendered line — including the command that ends the process — is the
+	// shell's business and is pinned in internal/cli's render tests.
 }
 
 // TestBuildRefusesWhileThisPortServes pins that build applies the same rule
