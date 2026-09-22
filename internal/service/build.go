@@ -21,13 +21,12 @@ func (s *Service) RunBuild(ctx context.Context) error {
 // buildLocked performs the build while the caller holds the lock.
 func (s *Service) buildLocked(ctx context.Context) error {
 	if !s.Repo.Exists() {
-		return exitcode.New(exitcode.Preflight,
-			"仓库目录不存在: %s\n提示: 用 --repo 或环境变量 %s 指定仓库路径",
+		return exitcode.New(exitcode.Preflight, i18nLine(MsgBuildRepoMissing),
 			s.Settings.RepoDir, paths.EnvRepoDir)
 	}
 	if !s.Repo.IsServerCheckout() {
 		return exitcode.New(exitcode.Preflight,
-			"%s 看起来不是 DeepSeek Harness 仓库(缺少 %s 或 %s)\n提示: 用 --repo 指向正确的 checkout",
+			i18nLine(MsgBuildNotCheckout),
 			s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
 	}
 	pnpm, err := s.pnpmPath()
@@ -35,8 +34,7 @@ func (s *Service) buildLocked(ctx context.Context) error {
 		return err
 	}
 	if !s.Repo.NodeModulesPresent() {
-		return exitcode.New(exitcode.Preflight,
-			"%s/node_modules 不存在，请先在仓库内执行 pnpm install", s.Settings.RepoDir)
+		return exitcode.New(exitcode.Preflight, i18nLine(MsgBuildNodeModules), s.Settings.RepoDir)
 	}
 	installation, err := s.resolveNode(ctx)
 	if err != nil {
@@ -58,25 +56,26 @@ func (s *Service) buildLocked(ctx context.Context) error {
 	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	} else if rotated {
-		s.narrate(fmt.Sprintf("日志已轮转: %s", s.LogFile.BackupPath()))
+		s.narrate(i18nLine(MsgBuildLogRotated, s.LogFile.BackupPath()))
 	}
 	if err := s.LogFile.Section(sectionBuild); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 	s.note("--- pnpm run build ---")
 
-	s.narrate(fmt.Sprintf("正在构建仓库 %s ... (输出实时显示，同时写入日志)", s.Settings.RepoDir))
+	s.narrate(i18nLine(MsgBuildRunning, s.Settings.RepoDir))
 	if err := s.stream(ctx, run.Command{
 		Name: pnpm,
 		Args: []string{"run", "build"},
 		Dir:  s.Settings.RepoDir,
 		Env:  run.WithPathPrefix(installation.BinDir),
 	}); err != nil {
-		s.note("build 失败")
-		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("构建失败: %w\n详见日志: %s", err, s.Settings.LogPath))
+		s.note(i18nLine(MsgBuildFailedNote))
+		return exitcode.Wrap(exitcode.Failure,
+			fmt.Errorf("%s", i18nLine(MsgBuildFailed, err, s.Settings.LogPath)))
 	}
-	s.note("build 成功")
-	s.narrate("构建完成")
+	s.note(i18nLine(MsgBuildSucceededNote))
+	s.narrate(i18nLine(MsgBuildSucceeded))
 	// A build proves the checkout is usable, which is exactly what a document
 	// that decides nothing is missing: recording it is what makes the next plain
 	// command operate on the tree that was just built instead of on a default
@@ -108,10 +107,8 @@ func (s *Service) refuseWhileServing(ctx context.Context, action string) error {
 	if len(serving) == 0 {
 		return nil
 	}
-	return exitcode.New(exitcode.Preflight,
-		"仓库 %s 正被 dshctl 管理的服务使用 (端口 %v, pid %v),%s 会替换它正在使用的产物\n"+
-			"提示: 先停止这些服务(用对应的 --port 执行 dshctl stop),%s 完成后再启动",
-		s.Settings.RepoDir, serving.ports(), serving.pids(), action, action)
+	return exitcode.New(exitcode.Preflight, "%s",
+		i18nLine(MsgRepoUsedByServers, s.Settings.RepoDir, serving.ports(), serving.pids(), action, action))
 }
 
 // servingPorts describes servers this state directory manages on other ports.
@@ -146,8 +143,8 @@ func (s *Service) otherPortsServing(ctx context.Context) (servingPorts, error) {
 			// exists to protect a running server's artifacts, and "cannot look"
 			// has to leave it as strict as it was. The build is refused instead
 			// of replacing artifacts under a server this build cannot see.
-			return nil, exitcode.Wrap(exitcode.Preflight, fmt.Errorf(
-				"无法读取 %s 的运行记录，无法确认它是否在使用 %s: %w", path, s.Settings.RepoDir, err))
+			return nil, exitcode.Wrap(exitcode.Preflight,
+				fmt.Errorf("%s", i18nLine(MsgRecordUnreadable, path, s.Settings.RepoDir, err)))
 		}
 		if !ok || record.Port == s.Settings.Port {
 			continue
@@ -157,8 +154,8 @@ func (s *Service) otherPortsServing(ctx context.Context) (servingPorts, error) {
 		}
 		serves, err := s.recordServesOrFails(ctx, record)
 		if err != nil {
-			return nil, exitcode.Wrap(exitcode.Preflight, fmt.Errorf(
-				"无法确认端口 %d 上的服务是否在使用 %s: %w", record.Port, s.Settings.RepoDir, err))
+			return nil, exitcode.Wrap(exitcode.Preflight,
+				fmt.Errorf("%s", i18nLine(MsgPortServiceUnconfirmable, record.Port, s.Settings.RepoDir, err)))
 		}
 		if serves {
 			serving = append(serving, servingPort{port: record.Port, pid: record.PID})
@@ -177,9 +174,9 @@ func (s *Service) prune(ctx context.Context) error {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 	if len(result.Removed) > 0 {
-		message := fmt.Sprintf("已清理 %d 个残留目录", len(result.Removed))
+		message := i18nLine(MsgPruneRemoved, len(result.Removed))
 		s.narrate(message)
-		s.note("prune 完成: " + message)
+		s.note(i18nLine(MsgPruneDone) + message)
 	}
 	return nil
 }

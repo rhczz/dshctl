@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 
 	"github.com/rhczz/dshctl/internal/domain"
@@ -110,16 +109,15 @@ type TimelineReport struct {
 // silently showed last week's remote would be worse than no timeline at all.
 func (s *Service) Timeline(ctx context.Context) (TimelineReport, error) {
 	if !s.Repo.Exists() {
-		return TimelineReport{}, exitcode.New(exitcode.Preflight,
-			"仓库目录不存在: %s\n提示: 用 --repo 或环境变量 %s 指定仓库路径",
+		return TimelineReport{}, exitcode.New(exitcode.Preflight, i18nLine(MsgUpdateRepoMissing),
 			s.Settings.RepoDir, paths.EnvRepoDir)
 	}
 	if !s.Repo.IsGit() {
-		return TimelineReport{}, exitcode.New(exitcode.Preflight, "%s 不是 git 仓库", s.Settings.RepoDir)
+		return TimelineReport{}, exitcode.New(exitcode.Preflight, i18nLine(MsgTimelineNotGit), s.Settings.RepoDir)
 	}
 	if !s.Repo.IsServerCheckout() {
 		return TimelineReport{}, exitcode.New(exitcode.Preflight,
-			"%s 看起来不是 DeepSeek Harness 仓库(缺少 %s 或 %s)",
+			i18nLine(MsgUpdateNotCheckout),
 			s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
 	}
 	hasOrigin, err := s.Repo.HasOrigin(ctx)
@@ -128,14 +126,14 @@ func (s *Service) Timeline(ctx context.Context) (TimelineReport, error) {
 	}
 	if !hasOrigin {
 		return TimelineReport{}, exitcode.New(exitcode.Preflight,
-			"仓库 %s 没有 origin 远程，无法比较版本\n提示: 确认这是一个 clone，而不是本地目录",
+			i18nLine(MsgRepoNoOrigin),
 			s.Settings.RepoDir)
 	}
 
 	report := TimelineReport{RepoDir: s.Settings.RepoDir}
 	if err := s.Repo.Fetch(ctx, nil, nil); err != nil {
 		report.FetchError = err.Error()
-		s.warning(fmt.Sprintf("无法获取远程更新，以下差距基于本地已知状态: %v", err))
+		s.warning(i18nLine(MsgTimelineFetchFailed, err))
 	} else {
 		report.Fetched = true
 	}
@@ -206,7 +204,7 @@ func (s *Service) readTimelineHistory(report *TimelineReport) {
 	file, ok, err := store.Load()
 	if err != nil {
 		report.HistoryError = err.Error()
-		s.warning(fmt.Sprintf("无法读取更新历史 %s: %v", store.Path, err))
+		s.warning(i18nLine(MsgTimelineHistoryRead, store.Path, err))
 		return
 	}
 	if !ok {

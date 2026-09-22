@@ -74,6 +74,58 @@ const (
 	MsgStopSurvivedForce        = "service.stop.survived-force"
 	MsgStopRecordKept           = "service.stop.record-kept"
 	MsgRestartOccupant          = "service.stop.restart-occupant"
+	MsgRecordUnreadable         = "service.repo.record-unreadable"
+	MsgPortServiceUnconfirmable = "service.repo.port-unconfirmable"
+	MsgPruneRemoved             = "service.build.prune-removed"
+	MsgBuildRepoMissing         = "service.build.repo-missing"
+	MsgBuildNotCheckout         = "service.build.not-checkout"
+	MsgBuildNodeModules         = "service.build.node-modules"
+	MsgBuildSection             = "service.build.section"
+	MsgBuildRunningShort        = "service.build.running-short"
+	MsgUpdateSection            = "service.update.section"
+	MsgRollbackSection          = "service.rollback.section"
+	MsgUpdateVerb               = "service.update.verb"
+	MsgRollbackVerb             = "service.rollback.verb"
+	MsgUpdateAdoptFailed        = "service.update.adopt-failed"
+	MsgUpdateAdopted            = "service.update.adopted"
+	MsgUpdateOccupant           = "service.update.occupant"
+	MsgUpdateRepoMissing        = "service.update.repo-missing"
+	MsgUpdateNotGit             = "service.update.not-git"
+	MsgUpdateNotCheckout        = "service.update.not-checkout"
+	MsgUpdateResolveTarget      = "service.update.resolve-target"
+	MsgUpdateNoOp               = "service.update.no-op"
+	MsgUpdateUnverifiable       = "service.update.unverifiable"
+	MsgUpdateUnverifiableTip    = "service.update.unverifiable-tip"
+	MsgUpdateStopping           = "service.update.stopping"
+	MsgUpdateSwitchFailed       = "service.update.switch-failed"
+	MsgUpdateRestore            = "service.update.restore"
+	MsgUpdateRestoreFailed      = "service.update.restore-failed"
+	MsgUpdateFailed             = "service.update.failed"
+	MsgInstallSection           = "service.update.install-section"
+	MsgInstallFailed            = "service.update.install-failed"
+	MsgInstallFailedNote        = "service.update.install-failed-note"
+	MsgInstallSucceeded         = "service.update.install-succeeded"
+	MsgBuildFailedNote          = "service.update.build-failed-note"
+	MsgBuildSucceededNote       = "service.update.build-succeeded-note"
+	MsgMoveDone                 = "service.update.done"
+	MsgUpdateRestarting         = "service.update.restarting"
+	MsgUpdateNoOriginLatest     = "service.update.no-origin-latest"
+	MsgUpdateFetchFailed        = "service.update.fetch-failed"
+	MsgHistoryUnreadable        = "service.update.history-unreadable"
+	MsgHistoryUnreadableTip     = "service.update.history-unreadable-tip"
+	MsgNoHistory                = "service.update.no-history"
+	MsgNoHistoryTip             = "service.update.no-history-tip"
+	MsgNoHistorySteps           = "service.update.no-history-steps"
+	MsgRecordedPosition         = "service.update.recorded-position"
+	MsgTargetOutsideOrigin      = "service.update.target-outside-origin"
+	MsgHistoryRebuild           = "service.update.history-rebuild"
+	MsgHistoryWriteFailed       = "service.update.history-write-failed"
+	MsgShutdownMessage          = "service.update.shutdown-message"
+	MsgLogsBuildMissing         = "service.logs.build-missing"
+	MsgTimelineNotGit           = "service.timeline.not-git"
+	MsgTimelineFetchFailed      = "service.timeline.fetch-failed"
+	MsgTimelineHistoryRead      = "service.timeline.history-read"
+	MsgPortsRestartOccupant     = "service.ports.restart-occupant"
 	// Lifecycle and diagnostics (service.* namespace).
 	MsgRepoMissing           = "service.repo.missing"
 	MsgRepoNotCheckout       = "service.repo.not-checkout"
@@ -288,6 +340,214 @@ var Messages = i18n.Catalog{
 	MsgTextWarning: {
 		EN: "warning: %s\n",
 		ZH: "警告: %s\n",
+	},
+	MsgRecordUnreadable: {
+		EN: "the runtime record %s could not be read, so whether it is using %s cannot be confirmed: %w",
+		ZH: "无法读取 %s 的运行记录，无法确认它是否在使用 %s: %w",
+	},
+	MsgPortServiceUnconfirmable: {
+		EN: "whether the service on port %d is using %s could not be confirmed: %w",
+		ZH: "无法确认端口 %d 上的服务是否在使用 %s: %w",
+	},
+	MsgPruneRemoved: {
+		EN: "removed %d residue directories",
+		ZH: "已清理 %d 个残留目录",
+	},
+	MsgBuildRepoMissing: {
+		EN: "the checkout does not exist: %s\nhint: name it with --repo or the %s environment variable",
+		ZH: "仓库目录不存在: %s\n提示: 用 --repo 或环境变量 %s 指定仓库路径",
+	},
+	MsgBuildNotCheckout: {
+		EN: "%s does not look like a DeepSeek Harness checkout (no %s or %s)\nhint: point --repo at the right checkout",
+		ZH: "%s 看起来不是 DeepSeek Harness 仓库(缺少 %s 或 %s)\n提示: 用 --repo 指向正确的 checkout",
+	},
+	MsgBuildNodeModules: {
+		EN: "%s/node_modules does not exist; run pnpm install in the checkout first",
+		ZH: "%s/node_modules 不存在，请先在仓库内执行 pnpm install",
+	},
+	MsgBuildSection: {
+		EN: "build",
+		ZH: "构建",
+	},
+	MsgBuildRunningShort: {
+		EN: "building",
+		ZH: "构建",
+	},
+	MsgUpdateSection: {
+		EN: "update",
+		ZH: "更新",
+	},
+	MsgRollbackSection: {
+		EN: "rollback",
+		ZH: "回退",
+	},
+	MsgUpdateVerb: {
+		EN: "update",
+		ZH: "更新",
+	},
+	MsgRollbackVerb: {
+		EN: "roll back",
+		ZH: "回退",
+	},
+	MsgUpdateAdoptFailed: {
+		EN: "a service left over from an interrupted start was found (pid=%d), but its runtime record could not be rebuilt; run dshctl stop first or handle it by hand",
+		ZH: "检测到上次启动遗留的服务 (pid=%d)，但无法恢复运行记录;请先运行 dshctl stop 或手动处理",
+	},
+	MsgUpdateAdopted: {
+		EN: "a survivor of an interrupted start was found and is managed again",
+		ZH: "检测到上次启动被中断后仍存活的服务，已恢复管理",
+	},
+	MsgUpdateOccupant: {
+		EN: "port %d is held by a process dshctl cannot claim (pid=%d): %s\nhint: confirm and stop it first, then %s",
+		ZH: "端口 %d 被 dshctl 无法确认归属的进程占用 (pid=%d): %s\n提示: 先确认并停止它,再执行%s",
+	},
+	MsgUpdateRepoMissing: {
+		EN: "the checkout does not exist: %s\nhint: name it with --repo or the %s environment variable",
+		ZH: "仓库目录不存在: %s\n提示: 用 --repo 或环境变量 %s 指定仓库路径",
+	},
+	MsgUpdateNotGit: {
+		EN: "%s is not a git repository",
+		ZH: "%s 不是 git 仓库",
+	},
+	MsgUpdateNotCheckout: {
+		EN: "%s does not look like a DeepSeek Harness checkout (no %s or %s)",
+		ZH: "%s 看起来不是 DeepSeek Harness 仓库(缺少 %s 或 %s)",
+	},
+	MsgUpdateResolveTarget: {
+		EN: "resolve target",
+		ZH: "解析目标",
+	},
+	MsgUpdateNoOp: {
+		EN: "already at %s; nothing to %s",
+		ZH: "已在 %s，无需%s",
+	},
+	MsgUpdateUnverifiable: {
+		EN: "the service in the runtime record (pid=%d) cannot be verified as this run's own (the platform cannot read its start time), so it cannot be ended safely",
+		ZH: "运行记录中的服务 (pid=%d) 是否属于本次启动无法验证(平台读不到进程启动时间)，不能安全地结束它",
+	},
+	MsgUpdateUnverifiableTip: {
+		EN: "hint: confirm the process may be stopped and end it by hand, or use another port with --port",
+		ZH: "提示: 确认该进程可以停止后手动结束它，或用 --port 换一个端口",
+	},
+	MsgUpdateStopping: {
+		EN: "DSH Web is running; stopping it first ...",
+		ZH: "DSH Web 正在运行，先停止服务 ...",
+	},
+	MsgUpdateSwitchFailed: {
+		EN: "error: %s failed: %v",
+		ZH: "错误: %s失败: %v",
+	},
+	MsgUpdateRestore: {
+		EN: "the old build is intact; starting the old version again ...",
+		ZH: "仓库旧构建仍然完好，恢复启动旧版本 ...",
+	},
+	MsgUpdateRestoreFailed: {
+		EN: "restoring the service failed: %v",
+		ZH: "恢复启动失败: %v",
+	},
+	MsgUpdateFailed: {
+		EN: "%s failed: %w",
+		ZH: "%s失败: %w",
+	},
+	MsgInstallSection: {
+		EN: "pnpm install",
+		ZH: "pnpm install",
+	},
+	MsgInstallFailed: {
+		EN: "pnpm install failed: %w\n%s",
+		ZH: "pnpm install 失败: %w\n%s",
+	},
+	MsgInstallFailedNote: {
+		EN: "pnpm install failed",
+		ZH: "pnpm install 失败",
+	},
+	MsgInstallSucceeded: {
+		EN: "pnpm install succeeded",
+		ZH: "pnpm install 成功",
+	},
+	MsgBuildFailedNote: {
+		EN: "pnpm run build failed",
+		ZH: "pnpm run build 失败",
+	},
+	MsgBuildSucceededNote: {
+		EN: "pnpm run build succeeded",
+		ZH: "pnpm run build 成功",
+	},
+	MsgMoveDone: {
+		EN: "%s finished",
+		ZH: "%s完成",
+	},
+	MsgUpdateRestarting: {
+		EN: "starting DSH Web again ...",
+		ZH: "恢复启动 DSH Web ...",
+	},
+	MsgUpdateNoOriginLatest: {
+		EN: "the checkout %s has no origin remote, so latest cannot be resolved\nhint: name a local version with dshctl update <tag|commit>",
+		ZH: "仓库 %s 没有 origin 远程，无法解析 latest\n提示: 用 dshctl update <tag|commit> 指定本地已知的版本",
+	},
+	MsgUpdateFetchFailed: {
+		EN: "the remote could not be fetched; resolving %q from what is known locally: %v",
+		ZH: "无法获取远程更新，按本地已知状态解析 %q: %v",
+	},
+	MsgHistoryUnreadable: {
+		EN: "the deployment history cannot be read: %v\nhint: delete %s and switch to a named version with dshctl update <version>",
+		ZH: "更新历史无法读取: %v\n提示: 删除 %s 后可用 dshctl update <版本> 定点切换",
+	},
+	MsgHistoryUnreadableTip: {
+		EN: "delete it to rebuild from the current version",
+		ZH: "删除它将以当前版本重建",
+	},
+	MsgNoHistory: {
+		EN: "nothing to roll back to: dshctl has not recorded a position for this checkout yet",
+		ZH: "没有可回退的历史: dshctl 还没有记录过这个 checkout 的部署位置",
+	},
+	MsgNoHistoryTip: {
+		EN: "hint: dshctl timeline shows the versions; dshctl update <version> moves to one",
+		ZH: "提示: 用 dshctl timeline 查看版本，用 dshctl update <版本> 定点切换",
+	},
+	MsgNoHistorySteps: {
+		EN: "nothing to roll back to: the history has at most %d steps left",
+		ZH: "没有可回退的位置: 历史里最多还能退 %d 步",
+	},
+	MsgRecordedPosition: {
+		EN: "recorded position",
+		ZH: "记录中的位置",
+	},
+	MsgTargetOutsideOrigin: {
+		EN: "target %s is not in the history of %s (it may come from an unmerged branch or a local commit)",
+		ZH: "目标 %s 不在 %s 的历史上（可能来自未合并的分支或本地提交）",
+	},
+	MsgHistoryRebuild: {
+		EN: "the deployment history cannot be read (%v); rebuilding from the current version",
+		ZH: "更新历史无法读取(%v)，将以当前版本重建",
+	},
+	MsgHistoryWriteFailed: {
+		EN: "the deployment history could not be written: %w",
+		ZH: "更新历史未写入: %w",
+	},
+	MsgShutdownMessage: {
+		EN: "the service stays stopped\nhint: fix the problem and run dshctl build && dshctl start",
+		ZH: "服务保持停止状态\n提示: 修复问题后可运行 dshctl build && dshctl start",
+	},
+	MsgLogsBuildMissing: {
+		EN: "the log has no build/update/rollback record: %s",
+		ZH: "日志中没有 build/update/rollback 记录: %s",
+	},
+	MsgTimelineNotGit: {
+		EN: "%s is not a git repository",
+		ZH: "%s 不是 git 仓库",
+	},
+	MsgTimelineFetchFailed: {
+		EN: "the remote could not be fetched; the gap below is against the last known state: %v",
+		ZH: "无法获取远程更新，以下差距基于本地已知状态: %v",
+	},
+	MsgTimelineHistoryRead: {
+		EN: "the deployment history %s could not be read: %v",
+		ZH: "无法读取更新历史 %s: %v",
+	},
+	MsgPortsRestartOccupant: {
+		EN: "port %d is held by a process dshctl cannot claim (pid=%d): %s\nhint: confirm and handle it first, then restart",
+		ZH: "端口 %d 被 dshctl 无法确认归属的进程占用 (pid=%d): %s\n提示: 先确认并处理它,再执行重启",
 	},
 	MsgAdoptUnrecorded: {
 		EN: "a service left over from an interrupted start was found (pid=%d), but its runtime record could not be rebuilt; end it by hand and retry",

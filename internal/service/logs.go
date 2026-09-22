@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
@@ -42,7 +41,7 @@ func (s *Service) Logs(ctx context.Context, options LogsOptions) error {
 		return s.printBuildSection(lines)
 	}
 	if !s.LogFile.Exists() {
-		return exitcode.New(exitcode.Failure, "日志文件不存在: %s", s.Settings.LogPath)
+		return exitcode.New(exitcode.Failure, i18nLine(MsgLogFileMissing), s.Settings.LogPath)
 	}
 	if options.Follow {
 		return s.tailThenFollow(ctx, lines)
@@ -91,11 +90,11 @@ func (s *Service) printBuildSection(lines int) error {
 	}
 	switch outcome {
 	case logfile.NotFound:
-		s.failure(fmt.Sprintf("日志中没有 build/update/rollback 记录: %s", s.Settings.LogPath))
+		s.failure(i18nLine(MsgLogNoBuildSection, s.Settings.LogPath))
 		return nil
 	case logfile.Truncated:
 		return exitcode.New(exitcode.Failure,
-			"日志文件过大，未能定位最近一次 build/update/rollback 记录: %s\n提示: 用 dshctl logs -n <行数> 直接查看尾部",
+			i18nLine(MsgLogTooLargeForBuild),
 			s.Settings.LogPath)
 	}
 	if len(body) > lines {
@@ -146,30 +145,30 @@ func (s *Service) observedAddress(status domain.Status) (string, error) {
 		}
 		if truncated {
 			return "", exitcode.New(exitcode.Failure,
-				"日志已超过 %d MiB，未能在其中定位端口 %d 的访问地址\n提示: 可运行 dshctl logs -n 50 查看尾部输出",
+				i18nLine(MsgLogTooLargeForURL),
 				logScanMiB, s.boundPort())
 		}
 		if status.State == domain.StateStarting {
 			return "", exitcode.New(exitcode.Failure,
-				"服务正在启动，尚未公布端口 %d 的访问地址;稍后重试或查看 dshctl logs", s.boundPort())
+				i18nLine(MsgAddressStarting), s.boundPort())
 		}
 		return "", exitcode.New(exitcode.Failure,
-			"运行记录中没有端口 %d 的访问地址，日志中也找不到: %s", s.boundPort(), s.Settings.LogPath)
+			i18nLine(MsgAddressNotInRecord), s.boundPort(), s.Settings.LogPath)
 
 	case status.Survivor:
 		// A server of ours is serving, left behind by an interrupted start.
 		// Its address is in the log; managing it again is one command away.
 		address, _ := announcedURL(s.Settings.LogPath, s.boundPort())
 		if address != "" {
-			s.failure("提示: 这是上次启动被中断后仍存活的服务;运行 dshctl start 或 dshctl stop 可恢复管理")
+			s.failure(i18nLine(MsgAddressSurvivor))
 			return address, nil
 		}
 		return "", exitcode.New(exitcode.Failure,
-			"端口 %d 上的服务是上次启动遗留的，日志中找不到它的访问地址;运行 dshctl start 恢复管理后再试", s.boundPort())
+			i18nLine(MsgAddressSurvivorLog), s.boundPort())
 
 	default:
 		return "", exitcode.New(exitcode.NotRunning,
-			"DSH Web 未在运行(%s)，没有可访问的地址", StatusSummary(status))
+			i18nLine(MsgURLNotRunning), StatusSummary(status))
 	}
 }
 
