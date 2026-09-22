@@ -47,12 +47,11 @@ func (s *Service) stopLocked(ctx context.Context) (StopResult, error) {
 		return StopResult{}, err
 	}
 	if verdict == adoptFailed {
-		return StopResult{}, exitcode.New(exitcode.Preflight,
-			"检测到上次启动遗留的服务 (pid=%d)，但无法恢复运行记录;请手动结束它后重试",
+		return StopResult{}, exitcode.New(exitcode.Preflight, i18nLine(MsgStopAdoptFailed),
 			observed.status.ListenerPID)
 	}
 	if verdict == adoptDone {
-		s.narrate("检测到上次启动被中断后仍存活的服务，已恢复管理")
+		s.narrate(i18nLine(MsgStopAdopted))
 	}
 
 	// Whatever the port looks like, the command's job is to end the server this
@@ -78,16 +77,16 @@ func (s *Service) reportNothingToStop(ctx context.Context, observed observed) (S
 	unverifiable := false
 	switch observed.status.State {
 	case domain.StateForeign:
-		s.failure(fmt.Sprintf("注意: 端口 %d 被非 DSH 进程占用 (pid=%d: %s)，已跳过，不会误杀它", s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand))
+		s.failure(i18nLine(MsgStopForeignSkipped, s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand))
 		unverifiable = true
 	case domain.StateOrphan:
 		// Something serves the port that dshctl cannot call its own. Stopping it
 		// would mean guessing, and guessing here means killing a stranger.
-		s.failure(fmt.Sprintf("注意: 端口 %d 上的进程 (pid=%d) 无法确认是 dshctl 启动的服务，已跳过", s.boundPort(), observed.status.ListenerPID))
-		s.failure(fmt.Sprintf("提示: 确认它可以安全停止后手动结束它;dshctl 不会结束无法确认归属的进程"))
+		s.failure(i18nLine(MsgStopUnclaimedSkipped, s.boundPort(), observed.status.ListenerPID))
+		s.failure(i18nLine(MsgStopUnclaimedTip))
 		unverifiable = true
 	default:
-		s.narrate("DSH Web 未在运行")
+		s.narrate(i18nLine(MsgStopNotRunning))
 	}
 
 	s.clearStaleRecord(ctx, observed)
@@ -104,7 +103,7 @@ func (s *Service) reportNothingToStop(ctx context.Context, observed observed) (S
 // The pid is passed in because the server that runs is not always the pid the
 // record names (a survivor is adopted before this call, so the two agree here).
 func (s *Service) shutdown(ctx context.Context, observed observed, pid int) (StopResult, error) {
-	s.narrate(fmt.Sprintf("正在停止端口 %d 上的 DSH Web (pid=%d) ...", s.boundPort(), pid))
+	s.narrate(i18nLine(MsgStopStopping, s.boundPort(), pid))
 
 	// terminate is the single verified-signal path: it re-reads the record and
 	// the process start time before every signal, so a pid recycled during the
@@ -117,7 +116,7 @@ func (s *Service) shutdown(ctx context.Context, observed observed, pid int) (Sto
 		// only a failed stop when the holder is part of the tree the record
 		// describes; a stranger that took the port is a note, not a failure.
 		if stranger, ok := s.strangerOnPort(ctx, observed.record); ok {
-			s.warning(fmt.Sprintf("端口 %d 现由其他进程 (pid=%d) 占用;它不是 dshctl 启动的服务", s.boundPort(), stranger))
+			s.warning(i18nLine(MsgStopStrangerOnPort, s.boundPort(), stranger))
 		} else {
 			return StopResult{}, err
 		}
@@ -137,7 +136,7 @@ func (s *Service) shutdown(ctx context.Context, observed observed, pid int) (Sto
 	if err != nil {
 		return StopResult{}, err
 	}
-	s.narrate("已停止")
+	s.narrate(i18nLine(MsgStopStopped))
 	return StopResult{Status: final.status}, nil
 }
 
@@ -156,7 +155,7 @@ func (s *Service) terminate(ctx context.Context, pid int) error {
 		return nil
 	}
 	if hasRecord && record.PID == pid && !domain.Matches(record.StartedAt, facts.StartedAt, fingerprintTolerance) {
-		return fmt.Errorf("pid %d 已被系统复用为其他进程，未发送信号", pid)
+		return fmt.Errorf("%s", i18nLine(MsgStopRecycled, pid))
 	}
 	if err := s.Host.Signal(pid, hostGraceful); err != nil {
 		s.warning(fmt.Sprintf("%v", err))
@@ -172,13 +171,13 @@ func (s *Service) terminate(ctx context.Context, pid int) error {
 		return nil
 	}
 	if hasRecord && record.PID == pid && !domain.Matches(record.StartedAt, facts.StartedAt, fingerprintTolerance) {
-		return fmt.Errorf("pid %d 在等待期间被系统复用为其他进程，未发送强制结束信号", pid)
+		return fmt.Errorf("%s", i18nLine(MsgStopRecycledForce, pid))
 	}
 	if err := s.Host.Signal(pid, hostForce); err != nil {
 		return err
 	}
 	if !s.waitForExit(ctx, pid, s.grace) {
-		return fmt.Errorf("pid %d 在强制结束后仍然存在", pid)
+		return fmt.Errorf("%s", i18nLine(MsgStopSurvivedForce, pid))
 	}
 	return nil
 }
@@ -224,7 +223,7 @@ func (s *Service) clearStaleRecord(ctx context.Context, observed observed) {
 	if observed.hasRecord {
 		record := observed.record
 		if s.Host.Alive(ctx, record.PID) && s.RecordMatches(ctx, record, record.PID) {
-			s.failure(fmt.Sprintf("注意: 运行记录中的服务 (pid=%d) 仍然存活，记录已保留", record.PID))
+			s.failure(i18nLine(MsgStopRecordKept, record.PID))
 			return
 		}
 	} else if !observed.corrupt {
@@ -250,7 +249,7 @@ func (s *Service) Restart(ctx context.Context) (StartResult, error) {
 		}
 		if observed.occupant() {
 			return StartResult{}, exitcode.New(exitcode.Preflight,
-				"端口 %d 被 dshctl 无法确认归属的进程占用 (pid=%d): %s\n提示: 先确认并处理它,再执行重启",
+				i18nLine(MsgRestartOccupant),
 				s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
 		}
 		if _, err := s.stopLocked(ctx); err != nil {

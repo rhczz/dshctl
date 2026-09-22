@@ -59,34 +59,31 @@ func (s *Service) startLocked(ctx context.Context) (StartResult, error) {
 		return StartResult{}, err
 	}
 	if verdict == adoptFailed {
-		return StartResult{}, exitcode.New(exitcode.Preflight,
-			"检测到上次启动遗留的服务 (pid=%d)，但无法恢复运行记录;请手动结束它后重试",
+		return StartResult{}, exitcode.New(exitcode.Preflight, i18nLine(MsgAdoptUnrecorded),
 			observed.status.ListenerPID)
 	}
 	if verdict == adoptDone {
-		s.narrate(fmt.Sprintf("检测到上次启动被中断后仍存活的服务，已恢复管理: %s (pid=%d)", s.Settings.URL(), observed.status.ListenerPID))
+		s.narrate(i18nLine(MsgAdoptRecovered, s.Settings.URL(), observed.status.ListenerPID))
 		return StartResult{Status: observed.status, AlreadyRunning: true}, nil
 	}
 	switch observed.status.State {
 	case domain.StateRunning:
-		s.narrate(fmt.Sprintf("DSH Web 已在运行: %s (pid=%d)", s.Settings.URL(), observed.status.ListenerPID))
+		s.narrate(i18nLine(MsgAlreadyRunning, s.Settings.URL(), observed.status.ListenerPID))
 		s.reconcileRunningCheckout(observed)
 		return StartResult{Status: observed.status, AlreadyRunning: true}, nil
 	case domain.StateStarting:
-		s.narrate(fmt.Sprintf("DSH Web 正在启动中: %s (pid=%d)", s.Settings.URL(), observed.status.ListenerPID))
+		s.narrate(i18nLine(MsgStarting, s.Settings.URL(), observed.status.ListenerPID))
 		return StartResult{Status: observed.status}, nil
 	case domain.StateForeign:
-		return StartResult{}, exitcode.New(exitcode.Preflight,
-			"端口 %d 被其他程序占用 (pid=%d: %s);请先停止它,或用 --port 换一个端口",
+		return StartResult{}, exitcode.New(exitcode.Preflight, i18nLine(MsgPortForeign),
 			s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
 	case domain.StateOrphan:
 		// A survivor was already adopted above, so what is left is a process
 		// whose ownership nothing can establish: telling the operator to end it
 		// by hand is the only safe answer.
-		return StartResult{}, exitcode.New(exitcode.Preflight,
-			"端口 %d 上的进程 (pid=%d) 无法确认是不是 dshctl 启动的服务: %s\n"+
-				"提示: 确认它可以安全停止后手动结束它,再重新启动;dshctl 不会主动结束无法确认归属的进程",
-			s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
+		return StartResult{}, exitcode.New(exitcode.Preflight, "%s\n%s",
+			i18nLine(MsgPortUnclaimed, s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand),
+			i18nLine(MsgPortUnclaimedTip))
 	}
 
 	if observed.hasRecord {
@@ -94,10 +91,9 @@ func (s *Service) startLocked(ctx context.Context) (StartResult, error) {
 			// The record names a live server dshctl started, and that server is
 			// not on this port. Starting a second one would leave two servers
 			// with one record, so this is reported instead of done.
-			return StartResult{}, exitcode.New(exitcode.Preflight,
-				"运行记录中的服务 (pid=%d) 仍然存活，但它没有监听端口 %d\n"+
-					"提示: 先运行 dshctl stop(会按记录结束它),或确认该进程可以安全结束后手动处理",
-				observed.status.RecordedPID, s.boundPort())
+			return StartResult{}, exitcode.New(exitcode.Preflight, "%s\n%s",
+				i18nLine(MsgRecordLiveElsewhere, observed.status.RecordedPID, s.boundPort()),
+				i18nLine(MsgRecordLiveElsewhereTip))
 		}
 		// The record names a pid that is gone or has been recycled: clear it so
 		// it cannot describe the server this call is about to start.
@@ -150,7 +146,7 @@ func (s *Service) adoptSurvivor(ctx context.Context, observed observed) (domain.
 		adopted.URL = record.URL
 	}
 	if err := s.Record.Save(adopted); err != nil {
-		s.warning(fmt.Sprintf("无法收养上次启动遗留的服务 (pid=%d): %v", observed.status.ListenerPID, err))
+		s.warning(i18nLine(MsgAdoptFailed, observed.status.ListenerPID, err))
 		return domain.Record{}, false
 	}
 	return adopted, true
@@ -166,7 +162,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
 	} else if rotated {
-		s.narrate(fmt.Sprintf("日志已轮转: %s", s.LogFile.BackupPath()))
+		s.narrate(i18nLine(MsgBuildLogRotated, s.LogFile.BackupPath()))
 	}
 	if err := s.LogFile.Section(sectionStart); err != nil {
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
@@ -179,15 +175,15 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	if err != nil {
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
 	}
-	s.narrate(fmt.Sprintf("正在后台启动 DSH Web ... (日志: %s)", s.Settings.LogPath))
+	s.narrate(i18nLine(MsgLaunching, s.Settings.LogPath))
 	pid, exited, spawnErr := s.spawn(pnpm, installation, handle)
 	closeErr := handle.Close()
 	if spawnErr != nil {
-		s.note("start 失败: " + spawnErr.Error())
+		s.note(i18nLine(MsgStartFailed) + ": " + spawnErr.Error())
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, spawnErr)
 	}
 	if closeErr != nil {
-		s.warning(fmt.Sprintf("关闭日志句柄时出错: %v", closeErr))
+		s.warning(i18nLine(MsgCloseLogFailed, closeErr))
 	}
 
 	// A record is written as soon as the wrapper exists, before the port answers.
@@ -208,7 +204,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		NodePath:    installation.NodePath,
 		RepoDir:     s.Settings.RepoDir,
 	}); err != nil {
-		s.warning(fmt.Sprintf("无法记录启动的进程 (pid=%d): %v", pid, err))
+		s.warning(i18nLine(MsgRecordWrapperFailed, pid, err))
 	}
 
 	listenerPID, err := s.waitForListening(ctx, pid, exited, s.Settings.StartTimeout)
@@ -231,15 +227,15 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	// what makes the window the readiness check closed stay closed.
 	startedAt := s.processStartTime(ctx, listenerPID, exited)
 	if startedAt == 0 {
-		s.warning(fmt.Sprintf("无法读取 DSH Web (pid=%d) 的进程启动时间，本次运行将只依据端口归属判断;"+
-			"若系统复用了该 pid，dshctl 可能拒绝结束它(检查是否有安全策略限制读取进程信息)", listenerPID))
+		s.warning(i18nLine(MsgFingerprintUnreadable, listenerPID) + ";" +
+			i18nLine(MsgFingerprintUnreadableTip))
 	}
 	if !s.listenerStillOurs(ctx, pid, listenerPID) {
 		// The server died before its fingerprint could be taken. Recording it
 		// now would name whatever process inherited the pid, and every later
 		// ownership check would confirm that stranger.
 		return StartResult{}, s.cleanupFailedStart(ctx, pid,
-			fmt.Errorf("服务进程 (pid=%d) 在记录其启动时间之前退出了", listenerPID))
+			fmt.Errorf("%s", i18nLine(MsgListenerGoneEarly, listenerPID)))
 	}
 	record := domain.Record{
 		PID:         listenerPID,
@@ -253,7 +249,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		RepoDir:     s.Settings.RepoDir,
 	}
 	if err := s.Record.Save(record); err != nil {
-		s.warning(fmt.Sprintf("无法更新运行记录: %v", err))
+		s.warning(i18nLine(MsgRecordUpdateFailed, err))
 	}
 	s.recordRuntime(installation)
 	final, observeErr := s.observe(ctx)
@@ -266,11 +262,11 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		// that ended while it was being recorded is a failed start, not a
 		// success with a strange status.
 		return StartResult{}, s.cleanupFailedStart(ctx, pid,
-			fmt.Errorf("服务进程 (pid=%d) 在启动完成后没有继续运行", status.ListenerPID))
+			fmt.Errorf("%s", i18nLine(MsgListenerGoneAfter, status.ListenerPID)))
 	}
-	s.narrate(fmt.Sprintf("启动成功: %s (pid=%d)", status.URL, status.ListenerPID))
+	s.narrate(i18nLine(MsgStartSucceeded, status.URL, status.ListenerPID))
 	if record.URL != "" {
-		s.narrate(fmt.Sprintf("访问地址: %s", record.URL))
+		s.narrate(i18nLine(MsgStartAnnounced, record.URL))
 	}
 	return StartResult{Status: status, SpawnedPID: pid}, nil
 }
@@ -551,7 +547,7 @@ func (s *Service) endGroup(ctx context.Context, pid int) error {
 		return err
 	}
 	if !s.waitForGroupExit(ctx, pid, s.grace) {
-		return fmt.Errorf("本次启动的进程树 (组长 %d) 在强制结束后仍然存在", pid)
+		return fmt.Errorf("%s", i18nLine(MsgGroupSurvivedForce, pid))
 	}
 	return nil
 }

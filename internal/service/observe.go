@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"strconv"
 	"strings"
@@ -190,8 +189,7 @@ func (s *Service) observe(ctx context.Context) (observed, error) {
 		stale := record
 		status.StaleRecord = &stale
 	}
-	s.Log.Debug(fmt.Sprintf("观测端口 %d: state=%s record=%v survivor=%v",
-		status.Port, status.State, hasRecord, status.Survivor))
+	s.Log.Debug(i18nLine(MsgObserveDebug, status.Port, status.State, hasRecord, status.Survivor))
 	return observed{status: status, record: record, hasRecord: hasRecord, corrupt: corrupt}, nil
 }
 
@@ -201,9 +199,8 @@ func (s *Service) probeRequired(ctx context.Context) (readiness, error) {
 	result, err := s.Host.Listening(ctx, s.boundPort())
 	if err != nil {
 		if errors.Is(err, host.ErrUnsupported) {
-			return readiness{}, exitcode.New(exitcode.Preflight,
-				"缺少可用的端口探测工具(lsof/ss/netstat)，无法判断端口 %d 的状态\n"+
-					"提示: 安装其中任意一个(例如 iproute2 或 net-tools)后重试", s.boundPort())
+			return readiness{}, exitcode.New(exitcode.Preflight, "%s\n%s",
+				i18nLine(MsgProbeToolsMissing, s.boundPort()), i18nLine(MsgProbeToolsRemedy))
 		}
 		return readiness{}, exitcode.Wrap(exitcode.Preflight, err)
 	}
@@ -300,9 +297,9 @@ func describeFacts(facts host.Facts) string {
 		return facts.Command
 	}
 	if facts.Source != "" {
-		return "pid=" + strconv.Itoa(facts.PID) + " (来源: " + facts.Source + ")"
+		return "pid=" + strconv.Itoa(facts.PID) + i18nLine(MsgProcessSource) + facts.Source + ")"
 	}
-	return "未知进程"
+	return i18nLine(MsgProcessUnknown)
 }
 
 // waitForListening waits until the port is served by the process this start
