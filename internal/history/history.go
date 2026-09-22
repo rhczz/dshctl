@@ -37,7 +37,18 @@ const maxFileBytes = 64 << 10
 
 // ErrCorrupt reports a history file that exists but cannot be understood.
 // Callers treat it as "refuse to guess", never as "there is no history".
-var ErrCorrupt = errors.New("更新历史无法解析")
+// ErrCorrupt reports a history that exists but cannot be understood; it is a
+// value with a method so its text is rendered in the reader's language while
+// errors.Is still recognises it.
+type corruptHistory struct{}
+
+func (corruptHistory) Error() string { return i18nLine(MsgCorruptHistory) }
+func (corruptHistory) Is(target error) bool {
+	_, ok := target.(corruptHistory)
+	return ok
+}
+
+var ErrCorrupt error = corruptHistory{}
 
 // Record is one position dshctl deployed a checkout at.
 type Record struct {

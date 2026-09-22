@@ -15,13 +15,18 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/rhczz/dshctl/internal/atomically"
 	"github.com/rhczz/dshctl/internal/config"
+	"github.com/rhczz/dshctl/internal/detach"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/history"
+	"github.com/rhczz/dshctl/internal/host"
 	"github.com/rhczz/dshctl/internal/i18n"
 	"github.com/rhczz/dshctl/internal/lock"
 	"github.com/rhczz/dshctl/internal/logfile"
+	"github.com/rhczz/dshctl/internal/logging"
 	"github.com/rhczz/dshctl/internal/nodejs"
+	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
 	"github.com/rhczz/dshctl/internal/service"
@@ -96,7 +101,10 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv f
 	// The language is a property of the invocation, and the catalog is the merge
 	// of every layer's words: the kernel's, this shell's, and any front-end that
 	// joins later. Both are resolved once, before any command can print.
-	catalog, err := i18n.Merge(service.Messages, Messages, config.Messages, history.Messages, lock.Messages, logfile.Messages, nodejs.Messages, repo.Messages, state.Messages)
+	catalog, err := i18n.Merge(service.Messages, Messages,
+		config.Messages, detach.Messages, history.Messages, host.Messages, lock.Messages,
+		logfile.Messages, logging.Messages, nodejs.Messages, paths.Messages, repo.Messages,
+		state.Messages, run.Messages, atomically.Messages)
 	if err != nil {
 		fmt.Fprintf(stderr, i18nLine(MsgErrorPrefix)+"\n", err)
 		return exitcode.Failure

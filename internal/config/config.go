@@ -753,7 +753,7 @@ func (s Settings) RecordRuntime(repoDir, nodeVersion string) (Wrote, error) {
 	guess := ""
 	if !found {
 		if s.Home == "" {
-			return wrote, errors.New("无法确定用户主目录: 运行环境未提供")
+			return wrote, errors.New(i18nLine(MsgNoHome))
 		}
 		guess = DefaultRepoDir(s.Home)
 		document = provisionedDocument(Default(s.Home), guess)

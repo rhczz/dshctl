@@ -49,7 +49,7 @@ func (h *Host) Listening(ctx context.Context, port int) (PortResult, error) {
 			// A configured tool this build cannot read is reported, not
 			// skipped: quietly ignoring it would turn a typo in the product's
 			// configuration into "the port is unused".
-			failures = append(failures, fmt.Errorf("不认识的探测工具 %q", name))
+			failures = append(failures, fmt.Errorf("%s", i18nLine(MsgUnknownProbeTool, name)))
 			unreadable = true
 			continue
 		}
@@ -93,7 +93,7 @@ func (h *Host) Listening(ctx context.Context, port int) (PortResult, error) {
 		if unreadable {
 			return PortResult{}, fmt.Errorf("%w: %w", ErrUnsupported, joined)
 		}
-		return PortResult{}, fmt.Errorf("无法判断端口 %d 的占用情况: %w", port, joined)
+		return PortResult{}, fmt.Errorf("%s: %w", i18nLine(MsgPortIndeterminate, port), joined)
 	}
 	// Nothing answered and nothing failed. That is either "the first tool that
 	// exists declined" or "no configured tool is installed" — and which tool
@@ -103,7 +103,7 @@ func (h *Host) Listening(ctx context.Context, port int) (PortResult, error) {
 	if h.firstAvailableTool() == "lsof" {
 		return PortResult{}, nil
 	}
-	return PortResult{}, fmt.Errorf("%w: 找不到 %s，无法判断端口 %d 的占用情况", ErrUnsupported, strings.Join(knownNames(h.tools.Port), "、"), port)
+	return PortResult{}, fmt.Errorf("%w: %s", ErrUnsupported, i18nLine(MsgNoProbeTool, strings.Join(knownNames(h.tools.Port), "、"), port))
 }
 
 // listenViaLsof names the owning process on any Unix.
@@ -122,7 +122,7 @@ func (h *Host) listenViaLsof(ctx context.Context, port int) (PortResult, bool, e
 	// reports itself. Treating that as "nothing matched" made an occupied port
 	// look free, which is the one mistake this whole package exists to prevent.
 	if status != 0 && status != 1 {
-		return PortResult{}, false, fmt.Errorf("lsof 退出状态 %d", status)
+		return PortResult{}, false, fmt.Errorf("%s", i18nLine(MsgToolExitStatus, "lsof", status))
 	}
 	pids := parsePIDs(output, 1)
 	if len(pids) == 0 {
@@ -145,7 +145,7 @@ func (h *Host) listenViaSS(ctx context.Context, port int) (PortResult, bool, err
 		return PortResult{}, false, err
 	}
 	if status != 0 {
-		return PortResult{}, false, fmt.Errorf("ss 退出状态 %d", status)
+		return PortResult{}, false, fmt.Errorf("%s", i18nLine(MsgToolExitStatus, "ss", status))
 	}
 	for _, line := range strings.Split(output, "\n") {
 		if strings.TrimSpace(line) == "" {
@@ -175,7 +175,7 @@ func (h *Host) listenViaNetstat(ctx context.Context, port int) (PortResult, bool
 		return PortResult{}, false, err
 	}
 	if status != 0 {
-		return PortResult{}, false, fmt.Errorf("netstat 退出状态 %d", status)
+		return PortResult{}, false, fmt.Errorf("%s", i18nLine(MsgToolExitStatus, "netstat", status))
 	}
 	if !parseNetstatListener(output, port) {
 		return PortResult{}, true, nil
@@ -423,18 +423,18 @@ func (h *Host) Alive(_ context.Context, pid int) bool {
 // Signal delivers a termination request.
 func (h *Host) Signal(pid int, request Request) error {
 	if pid <= 0 {
-		return fmt.Errorf("拒绝向 pid %d 发送信号", pid)
+		return fmt.Errorf("%s", i18nLine(MsgRefuseSignal, pid))
 	}
 	process, err := os.FindProcess(pid)
 	if err != nil {
-		return fmt.Errorf("找不到 pid %d: %w", pid, err)
+		return fmt.Errorf("%s: %w", i18nLine(MsgPIDNotFound, pid), err)
 	}
 	signal := syscall.SIGTERM
 	if request == Force {
 		signal = syscall.SIGKILL
 	}
 	if err := process.Signal(signal); err != nil {
-		return fmt.Errorf("无法向 pid %d 发送 %v: %w", pid, signal, err)
+		return fmt.Errorf("%s: %w", i18nLine(MsgSignalFailed, pid, signal), err)
 	}
 	return nil
 }
@@ -467,7 +467,7 @@ func (h *Host) firstAvailableTool() string {
 // operator is told what was tried rather than what the build could have tried.
 func knownNames(names []string) []string {
 	if len(names) == 0 {
-		return []string{"任何端口探测工具"}
+		return []string{i18nLine(MsgAnyProbeTool)}
 	}
 	return names
 }

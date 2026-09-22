@@ -17,14 +17,24 @@ package host
 
 import (
 	"context"
-	"errors"
 	"os/exec"
 	"time"
 )
 
 // ErrUnsupported reports that a probe cannot be answered on this platform with
 // the tools available. Callers must treat it as "unknown", never as "free".
-var ErrUnsupported = errors.New("当前平台无法完成该探测")
+//
+// It is a value with a method so its text is rendered in the reader's language
+// while errors.Is still recognises it.
+type unsupportedProbe struct{}
+
+func (unsupportedProbe) Error() string { return i18nLine(MsgUnsupported) }
+func (unsupportedProbe) Is(target error) bool {
+	_, ok := target.(unsupportedProbe)
+	return ok
+}
+
+var ErrUnsupported error = unsupportedProbe{}
 
 // Request names the strength of a termination request.
 //

@@ -1,19 +1,14 @@
-package config
+package logging
 
 import (
 	"os"
 	"testing"
 
 	"github.com/rhczz/dshctl/internal/i18n"
-	"github.com/rhczz/dshctl/internal/paths"
 )
 
 // TestMain installs the catalog in the language the assertions are written in.
 func TestMain(m *testing.M) {
-	catalog, err := i18n.Merge(Messages, paths.Messages)
-	if err != nil {
-		panic(err)
-	}
-	i18n.Use(i18n.New(i18n.ZH, catalog))
+	i18n.Use(i18n.New(i18n.ZH, Messages))
 	os.Exit(m.Run())
 }

@@ -8,6 +8,7 @@ import "github.com/rhczz/dshctl/internal/i18n"
 
 // Message ids. The state.* namespace belongs to this file.
 const (
+	MsgCorruptDocument = "state.corrupt"
 	MsgReadFailed      = "state.read.failed"
 	MsgNotRegularFile  = "state.read.not-regular"
 	MsgTooLarge        = "state.read.too-large"
@@ -22,6 +23,10 @@ const (
 
 // Messages is this layer's catalog.
 var Messages = i18n.Catalog{
+	MsgCorruptDocument: {
+		EN: "the document cannot be parsed",
+		ZH: "文档无法解析",
+	},
 	MsgReadFailed: {
 		EN: "the document %s could not be read",
 		ZH: "无法读取文档 %s",

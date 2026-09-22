@@ -60,7 +60,20 @@ const (
 
 // ErrNotAbsolute reports a path that would be resolved against the current
 // directory of whichever process happens to run dshctl next.
-var ErrNotAbsolute = errors.New("路径必须是绝对路径或 ~ 开头的路径")
+// ErrNotAbsolute reports a relative path, which would move dshctl's state and
+// its operation lock wherever the current directory happens to point.
+//
+// It is a value with a method so its text is rendered in the reader's language
+// while errors.Is still recognises it.
+type notAbsolute struct{}
+
+func (notAbsolute) Error() string { return i18nLine(MsgNotAbsolute) }
+func (notAbsolute) Is(target error) bool {
+	_, ok := target.(notAbsolute)
+	return ok
+}
+
+var ErrNotAbsolute error = notAbsolute{}
 
 // Getenv is the environment lookup every resolver takes, injected for tests.
 type Getenv func(string) string
@@ -69,13 +82,13 @@ type Getenv func(string) string
 func Home() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("无法确定用户主目录: %w", err)
+		return "", fmt.Errorf("%s: %w", i18nLine(MsgHomeFailed), err)
 	}
 	if strings.TrimSpace(home) == "" {
-		return "", errors.New("无法确定用户主目录: 运行环境未提供")
+		return "", errors.New(i18nLine(MsgNoHome))
 	}
 	if !filepath.IsAbs(home) {
-		return "", fmt.Errorf("主目录不是绝对路径: %q", home)
+		return "", fmt.Errorf("%s", i18nLine(MsgHomeNotAbsolute, home))
 	}
 	return filepath.Clean(home), nil
 }
@@ -137,7 +150,7 @@ func expandHome(value string) (string, error) {
 	if value == "~" {
 		home, err := Home()
 		if err != nil {
-			return "", fmt.Errorf("无法展开 %q: %w", value, err)
+			return "", fmt.Errorf("%s: %w", i18nLine(MsgExpandFailed, value), err)
 		}
 		return home, nil
 	}
@@ -146,7 +159,7 @@ func expandHome(value string) (string, error) {
 	}
 	home, err := Home()
 	if err != nil {
-		return "", fmt.Errorf("无法展开 %q: %w", value, err)
+		return "", fmt.Errorf("%s: %w", i18nLine(MsgExpandFailed, value), err)
 	}
 	rest := strings.TrimLeft(value[1:], `/\`)
 	if rest == "" {
@@ -178,7 +191,7 @@ func IsRegularFile(path string) bool {
 // EnsureDir creates dir and every missing parent with owner-only permissions.
 func EnsureDir(dir string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("无法创建目录 %s: %w", dir, err)
+		return fmt.Errorf("%s: %w", i18nLine(MsgMkdirFailed, dir), err)
 	}
 	return nil
 }

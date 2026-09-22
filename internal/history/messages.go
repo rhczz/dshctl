@@ -8,6 +8,7 @@ import "github.com/rhczz/dshctl/internal/i18n"
 
 // Message ids. The history.* namespace belongs to this file.
 const (
+	MsgCorruptHistory = "history.corrupt"
 	MsgReadFailed     = "history.read.failed"
 	MsgNotRegularFile = "history.read.not-regular"
 	MsgTooLarge       = "history.read.too-large"
@@ -26,6 +27,10 @@ const (
 
 // Messages is this layer's catalog.
 var Messages = i18n.Catalog{
+	MsgCorruptHistory: {
+		EN: "the deployment history cannot be parsed",
+		ZH: "更新历史无法解析",
+	},
 	MsgReadFailed: {
 		EN: "the deployment history %s could not be read",
 		ZH: "无法读取更新历史 %s",

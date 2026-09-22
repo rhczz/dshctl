@@ -29,7 +29,21 @@ import (
 
 // ErrCorrupt reports a document that exists but cannot be understood. Callers
 // treat it as "there is nothing usable here", never as "there is nothing here".
-var ErrCorrupt = errors.New("文档无法解析")
+// ErrCorrupt reports a document that exists but cannot be understood. Callers
+// treat it as "there is nothing usable here", never as "there is nothing here".
+//
+// It is a value with a method, not an errors.New string: a sentinel is created
+// before any language is chosen, and the text has to be rendered when the error
+// is read. Identity still works, because errors.Is compares against the type.
+type corruptDocument struct{}
+
+func (corruptDocument) Error() string { return i18nLine(MsgCorruptDocument) }
+func (corruptDocument) Is(target error) bool {
+	_, ok := target.(corruptDocument)
+	return ok
+}
+
+var ErrCorrupt error = corruptDocument{}
 
 // documentPermission is the mode a stored document gets.
 //
