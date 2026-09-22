@@ -9,37 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/host"
 	"github.com/rhczz/dshctl/internal/lock"
 	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/state"
-)
-
-// Service states reported to callers.
-const (
-	// StateRunning means the server dshctl started owns the port.
-	StateRunning = "running"
-	// StateStarting means dshctl's process lives but the port is not answering.
-	StateStarting = "starting"
-	// StateStopped means nothing is listening and no record survives.
-	StateStopped = "stopped"
-	// StateForeign means the port is owned by a process that is positively not
-	// the server this dshctl manages: another program, or a DeepSeek Harness
-	// server of a different checkout.
-	StateForeign = "port-foreign"
-	// StateOrphan means something owns the port that dshctl cannot classify,
-	// because the runtime record is missing or contradicts the live process.
-	// An orphan is reported and never signalled directly; a mutating command
-	// adopts it first when group evidence proves it is this dshctl's own
-	// server left behind by an interrupted start.
-	StateOrphan = "port-unmanaged"
-	// StateUnobservable means a discovered instance could not be looked at at
-	// all, because the port probe failed. It is deliberately not "stopped": the
-	// command does not know, and claiming it does is how a running server gets
-	// forgotten. Only instances other than the one a command names can end up
-	// here; a failed probe of the configured port is reported as an error.
-	StateUnobservable = "unobservable"
 )
 
 // Timing constants of the observation loop. They are behaviour, not policy, so
@@ -61,90 +36,6 @@ const (
 	fingerprintTimeout = 10 * time.Second
 )
 
-// Status is the observed state of the managed service.
-type Status struct {
-	// State is one of the State* constants.
-	State string `json:"state"`
-	// URL is the configured loopback address, without a token.
-	URL string `json:"url"`
-	// Port is the configured loopback port.
-	Port int `json:"port"`
-	// Ready reports whether the port accepted a connection.
-	Ready bool `json:"ready"`
-	// ListenerPID is the process holding the port, or 0.
-	ListenerPID int `json:"listenerPid,omitempty"`
-	// ListenerCommand identifies the listener when the platform can describe it.
-	ListenerCommand string `json:"listenerCommand,omitempty"`
-	// RecordedPID is the pid in the runtime record, or 0.
-	RecordedPID int `json:"recordedPid,omitempty"`
-	// RecordedPhase is the phase in the runtime record, or empty.
-	RecordedPhase string `json:"recordedPhase,omitempty"`
-	// RecordedNodeVersion is the release the recorded server was started with,
-	// or empty when the record predates the field.
-	RecordedNodeVersion string `json:"recordedNodeVersion,omitempty"`
-	// RecordedNodePath is the binary that server was started with.
-	RecordedNodePath string `json:"recordedNodePath,omitempty"`
-	// RecordedRepoDir is the checkout the recorded server was started from, or
-	// empty when the record predates the field. It is a fact about the running
-	// instance, which the configured checkout is not: `--repo` applies to one
-	// invocation, so the two can differ while the server keeps serving.
-	RecordedRepoDir string `json:"recordedRepoDir,omitempty"`
-	// RecordLive reports that the record names a process that is alive and
-	// whose start time still matches: a server this dshctl started and can
-	// still end, whether or not it holds the port.
-	RecordLive bool `json:"recordLive"`
-	// RecordStale reports that the record exists but names a pid that is gone or
-	// has been recycled, so it describes nothing. It is never set for a record
-	// whose process is still alive: that record is the only handle on a running
-	// server and is kept until the server is ended.
-	RecordStale bool `json:"recordStale"`
-	// StaleRecord is the record itself when RecordStale is set, so a caller can
-	// say which pid and phase the stale record named.
-	StaleRecord *state.Record `json:"-"`
-	// Survivor reports that a server of ours holds the port although the record
-	// does not name it: the shape an interrupted start leaves behind, when
-	// dshctl was killed between writing the wrapper record and the port
-	// answering. A mutating command adopts it and manages it again.
-	Survivor bool `json:"survivorService,omitempty"`
-	// URLFromRecord is the token-carrying address the server announced.
-	URLFromRecord string `json:"urlWithToken,omitempty"`
-	// RepoDir is the managed checkout.
-	RepoDir string `json:"repoDir"`
-	// RepoReady reports whether the checkout is a DeepSeek Harness checkout.
-	RepoReady bool `json:"repoReady"`
-	// BuildReady reports whether the checkout is installed and built.
-	BuildReady bool `json:"buildReady"`
-	// LogPath is where server, build and update output accumulates.
-	LogPath string `json:"logPath"`
-	// LockHeld reports whether another dshctl operation holds the lock.
-	LockHeld bool `json:"lockHeld"`
-	// LockHolder is the pid holding the lock, or 0.
-	LockHolder int `json:"lockHolder,omitempty"`
-	// LockUnreadable reports that the lock exists but could not be inspected.
-	LockUnreadable bool `json:"lockUnreadable,omitempty"`
-	// ProbeError explains why a discovered instance could not be looked at. It
-	// is set only with StateUnobservable, and it is what keeps that state from
-	// being read as a claim about the server.
-	ProbeError string `json:"probeError,omitempty"`
-}
-
-// Owning reports whether the state describes a server this dshctl owns.
-func (s Status) Owning() bool {
-	return s.State == StateRunning || s.State == StateStarting
-}
-
-// ServeExitCode maps the state onto the process exit code, so `dshctl status`
-// is usable in shell conditions.
-//
-// Running and starting both report success: the service exists and is being
-// managed. Everything else reports "not running".
-func (s Status) ServeExitCode() int {
-	if s.Owning() {
-		return exitcode.OK
-	}
-	return exitcode.NotRunning
-}
-
 // readiness is one observation of the port.
 //
 // "Something listens" and "here is whose it is" are separate facts, and they
@@ -163,8 +54,8 @@ type readiness struct {
 
 // observed is the full picture a lifecycle decision is made from.
 type observed struct {
-	status    Status
-	record    state.Record
+	status    domain.Status
+	record    domain.Record
 	hasRecord bool
 	// corrupt reports that a record file exists but cannot be understood. It
 	// describes nothing, yet the bytes are there, and a mutating command has to
@@ -183,13 +74,13 @@ type observed struct {
 //
 // The port is the authority for "is something listening"; the runtime record is
 // the authority for "is it mine". When the two disagree the result is
-// StateOrphan or StateForeign, never a silent "stopped", and a record that
+// StateOrphan or domain.StateForeign, never a silent "stopped", and a record that
 // describes nothing is reported as stale for the operator to see. The next
 // mutating command retires it.
-func (s *Service) Status(ctx context.Context, port int) (Status, error) {
+func (s *Service) Status(ctx context.Context, port int) (domain.Status, error) {
 	result, err := s.atPort(port).observe(ctx)
 	if err != nil {
-		return Status{}, err
+		return domain.Status{}, err
 	}
 	return result.status, nil
 }
@@ -248,17 +139,17 @@ func (s *Service) observe(ctx context.Context) (observed, error) {
 		// Nothing holds the port. The record keeps its meaning when its process
 		// is alive: it is the handle on a server dshctl started, and `stop`
 		// ends it rather than forgetting it.
-		status.State = StateStopped
+		status.State = domain.StateStopped
 	case hasRecord && observation.pid == record.PID && isRecordLive():
 		// The recorded process owns the port.
-		status.State = StateRunning
+		status.State = domain.StateRunning
 		if !observation.ready {
-			status.State = StateStarting
+			status.State = domain.StateStarting
 		}
 	case hasRecord && observation.pid == record.PID:
 		// The pid is the one we recorded but the start time does not match, so
 		// the operating system recycled it: this is a stranger.
-		status.State = StateForeign
+		status.State = domain.StateForeign
 	case hasRecord && observation.pid > 0 && record.SpawnedPID > 0 &&
 		s.descendsFromSpawned(record.SpawnedPID, observation.pid):
 		// The listener is not the recorded pid, but it descends from the
@@ -267,24 +158,24 @@ func (s *Service) observe(ctx context.Context) (observed, error) {
 		// answering. It is this dshctl's own server, so it is never reported
 		// as foreign, and the record is kept so a mutating command can adopt
 		// the survivor and manage it again.
-		status.State = StateOrphan
+		status.State = domain.StateOrphan
 		status.Survivor = true
 	case hasRecord && !s.Host.Alive(ctx, record.PID):
 		// Our process is gone and something else took the port.
-		status.State = StateForeign
+		status.State = domain.StateForeign
 	case isForeignServer(observation.facts, s.Settings.RepoDir):
 		// Positively not the server this dshctl manages.
-		status.State = StateForeign
+		status.State = domain.StateForeign
 	case observation.pid == 0:
 		// Something holds the port and the platform will not say what. That is
 		// as unmanageable as a stranger, and it is certainly not "stopped".
-		status.State = StateOrphan
+		status.State = domain.StateOrphan
 	case hasRecord:
 		// Our process is alive but something else holds the port.
-		status.State = StateOrphan
+		status.State = domain.StateOrphan
 	default:
 		// Something listens and nothing here says it is ours.
-		status.State = StateOrphan
+		status.State = domain.StateOrphan
 	}
 
 	// What the record is worth is one fact, decided once and by the same
@@ -299,6 +190,8 @@ func (s *Service) observe(ctx context.Context) (observed, error) {
 		stale := record
 		status.StaleRecord = &stale
 	}
+	s.Log.Debug(fmt.Sprintf("观测端口 %d: state=%s record=%v survivor=%v",
+		status.Port, status.State, hasRecord, status.Survivor))
 	return observed{status: status, record: record, hasRecord: hasRecord, corrupt: corrupt}, nil
 }
 
@@ -326,12 +219,12 @@ func (s *Service) probeRequired(ctx context.Context) (readiness, error) {
 }
 
 // RecordMatches reports whether the record still describes the live pid.
-func (s *Service) RecordMatches(ctx context.Context, record state.Record, pid int) bool {
+func (s *Service) RecordMatches(ctx context.Context, record domain.Record, pid int) bool {
 	facts := s.Host.Inspect(ctx, pid)
 	if !facts.Alive {
 		return false
 	}
-	return state.Match(record, facts.StartedAt, fingerprintTolerance)
+	return domain.Matches(record.StartedAt, facts.StartedAt, fingerprintTolerance)
 }
 
 // dials reports whether the loopback port accepts a connection, which is the
@@ -356,8 +249,8 @@ func dialPort(ctx context.Context, port int) bool {
 }
 
 // baseStatus fills the fields that do not need a probe.
-func (s *Service) baseStatus() Status {
-	status := Status{
+func (s *Service) baseStatus() domain.Status {
+	status := domain.Status{
 		URL:        s.Settings.URL(),
 		Port:       s.boundPort(),
 		RepoDir:    s.Settings.RepoDir,
@@ -603,36 +496,4 @@ func provision(s *Service) error {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 	return nil
-}
-
-// statusSummary explains an unactionable state in one line.
-func statusSummary(status Status) string { return status.Summary() }
-
-// Summary renders one instance's state as the short phrase every report uses, so
-// `status`, `stop` and `url` describe the same observation in the same words.
-//
-// It is exported because the one-line explanations a command prints — "nothing
-// is running", why a port was skipped — come from here rather than from a second
-// spelling of the same states.
-func (s Status) Summary() string {
-	switch s.State {
-	case StateRunning:
-		return "运行中"
-	case StateStarting:
-		return "启动中"
-	case StateForeign:
-		return fmt.Sprintf("端口 %d 被其他程序占用 (pid=%d)", s.Port, s.ListenerPID)
-	case StateOrphan:
-		if s.Survivor {
-			return fmt.Sprintf("端口 %d 上是上次启动被中断后仍存活的服务 (pid=%d)", s.Port, s.ListenerPID)
-		}
-		return fmt.Sprintf("端口 %d 被一个 dshctl 无法确认归属的进程占用 (pid=%d), 运行记录缺失或与之矛盾", s.Port, s.ListenerPID)
-	case StateUnobservable:
-		return fmt.Sprintf("端口 %d 无法探测: %s", s.Port, s.ProbeError)
-	default:
-		if s.RecordLive {
-			return fmt.Sprintf("未监听端口 %d(记录中的 pid=%d 仍然存活)", s.Port, s.RecordedPID)
-		}
-		return "未运行"
-	}
 }

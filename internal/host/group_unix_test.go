@@ -29,7 +29,7 @@ func TestDescendsFromUsesTheProcessGroup(t *testing.T) {
 	}()
 
 	child := command.Process.Pid
-	host := New()
+	host := New(testTools)
 	// The child leads its own group, which is the shape dshctl creates for the
 	// wrapper, so it descends from itself.
 	if !host.DescendsFrom(child, child) {
@@ -85,7 +85,7 @@ func TestSignalGroupEndsARealProcessGroup(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			command := startBlockingGroupChild(t, "TestSignalGroupEndsARealProcessGroup")
 			pid := command.Process.Pid
-			host := New()
+			host := New(testTools)
 			// The group id the call will address is only meaningful if the child
 			// really leads that group.
 			if !host.DescendsFrom(pid, pid) {
@@ -119,7 +119,7 @@ func TestKillGroupEndsARealProcessGroup(t *testing.T) {
 
 	command := startBlockingGroupChild(t, "TestKillGroupEndsARealProcessGroup")
 	pid := command.Process.Pid
-	host := New()
+	host := New(testTools)
 
 	if err := host.KillGroup(pid); err != nil {
 		t.Fatalf("KillGroup(%d): %v", pid, err)
@@ -148,7 +148,7 @@ const impossiblePID = 1 << 23
 // The kernel says ESRCH and the call deliberately treats that as success; anything
 // else — a permission problem, an interrupted syscall — must still surface.
 func TestGroupCallsOnAGroupThatNeverExisted(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	cases := []struct {
 		name string
 		call func() error
@@ -178,7 +178,7 @@ func TestGroupCallsOnAGroupThatNeverExisted(t *testing.T) {
 // nil for these values instead, which is why the difference is pinned per platform
 // rather than assumed.
 func TestGroupCallsRejectNonPositivePIDs(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	for _, pid := range []int{0, -1} {
 		err := host.KillGroup(pid)
 		if err == nil {
@@ -207,7 +207,7 @@ func TestGroupCallsRejectNonPositivePIDs(t *testing.T) {
 // so a false positive means signalling something dshctl does not own, and a
 // nonsense pid must answer "no" rather than falling back to a default.
 func TestDescendsFromRejectsTargetsThatDoNotExist(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	cases := []struct {
 		name     string
 		ancestor int

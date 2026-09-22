@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 // recordJSON is a complete record that Load accepts, used where a test needs a
@@ -27,7 +26,7 @@ func TestLoadRejectsASymlinkAtTheRecordPath(t *testing.T) {
 	if err := os.WriteFile(target, []byte(recordJSON), 0o600); err != nil {
 		t.Fatalf("seed target: %v", err)
 	}
-	box := Store{Path: filepath.Join(root, "dsh-web.state.json")}
+	box := testStore(filepath.Join(root, "dsh-web.state.json"))
 	if err := os.Symlink(target, box.Path); err != nil {
 		t.Skipf("symlinks are unavailable: %v", err)
 	}
@@ -58,7 +57,7 @@ func TestRemoveUnlinksASymlinkInsteadOfItsTarget(t *testing.T) {
 	if err := os.WriteFile(target, []byte(recordJSON), 0o600); err != nil {
 		t.Fatalf("seed target: %v", err)
 	}
-	box := Store{Path: filepath.Join(root, "dsh-web.state.json")}
+	box := testStore(filepath.Join(root, "dsh-web.state.json"))
 	if err := os.Symlink(target, box.Path); err != nil {
 		t.Skipf("symlinks are unavailable: %v", err)
 	}
@@ -123,9 +122,9 @@ func TestSaveReportsAFileInPlaceOfItsDirectory(t *testing.T) {
 	if err := os.WriteFile(parent, []byte("not a directory"), 0o600); err != nil {
 		t.Fatalf("seed file: %v", err)
 	}
-	box := Store{Path: filepath.Join(parent, "dsh-web.state.json")}
+	box := testStore(filepath.Join(parent, "dsh-web.state.json"))
 
-	err := box.Save(Record{PID: 4242, Port: 3080, Phase: PhaseRunning})
+	err := box.Save(testDoc{PID: 4242, Port: 3080, Phase: testPhaseRunning})
 	if err == nil {
 		t.Fatal("Save must fail when its directory is a file")
 	}
@@ -153,7 +152,7 @@ func TestRemoveReportsARecordItCannotDelete(t *testing.T) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	box := Store{Path: filepath.Join(dir, "dsh-web.state.json")}
+	box := testStore(filepath.Join(dir, "dsh-web.state.json"))
 	if err := os.WriteFile(box.Path, []byte(recordJSON), 0o600); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -170,121 +169,36 @@ func TestRemoveReportsARecordItCannotDelete(t *testing.T) {
 	}
 }
 
-// TestMatchWithASubSecondTolerance pins that a tolerance below one second is
-// truncated to whole seconds rather than rounded up.
-//
-// The tolerance exists to absorb the jitter between the recorded and the
-// observed start time, and it is compared in seconds because that is the
-// resolution of both values. Rounding 500ms up to a full second would let a
-// recycled pid look like the recorded server, which is the one thing the
-// fingerprint is there to prevent.
-func TestMatchWithASubSecondTolerance(t *testing.T) {
-	const startedAt = int64(1_700_000_000)
-	cases := []struct {
-		name      string
-		tolerance time.Duration
-		delta     int64
-		want      bool
-	}{
-		{"zero tolerance, exact", 0, 0, true},
-		{"zero tolerance, one second off", 0, 1, false},
-		{"zero tolerance, one second off backwards", 0, -1, false},
-		{"half a second, exact", 500 * time.Millisecond, 0, true},
-		{"just under a second, one second off", 999 * time.Millisecond, 1, false},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			record := Record{PID: 42, StartedAt: startedAt}
-			if got := Match(record, startedAt+testCase.delta, testCase.tolerance); got != testCase.want {
-				t.Fatalf("Match(tolerance=%s, delta=%ds) = %v, want %v",
-					testCase.tolerance, testCase.delta, got, testCase.want)
-			}
-		})
-	}
-}
-
-// TestMatchWithANegativeToleranceStillMatchesAnExactFingerprint pins the one
-// case a negative tolerance must not change: the same pid with the same start
-// time is the recorded process, whatever the caller passed as a tolerance.
-//
-// Match documents that a record matches "when the pid is the same and the start
-// times agree", and that only a *known mismatch* never matches. A negative
-// tolerance is nonsense as a budget, but turning it into "nothing matches"
-// makes dshctl treat its own running server as a foreign process — status
-// reports it as recycled and stop refuses to end it.
-func TestMatchWithANegativeToleranceStillMatchesAnExactFingerprint(t *testing.T) {
-	record := Record{PID: 42, StartedAt: 1_700_000_000}
-	for _, tolerance := range []time.Duration{-time.Second, -time.Minute} {
-		if !Match(record, record.StartedAt, tolerance) {
-			t.Fatalf("Match with tolerance %s rejected an exact fingerprint", tolerance)
-		}
-	}
-}
-
-// TestDescribeAnEmptyRecord pins the diagnostic line for a record that was
-// never filled in.
-//
-// Describe is what the operator reads when something is already wrong, so it
-// must render rather than panic, and it must not invent a URL: a link printed
-// for a record without one would be clicked against a server that is not there.
-// The start time of an empty record is the Unix epoch, which is visibly not a
-// real start time.
-func TestDescribeAnEmptyRecord(t *testing.T) {
-	// The rendering of the epoch depends on the process time zone, so it is
-	// pinned here instead of depending on the machine's.
-	previous := time.Local
-	time.Local = time.UTC
-	t.Cleanup(func() { time.Local = previous })
-
-	text := Record{PID: 7}.Describe()
-	for _, want := range []string{"pid=7", "started=1970-01-01T00:00:00Z", "port=0", "phase="} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("Describe = %q, missing %q", text, want)
-		}
-	}
-	if strings.Contains(text, "url=") {
-		t.Fatalf("Describe = %q, want no url for a record without one", text)
-	}
-}
-
-// TestLoadAcceptsPartialRecords pins which fields the loader insists on.
-//
-// Only the pid is validated, because it is the one field that can name a
-// process: a record without it is unusable by definition. Every other field is
-// accepted as it was stored, and these cases are deliberately the ones a caller
-// must still handle defensively — port 0 is not a port any server bound, and a
-// missing start time disables the PID-reuse check entirely, because Match
-// treats an unknown time as a match.
 func TestLoadAcceptsPartialRecords(t *testing.T) {
 	cases := []struct {
 		name    string
 		content string
-		want    Record
+		want    testDoc
 	}{
 		{
 			"port zero",
 			`{"pid": 7, "startedAt": 1700000000, "port": 0, "phase": "running"}`,
-			Record{PID: 7, StartedAt: 1_700_000_000, Phase: PhaseRunning},
+			testDoc{PID: 7, StartedAt: 1_700_000_000, Phase: testPhaseRunning},
 		},
 		{
 			"negative port",
 			`{"pid": 7, "startedAt": 1700000000, "port": -1, "phase": "running"}`,
-			Record{PID: 7, StartedAt: 1_700_000_000, Port: -1, Phase: PhaseRunning},
+			testDoc{PID: 7, StartedAt: 1_700_000_000, Port: -1, Phase: testPhaseRunning},
 		},
 		{
 			"missing phase",
 			`{"pid": 7, "startedAt": 1700000000, "port": 3080}`,
-			Record{PID: 7, StartedAt: 1_700_000_000, Port: 3080},
+			testDoc{PID: 7, StartedAt: 1_700_000_000, Port: 3080},
 		},
 		{
 			"missing start time",
 			`{"pid": 7, "port": 3080, "phase": "running"}`,
-			Record{PID: 7, Port: 3080, Phase: PhaseRunning},
+			testDoc{PID: 7, Port: 3080, Phase: testPhaseRunning},
 		},
 		{
 			"pid only",
 			`{"pid": 7}`,
-			Record{PID: 7},
+			testDoc{PID: 7},
 		},
 	}
 	for _, testCase := range cases {

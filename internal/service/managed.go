@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/rhczz/dshctl/internal/state"
+	"github.com/rhczz/dshctl/internal/domain"
 )
 
 // This file holds the single answers to the two questions every lifecycle
@@ -50,7 +50,7 @@ func (s servingPorts) pids() []int {
 //     carries is served by a process descending from that wrapper — the
 //     survivor of a start that was interrupted before it could record the
 //     listener.
-func (s *Service) recordServes(ctx context.Context, record state.Record) bool {
+func (s *Service) recordServes(ctx context.Context, record domain.Record) bool {
 	if record.PID > 0 && s.RecordMatches(ctx, record, record.PID) {
 		return true
 	}
@@ -61,6 +61,29 @@ func (s *Service) recordServes(ctx context.Context, record state.Record) bool {
 		}
 	}
 	return false
+}
+
+// recordServesOrFails is recordServes with the failure kept.
+//
+// The guard that protects another port's artifacts needs the difference between
+// "that record describes nothing" and "that record could not be looked at": the
+// first is safe to build through, the second is not. The plain predicate answers
+// the reporting question, where "cannot look" may be read as "not serving"; this
+// one answers the refusal question, where it may not.
+func (s *Service) recordServesOrFails(ctx context.Context, record domain.Record) (bool, error) {
+	if record.PID > 0 && s.RecordMatches(ctx, record, record.PID) {
+		return true, nil
+	}
+	if record.SpawnedPID > 0 && record.Port > 0 {
+		result, err := s.Host.Listening(ctx, record.Port)
+		if err != nil {
+			return false, err
+		}
+		if result.Listening && result.PID > 0 {
+			return s.descendsFromSpawned(record.SpawnedPID, result.PID), nil
+		}
+	}
+	return false, nil
 }
 
 // runningPID reports the pid of the server this port's observation describes,
@@ -119,7 +142,7 @@ func (s *Service) stopTarget(ctx context.Context, observed observed) (pid int, o
 // deliberately treats the pair as matching — the right answer for reporting,
 // and the wrong one for signalling, because it would authorize a signal on no
 // evidence at all. On such a host only the port can identify the process.
-func (s *Service) recordIdentityVerified(ctx context.Context, record state.Record) bool {
+func (s *Service) recordIdentityVerified(ctx context.Context, record domain.Record) bool {
 	if record.PID <= 0 || record.StartedAt <= 0 {
 		return false
 	}
@@ -127,7 +150,7 @@ func (s *Service) recordIdentityVerified(ctx context.Context, record state.Recor
 	if !facts.Alive || facts.StartedAt <= 0 {
 		return false
 	}
-	return state.Match(record, facts.StartedAt, fingerprintTolerance)
+	return domain.Matches(record.StartedAt, facts.StartedAt, fingerprintTolerance)
 }
 
 // serversUsingCheckout lists every server of ours that is running from this
@@ -152,7 +175,7 @@ func (s *Service) serversUsingCheckout(ctx context.Context, observed observed) (
 // It is asked after our own server has been ended, to tell "the server did not
 // release the port" — a failed stop — from "the server is gone and somebody
 // else took the port", which is a stop that worked.
-func (s *Service) strangerOnPort(ctx context.Context, record state.Record) (int, bool) {
+func (s *Service) strangerOnPort(ctx context.Context, record domain.Record) (int, bool) {
 	result, err := s.Host.Listening(ctx, s.Settings.Port)
 	if err != nil || !result.Listening || result.PID <= 0 {
 		return 0, false

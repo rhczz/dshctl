@@ -22,7 +22,7 @@ import (
 func TestInspectReadsThePSFallback(t *testing.T) {
 	dir := t.TempDir()
 	ps := stubTool(t, dir, "ps", "01:02:03 node --import tsx/esm apps/cli/src/bin.ts web --port 3080\n")
-	host := &Host{lookPath: func(name string) (string, error) {
+	host := &Host{tools: testTools, lookPath: func(name string) (string, error) {
 		if name == "ps" {
 			return ps, nil
 		}
@@ -56,7 +56,7 @@ func TestInspectReadsThePSFallback(t *testing.T) {
 func TestInspectKeepsAProcessAliveWhenPSDescribesNothing(t *testing.T) {
 	dir := t.TempDir()
 	ps := stubTool(t, dir, "ps", "")
-	host := &Host{lookPath: func(string) (string, error) { return ps, nil }}
+	host := &Host{tools: testTools, lookPath: func(string) (string, error) { return ps, nil }}
 
 	facts := host.Inspect(context.Background(), os.Getpid())
 	if !facts.Alive {
@@ -71,7 +71,7 @@ func TestInspectKeepsAProcessAliveWhenPSDescribesNothing(t *testing.T) {
 // reported as gone because the process probe could not find ps.
 func TestAliveDoesNotDependOnPATH(t *testing.T) {
 	t.Setenv("PATH", "")
-	host := New()
+	host := New(testTools)
 	if !host.Alive(context.Background(), os.Getpid()) {
 		t.Fatal("a live process must be reported as alive without any tool on PATH")
 	}
@@ -88,7 +88,7 @@ func TestAliveDoesNotDependOnPATH(t *testing.T) {
 // result is still a live process with whatever facts are available, never a
 // confident "gone".
 func TestInspectFallsBackWhenPSIsDenied(t *testing.T) {
-	host := &Host{lookPath: func(string) (string, error) {
+	host := &Host{tools: testTools, lookPath: func(string) (string, error) {
 		return "", fmt.Errorf("tool unavailable")
 	}}
 	facts := host.Inspect(context.Background(), os.Getpid())

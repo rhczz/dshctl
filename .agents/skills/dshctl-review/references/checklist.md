@@ -38,3 +38,11 @@
 ```
 
 没有阻塞项时直接写"没有阻塞项"，并保留"覆盖范围"一节；凑条目比漏报更伤——它会让真正的阻塞项淹在噪声里。
+
+## 分层与前端的检查
+
+- 新增的 import 边登记进 `check-conventions.py` 的 `LAYERS` 了吗？方向是不是自上而下？
+- 面向操作者的新句子进 `internal/i18n` 了吗（两种语言都填、用常量 id 引用）？有没有新的写死文案？
+- 内核（`internal/service`）里有没有出现 `io.Writer`/`fmt.Print`/直接写流？过程是不是走 `service.Emitter` 事件？
+- 领域层（`internal/domain`）有没有出现 I/O、时间、文件或文案？
+- 删掉/搬走的测试有没有在账本里留下 disposition 与证据？

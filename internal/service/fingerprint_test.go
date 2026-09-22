@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/host"
 )
 
@@ -55,7 +56,7 @@ func TestStartWithoutAFingerprintStillWorksAndSaysSo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
-	if stopped.Status.State != StateStopped {
+	if stopped.Status.State != domain.StateStopped {
 		t.Fatalf("state = %q, want stopped", stopped.Status.State)
 	}
 	// Stopping ends the whole tree this start created: the listener that held

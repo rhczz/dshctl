@@ -19,14 +19,69 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 	"unicode"
 )
 
-// sectionPrefix opens and closes every section marker line.
-const sectionPrefix = "====="
+// Format describes how a product writes its section markers.
+//
+// The marker is the only line in this file this package gives meaning to, and
+// its shape belongs to the product: another tool names itself differently, may
+// use its own timestamp layout, and may fence its markers with other characters.
+// The mechanism therefore takes the shape instead of knowing it; the package
+// constants that used to spell "dshctl" here are the caller's now.
+type Format struct {
+	// Prefix opens and closes a marker line, e.g. "=====".
+	Prefix string
+	// Product names the tool that writes the log, e.g. "dshctl".
+	Product string
+	// Layout is the timestamp layout inside a marker, e.g. "2006-01-02
+	// 15:04:05". The same layout renders and validates a marker, so a line that
+	// only looks like one is not read as a section boundary.
+	Layout string
+}
+
+// Marker renders the marker line that opens one section.
+func (f Format) Marker(title string, at time.Time) string {
+	return fmt.Sprintf("\n%s %s %s %s %s\n", f.Prefix, at.Format(f.Layout), f.Product, title, f.Prefix)
+}
+
+// Section reports the title of a marker line this format wrote.
+//
+// The timestamp is validated by round-tripping it through the layout, so an
+// ordinary log line that happens to have the right number of fields can never be
+// mistaken for a section boundary.
+func (f Format) Section(line string) (string, bool) {
+	layoutFields := strings.Fields(f.Layout)
+	fields := strings.Fields(strings.TrimRight(line, "\r"))
+	if len(fields) != len(layoutFields)+4 {
+		return "", false
+	}
+	if fields[0] != f.Prefix || fields[len(fields)-1] != f.Prefix {
+		return "", false
+	}
+	stamp := strings.Join(fields[1:1+len(layoutFields)], " ")
+	parsed, err := time.Parse(f.Layout, stamp)
+	if err != nil || parsed.Format(f.Layout) != stamp {
+		return "", false
+	}
+	if fields[1+len(layoutFields)] != f.Product {
+		return "", false
+	}
+	title := fields[2+len(layoutFields)]
+	if title == "" || strings.ContainsAny(title, " \t\r\n") {
+		return "", false
+	}
+	// The fields are separated by the single spaces the writer emits, not by
+	// whatever whitespace a reader might accept: a line with a tab in the
+	// marker's place is ordinary log text that happens to look like one.
+	canonical := fmt.Sprintf("%s %s %s %s %s", f.Prefix, stamp, f.Product, title, f.Prefix)
+	if strings.TrimSpace(line) != canonical {
+		return "", false
+	}
+	return title, true
+}
 
 // defaultPoll is how often Follow looks for new content.
 const defaultPoll = 250 * time.Millisecond
@@ -39,8 +94,6 @@ const tailChunkBytes = 64 << 10
 
 // followState unknown keeps the marker-parsing honest: a line that is not a
 // marker must never end the section in progress.
-var sectionPattern = regexp.MustCompile(
-	`^` + sectionPrefix + ` (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) dshctl (\S+) ` + sectionPrefix + `$`)
 
 // Logger appends dshctl's records to one file.
 type Logger struct {
@@ -49,6 +102,8 @@ type Logger struct {
 	// RotateBytes is the size at which the file rolls to <Path>.old;
 	// 0 disables rotation.
 	RotateBytes int64
+	// Format is how the product writes its section markers.
+	Format Format
 	// Now supplies the section timestamp; nil uses time.Now.
 	Now func() time.Time
 	// poll is how often Follow re-checks the file; 0 uses defaultPoll.
@@ -61,9 +116,9 @@ type Logger struct {
 	settled func()
 }
 
-// New returns a logger for path.
-func New(path string, rotateBytes int64) *Logger {
-	return &Logger{Path: path, RotateBytes: rotateBytes, Now: time.Now, poll: defaultPoll}
+// New returns a logger for path that writes markers in the product's format.
+func New(path string, rotateBytes int64, format Format) *Logger {
+	return &Logger{Path: path, RotateBytes: rotateBytes, Format: format, Now: time.Now, poll: defaultPoll}
 }
 
 // SetPollInterval overrides the follow interval; it exists for tests.
@@ -94,8 +149,7 @@ func (l *Logger) Section(title string) error {
 	if err := ValidateTitle(title); err != nil {
 		return err
 	}
-	stamp := l.timestamp()
-	return l.append(fmt.Sprintf("\n%s %s dshctl %s %s\n", sectionPrefix, stamp, title, sectionPrefix))
+	return l.append(l.Format.Marker(title, l.now()))
 }
 
 // Line appends one line of text, starting a new line when the file does not
@@ -237,12 +291,11 @@ func (l *Logger) Exists() bool {
 }
 
 // timestamp renders the section stamp.
-func (l *Logger) timestamp() string {
-	now := time.Now
+func (l *Logger) now() time.Time {
 	if l.Now != nil {
-		now = l.Now
+		return l.Now()
 	}
-	return now().Format("2006-01-02 15:04:05")
+	return time.Now()
 }
 
 // open opens the log for appending, creating its directory when needed.
@@ -292,9 +345,9 @@ func (l *Logger) endsWithNewline() bool {
 // ValidateTitle rejects a section title that the marker format cannot carry.
 //
 // The title is a single token between the marker's fixed fields and the reader
-// matches it with \S+, so any whitespace at all produces a marker ParseSection
-// does not recognize — which turns a build record into ordinary log text. Every
-// Unicode space is therefore refused, not only the three ASCII ones a caller
+// matches it with a field split, so any whitespace at all produces a marker
+// that Section does not recognize — which turns a build record into ordinary
+// log text. Every Unicode space is therefore refused, not only the ASCII ones a caller
 // thinks of: a form feed or a no-break space is just as invisible and just as
 // fatal to the round trip.
 func ValidateTitle(title string) error {
@@ -305,22 +358,6 @@ func ValidateTitle(title string) error {
 		return fmt.Errorf("日志段落名不能包含空白字符: %q", title)
 	}
 	return nil
-}
-
-// ParseSection reports the command name of a section marker line.
-//
-// The timestamp is validated as well as the shape, so an ordinary log line that
-// happens to contain five tokens can never be mistaken for a section boundary.
-//
-// Returns:
-//   - the section name.
-//   - true when the line is a marker this package wrote.
-func ParseSection(line string) (string, bool) {
-	match := sectionPattern.FindStringSubmatch(strings.TrimRight(line, "\r"))
-	if match == nil {
-		return "", false
-	}
-	return match[2], true
 }
 
 // Tail writes the last lines of path to w.
@@ -517,7 +554,7 @@ const (
 //   - the section body without the marker line.
 //   - the outcome: Found, NotFound, or Truncated.
 //   - an error when the file cannot be read.
-func LastSection(path string, titles []string) ([]string, int, error) {
+func LastSection(path string, format Format, titles []string) ([]string, int, error) {
 	wanted := make(map[string]struct{}, len(titles))
 	for _, title := range titles {
 		wanted[title] = struct{}{}
@@ -537,7 +574,7 @@ func LastSection(path string, titles []string) ([]string, int, error) {
 	)
 	found := false
 	for _, line := range strings.Split(string(data), "\n") {
-		if kind, ok := ParseSection(line); ok {
+		if kind, ok := format.Section(line); ok {
 			if active {
 				body = current
 				found = true

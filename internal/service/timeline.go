@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/history"
 	"github.com/rhczz/dshctl/internal/paths"
@@ -137,7 +138,7 @@ func (s *Service) Timeline(ctx context.Context) (TimelineReport, error) {
 	report := TimelineReport{RepoDir: s.Settings.RepoDir}
 	if err := s.Repo.Fetch(ctx, nil, nil); err != nil {
 		report.FetchError = err.Error()
-		s.warn("无法获取远程更新，以下差距基于本地已知状态: %v", err)
+		s.warning(fmt.Sprintf("无法获取远程更新，以下差距基于本地已知状态: %v", err))
 	} else {
 		report.Fetched = true
 	}
@@ -151,7 +152,7 @@ func (s *Service) Timeline(ctx context.Context) (TimelineReport, error) {
 		return report, exitcode.Wrap(exitcode.Preflight, err)
 	}
 	report.Current = TimelineCurrent{
-		Commit: current, Short: shortCommit(current),
+		Commit: current, Short: domain.ShortCommit(current),
 		Branch: branch, Tag: tag, Detached: branch == "",
 	}
 
@@ -164,7 +165,7 @@ func (s *Service) Timeline(ctx context.Context) (TimelineReport, error) {
 		return report, exitcode.Wrap(exitcode.Preflight, err)
 	}
 	report.Remote = TimelineRemote{
-		Name: repo.RemoteTipName, Commit: remote, Short: shortCommit(remote),
+		Name: repo.RemoteTipName, Commit: remote, Short: domain.ShortCommit(remote),
 		Tag: firstTag(tags[remote]),
 	}
 
@@ -208,7 +209,7 @@ func (s *Service) readTimelineHistory(report *TimelineReport) {
 	file, ok, err := store.Load()
 	if err != nil {
 		report.HistoryError = err.Error()
-		s.warn("无法读取更新历史 %s: %v", store.Path, err)
+		s.warning(fmt.Sprintf("无法读取更新历史 %s: %v", store.Path, err))
 		return
 	}
 	if !ok {
@@ -245,15 +246,6 @@ func timelineRows(commits []repo.Commit, tags map[string][]string, remote string
 	return rows
 }
 
-// shortCommit abbreviates a revision for display.
-func shortCommit(sha string) string {
-	if len(sha) > 7 {
-		return sha[:7]
-	}
-	return sha
-}
-
-// firstTag returns the first tag name, or empty when there is none.
 func firstTag(names []string) string {
 	if len(names) == 0 {
 		return ""
@@ -417,6 +409,6 @@ func timelineHistoryLine(record history.Record, current string) string {
 	if selector == "" {
 		selector = "-"
 	}
-	return fmt.Sprintf("%s%s  %-16s  %s", marker, shortCommit(record.Commit), selector,
+	return fmt.Sprintf("%s%s  %-16s  %s", marker, domain.ShortCommit(record.Commit), selector,
 		time.Unix(record.At, 0).Format("2006-01-02 15:04"))
 }

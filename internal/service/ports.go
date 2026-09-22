@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 )
 
@@ -29,19 +30,19 @@ import (
 // is a fact on disk, and saying so is more useful than refusing to describe the
 // instance the operator actually asked about. The failure is reported on that
 // entry as its state, and the ports that could be looked at are reported as
-// themselves. The configured port is the exception — see Status, which keeps its
+// themselves. The configured port is the exception — see domain.Status, which keeps its
 // "cannot look is not a fact" guarantee for the port the command is about.
 //
 // Returns:
 //   - one status per selected port, in selection order.
 //   - an error only when the configured port itself cannot be observed, or when
 //     discovery cannot search the state directory.
-func (s *Service) Statuses(ctx context.Context) ([]Status, error) {
+func (s *Service) Statuses(ctx context.Context) ([]domain.Status, error) {
 	selection, err := s.selection()
 	if err != nil {
 		return nil, err
 	}
-	statuses := make([]Status, 0, len(selection.Ports))
+	statuses := make([]domain.Status, 0, len(selection.Ports))
 	for _, port := range selection.Ports {
 		status, err := s.Status(ctx, port)
 		if err != nil {
@@ -60,9 +61,9 @@ func (s *Service) Statuses(ctx context.Context) ([]Status, error) {
 }
 
 // unobservable describes a discovered port that could not be probed.
-func (s *Service) unobservable(port int, cause error) Status {
+func (s *Service) unobservable(port int, cause error) domain.Status {
 	status := s.atPort(port).baseStatus()
-	status.State = StateUnobservable
+	status.State = domain.StateUnobservable
 	status.ProbeError = cause.Error()
 	// The record is still read: it is what says whether a server was ever
 	// started here, and a report that hid it would leave the operator with a
@@ -81,12 +82,12 @@ func (s *Service) unobservable(port int, cause error) Status {
 // StopAllResult is what a multi-instance stop did, one entry per instance.
 type StopAllResult struct {
 	// Results is one outcome per selected instance, in selection order.
-	Results []StopResult
+	Results []StopResult `json:"results"`
 	// Unverifiable reports that a *multi-instance* stop could not cover
 	// everything it was asked to: something dshctl cannot vouch for holds one of
 	// the ports. It is not about a named port, where leaving the occupant alone
 	// is the answer the operator asked for and the report already says so.
-	Unverifiable bool
+	Unverifiable bool `json:"unverifiable,omitempty"`
 }
 
 // StopAll ends every instance the command was asked about: one port when the
@@ -155,7 +156,7 @@ func (s *Service) RestartAll(ctx context.Context) ([]StartResult, error) {
 			if err != nil {
 				return nil, err
 			}
-			if observed.status.State == StateForeign || (observed.status.State == StateOrphan && !observed.status.Survivor) {
+			if observed.occupant() {
 				return nil, exitcode.New(exitcode.Preflight,
 					"端口 %d 被 dshctl 无法确认归属的进程占用 (pid=%d): %s\n提示: 先确认并处理它,再执行重启",
 					port, observed.status.ListenerPID, observed.status.ListenerCommand)
@@ -218,12 +219,12 @@ type URLReport struct {
 	// then the rest in ascending port order. It is what lets the caller report
 	// the instances that have no address yet instead of printing fewer lines and
 	// saying nothing about why.
-	Statuses []Status
+	Statuses []domain.Status
 	// Addresses maps a port to its token-carrying address.
 	Addresses map[int]string
 	// Status is the instance the command was about: the configured port, or the
 	// one that was named. Its exit code answers the question that was asked.
-	Status Status
+	Status domain.Status
 }
 
 // URLReport reports the token-carrying address of every instance, together with

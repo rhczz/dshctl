@@ -371,6 +371,7 @@ func TestDescribeOfAZeroSettingsIsStillWellFormed(t *testing.T) {
 		"停止超时: 0s ()",
 		"锁超时:   0s ()",
 		"日志轮转: 0 字节 (0 表示不轮转) ()",
+		"日志级别: unset ()",
 	}
 	got := settings.Describe()
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {

@@ -45,7 +45,7 @@ func TestWebURLUsesTheLogFallbackForItsOwnPort(t *testing.T) {
 	other := "http://127.0.0.1:4000/?token=other-token"
 	mine := "http://127.0.0.1:" + strconv.Itoa(f.Settings.Port) + "/?token=my-token"
 	for _, line := range []string{"dsh web: " + other, "dsh web: " + mine} {
-		if err := f.Log.Line(line); err != nil {
+		if err := f.LogFile.Line(line); err != nil {
 			t.Fatalf("seed log: %v", err)
 		}
 	}
@@ -66,7 +66,7 @@ func TestWebURLUsesTheLogFallbackForItsOwnPort(t *testing.T) {
 // a "fact" an operator only discovers in the browser.
 func TestWebURLRefusesWhenNothingRuns(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Line("dsh web: http://127.0.0.1:" + strconv.Itoa(f.Settings.Port) + "/?token=stale"); err != nil {
+	if err := f.LogFile.Line("dsh web: http://127.0.0.1:" + strconv.Itoa(f.Settings.Port) + "/?token=stale"); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 

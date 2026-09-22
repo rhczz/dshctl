@@ -96,3 +96,9 @@ func awaitSettled(t *testing.T, logger *Logger) func() {
 		}
 	}
 }
+
+// testFormat is the marker shape the tests exercise. It matches the product's
+// format so the expectations stay readable, and it is declared here rather than
+// imported from the product: a mechanism's test proves the mechanism works for
+// the shape it is handed.
+var testFormat = Format{Prefix: "=====", Product: "dshctl", Layout: "2006-01-02 15:04:05"}

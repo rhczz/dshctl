@@ -404,7 +404,7 @@ func testWriteBackV3PreservesEveryOtherField(t *testing.T) {
 // appears, and what it protects here is a document the operator wrote: silently
 // replacing it is the one outcome no caller should be able to cause by accident.
 // The caller-side half of the rule (a start that must not even try) is pinned in
-// internal/service.
+// internal/app.
 func testWriteBackV4KeepsADecidedRelease(t *testing.T) {
 	w := newTestWorld(t).writeDocument(`{"nodeVersion": "24.19.0"}`)
 	wrote, err := w.settings().RecordRuntime("", "24.21.0")

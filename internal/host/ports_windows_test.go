@@ -118,7 +118,7 @@ func TestProcessStartTimeRejectsAHandleThatNamesNothing(t *testing.T) {
 		if startedAt, ok := processStartTime(handle); ok {
 			t.Fatalf("processStartTime(%#x) = (%d, true), want not-ok for a handle that names nothing", handle, startedAt)
 		}
-		if facts := New().Inspect(context.Background(), pid); facts.Alive {
+		if facts := New(testTools).Inspect(context.Background(), pid); facts.Alive {
 			t.Fatalf("Inspect(%d).Alive = true, want false", pid)
 		}
 	}

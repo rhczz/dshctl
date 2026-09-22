@@ -17,6 +17,7 @@ import (
 
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/exitcode"
+	"github.com/rhczz/dshctl/internal/i18n"
 	"github.com/rhczz/dshctl/internal/run"
 	"github.com/rhczz/dshctl/internal/service"
 	"github.com/rhczz/dshctl/internal/version"
@@ -67,6 +68,8 @@ type globals struct {
 	repoSet     bool
 	nodeVersion string
 	nodeSet     bool
+	logLevel    string
+	logLevelSet bool
 	port        *int
 	verbose     bool
 	help        bool
@@ -84,6 +87,15 @@ type globals struct {
 // Returns:
 //   - the process exit code.
 func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv func(string) string) int {
+	// The language is a property of the invocation, and the catalog is the merge
+	// of every layer's words: the kernel's, this shell's, and any front-end that
+	// joins later. Both are resolved once, before any command can print.
+	catalog, err := i18n.Merge(service.Messages)
+	if err != nil {
+		fmt.Fprintf(stderr, "错误: %v\n", err)
+		return exitcode.Failure
+	}
+	i18n.Use(i18n.New(i18n.Resolve(getenv), catalog))
 	env := &Env{
 		Stdout:   stdout,
 		Stderr:   stderr,
@@ -202,7 +214,7 @@ func parseGlobals(args []string) (globals, []string, error) {
 			parsed.version = true
 		case "-v", "--verbose":
 			parsed.verbose = true
-		case "--config", "--repo", "--node", "--port":
+		case "--config", "--repo", "--node", "--port", "--log-level":
 			if !hasValue {
 				if index+1 >= len(args) {
 					return parsed, nil, fmt.Errorf("参数 %s 需要一个值", name)
@@ -229,6 +241,9 @@ func parseGlobals(args []string) (globals, []string, error) {
 					return parsed, nil, fmt.Errorf("参数 --port 不是数字: %q", value)
 				}
 				parsed.port = &port
+			case "--log-level":
+				parsed.logLevel = value
+				parsed.logLevelSet = true
 			}
 		default:
 			return parsed, nil, fmt.Errorf("未知的全局参数: %s", arg)
@@ -252,6 +267,10 @@ func loadSettings(parsed globals, getenv func(string) string) (config.Settings, 
 	if parsed.nodeSet {
 		nodeVersion := parsed.nodeVersion
 		overrides.NodeVersion = &nodeVersion
+	}
+	if parsed.logLevelSet {
+		logLevel := parsed.logLevel
+		overrides.LogLevel = &logLevel
 	}
 	return config.Load(getenv, overrides)
 }
@@ -355,6 +374,16 @@ func versionSelector(args []string, command string) (string, error) {
 //
 // The usage line comes first and is built from the same Usage the top-level
 // help lists, so "how do I call this" is answered before the details.
+//
+// The shell owns this rendering: a use case returns a value, and whether the
+// operator asked for JSON or for the narrative decides which one is printed.
+func printJSON(w io.Writer, value any) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
+}
+
+// help lists, so "how do I call this" is answered before the details.
 func printCommandHelp(w io.Writer, command Command) {
 	fmt.Fprintf(w, "dshctl %s — %s\n\n", command.Name, command.Summary)
 	fmt.Fprintf(w, "用法: dshctl [全局参数] %s", command.Name)
@@ -367,24 +396,17 @@ func printCommandHelp(w io.Writer, command Command) {
 	}
 }
 
-// newService builds the service for one command.
-func newService(env *Env) *service.Service {
+// newApp builds the application for one command.
+func newApp(env *Env) *service.Service {
 	application := service.New(env.Settings, service.Dependencies{
-		Exec:    env.Executor,
-		Out:     env.Stdout,
-		Err:     env.Stderr,
-		Version: env.Version,
+		Exec:     env.Executor,
+		Emit:     service.TextEmitter{Out: env.Stdout, Err: env.Stderr},
+		Version:  env.Version,
+		LogLevel: env.Settings.LogLevel,
 	})
 	// The command line owns the process-wide lookups, so they are injected here
-	// rather than read from the environment inside the service.
+	// rather than read from the environment inside the app.
 	application.LookPath = env.LookPath
 	application.Getenv = env.Getenv
 	return application
-}
-
-// printJSON writes a value as indented JSON.
-func printJSON(w io.Writer, value any) error {
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(value)
 }

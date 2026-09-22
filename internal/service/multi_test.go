@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/rhczz/dshctl/internal/config"
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/host"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // The tests in this file pin the multi-instance model: one state directory
@@ -55,9 +55,9 @@ func TestMovingTheFixturePortMovesItsRecordStore(t *testing.T) {
 
 // saveRecordFor writes a record for one port, in the shape that port's own
 // start would have written it.
-func saveRecordFor(t *testing.T, f *fixture, record state.Record) {
+func saveRecordFor(t *testing.T, f *fixture, record domain.Record) {
 	t.Helper()
-	store := state.Store{Path: filepath.Join(f.state, recordFileName(t, record.Port))}
+	store := recordStore(filepath.Join(f.state, recordFileName(t, record.Port)))
 	if err := store.Save(record); err != nil {
 		t.Fatalf("save the record for port %d: %v", record.Port, err)
 	}
@@ -148,8 +148,8 @@ func rebuildSettings(t *testing.T, f *fixture, port int) {
 func serveOnConfiguredPort(t *testing.T, f *fixture, pid int) {
 	t.Helper()
 	f.host.servingOnPort(f.Settings.Port, pid, "pnpm --dir repo dsh web")
-	saveRecordFor(t, f, state.Record{
-		PID: pid, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: state.PhaseRunning,
+	saveRecordFor(t, f, domain.Record{
+		PID: pid, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	})
 }
 
@@ -158,9 +158,9 @@ func serveOnConfiguredPort(t *testing.T, f *fixture, pid int) {
 func seedRunningPort(t *testing.T, f *fixture, port, pid int, url string) {
 	t.Helper()
 	f.host.servingOnPort(port, pid, "pnpm --dir repo dsh web")
-	saveRecordFor(t, f, state.Record{
+	saveRecordFor(t, f, domain.Record{
 		PID: pid, StartedAt: fixtureStartTime, Port: port,
-		URL: url, Phase: state.PhaseRunning,
+		URL: url, Phase: domain.PhaseRunning,
 	})
 }
 
@@ -202,9 +202,9 @@ func wantNoSignalOn(t *testing.T, f *fixture, pid int) {
 
 // wantStatesByName asserts the observed state of every port, as a map so that a
 // failure says which port disagrees instead of which index does.
-func wantStatesByName(t *testing.T, statuses []Status, want map[int]string) {
+func wantStatesByName(t *testing.T, statuses []domain.Status, want map[int]domain.State) {
 	t.Helper()
-	got := map[int]string{}
+	got := map[int]domain.State{}
 	for _, status := range statuses {
 		got[status.Port] = status.State
 	}
@@ -233,9 +233,9 @@ func TestStatusReportsEveryManagedPort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Statuses: %v", err)
 	}
-	wantStatesByName(t, statuses, map[int]string{
-		configured: StateRunning,
-		other:      StateRunning,
+	wantStatesByName(t, statuses, map[int]domain.State{
+		configured: domain.StateRunning,
+		other:      domain.StateRunning,
 	})
 	for _, status := range statuses {
 		if status.ListenerPID == 0 {
@@ -257,7 +257,7 @@ func TestStatusWithoutPortsListsNothing(t *testing.T) {
 	if len(statuses) != 1 {
 		t.Fatalf("observed %d ports, want only the configured one: %+v", len(statuses), statuses)
 	}
-	if statuses[0].Port != f.Settings.Port || statuses[0].State != StateStopped {
+	if statuses[0].Port != f.Settings.Port || statuses[0].State != domain.StateStopped {
 		t.Fatalf("status = %+v, want the configured port reported stopped", statuses[0])
 	}
 }
@@ -279,7 +279,7 @@ func TestExplicitPortSelectsOneInstance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Statuses: %v", err)
 	}
-	wantStatesByName(t, statuses, map[int]string{other: StateRunning})
+	wantStatesByName(t, statuses, map[int]domain.State{other: domain.StateRunning})
 
 	stopped, err := f.StopAll(context.Background())
 	if err != nil {
@@ -359,8 +359,8 @@ func TestStopEndsEveryInstanceThatIsRunning(t *testing.T) {
 	f.startServer(t, 4321, "")
 	// A record for another port whose process is gone: residue that a bare stop
 	// has to retire, or `status` keeps reporting a server that does not exist.
-	saveRecordFor(t, f, state.Record{
-		PID: 9001, StartedAt: fixtureStartTime, Port: other, Phase: state.PhaseRunning,
+	saveRecordFor(t, f, domain.Record{
+		PID: 9001, StartedAt: fixtureStartTime, Port: other, Phase: domain.PhaseRunning,
 	})
 
 	if _, err := f.StopAll(context.Background()); err != nil {
@@ -407,8 +407,8 @@ func TestStopAllLeavesAForeignListenerAloneAcrossPorts(t *testing.T) {
 	strangerPort := reserveFreePort(t)
 	f.host.servingOnPort(strangerPort, 7001, "/usr/sbin/nginx -g daemon off;")
 	f.host.add(9999, "pnpm --dir repo dsh web", fixtureStartTime+60)
-	saveRecordFor(t, f, state.Record{
-		PID: 9999, StartedAt: fixtureStartTime, Port: strangerPort, Phase: state.PhaseRunning,
+	saveRecordFor(t, f, domain.Record{
+		PID: 9999, StartedAt: fixtureStartTime, Port: strangerPort, Phase: domain.PhaseRunning,
 	})
 
 	stopped, err := f.StopAll(context.Background())
@@ -544,8 +544,8 @@ func TestRestartRefusesBeforeStoppingAnything(t *testing.T) {
 	// positively call somebody else's, and therefore the one that has to block
 	// the restart before any instance is ended.
 	f.host.servingOnPort(other, 7001, "/other/apps/cli/src/bin.ts web --port "+strconv.Itoa(other))
-	saveRecordFor(t, f, state.Record{
-		PID: 4322, StartedAt: fixtureStartTime, Port: other, Phase: state.PhaseRunning,
+	saveRecordFor(t, f, domain.Record{
+		PID: 4322, StartedAt: fixtureStartTime, Port: other, Phase: domain.PhaseRunning,
 	})
 
 	_, err := f.RestartAll(context.Background())
@@ -614,9 +614,9 @@ func TestWebURLsKeepsAWorkingInstanceOutOfTheFallback(t *testing.T) {
 	other := reserveFreePort(t)
 
 	f.startServer(t, 4321, "http://127.0.0.1:"+strconv.Itoa(configured)+"/?token=CONFIGURED")
-	saveRecordFor(t, f, state.Record{
+	saveRecordFor(t, f, domain.Record{
 		PID: 9001, StartedAt: fixtureStartTime, Port: other,
-		URL: "http://127.0.0.1:" + strconv.Itoa(other) + "/?token=DEAD", Phase: state.PhaseRunning,
+		URL: "http://127.0.0.1:" + strconv.Itoa(other) + "/?token=DEAD", Phase: domain.PhaseRunning,
 	})
 
 	addresses, err := f.WebURLs(context.Background())
@@ -636,8 +636,8 @@ func TestPortDiscoveryFailsClosedWhenAProbeFails(t *testing.T) {
 	other := reserveFreePort(t)
 
 	f.startServer(t, 4321, "")
-	saveRecordFor(t, f, state.Record{
-		PID: 9999, StartedAt: fixtureStartTime, Port: other, Phase: state.PhaseRunning,
+	saveRecordFor(t, f, domain.Record{
+		PID: 9999, StartedAt: fixtureStartTime, Port: other, Phase: domain.PhaseRunning,
 	})
 	f.host.listenErr = host.ErrUnsupported
 
@@ -673,7 +673,7 @@ func TestStopAllIsIdempotentAcrossPorts(t *testing.T) {
 		t.Fatalf("second stop covered %d instances, want only the configured port: %+v",
 			len(second.Results), second.Results)
 	}
-	if second.Results[0].Status.State != StateStopped {
+	if second.Results[0].Status.State != domain.StateStopped {
 		t.Fatalf("second stop state = %q, want stopped", second.Results[0].Status.State)
 	}
 }

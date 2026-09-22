@@ -41,6 +41,11 @@ description: 在 dshctl 写或改测试：hermetic 隔离、真实入口路径�
 
 15. **"无法探测"的每条路径都要有一个让探测失败的用例。** 与 `dshctl-defensive` 的"探测不了不当结论"配对：`git status` 失败时 update 必须拒绝、`git fetch` 失败时 timeline 必须标注远程未确认、端口探测失败时 stop 必须拒绝——每条都要有一个注入失败的测试，证明它没有被折进成功分支。
 
+## 重写期的账本
+
+测试被删/被搬时要留 disposition 与证据，黑盒行为由金标钉住：细则见
+`references/accounting.md`。
+
 ## 验证
 
 ```sh

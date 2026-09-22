@@ -11,10 +11,11 @@ import (
 	"testing"
 
 	"github.com/rhczz/dshctl/internal/config"
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/logfile"
+	"github.com/rhczz/dshctl/internal/logging"
 	"github.com/rhczz/dshctl/internal/run"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // TestBuildReportsAPruneFailure pins that a prune which cannot even ask git what
@@ -197,10 +198,10 @@ func TestUpdateRefusesWhileAnotherPortServesTheCheckout(t *testing.T) {
 	f := newFixture(t)
 	otherPort := f.Settings.Port + 1
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
-	other := state.Store{Path: filepath.Join(f.state, fmt.Sprintf(config.StateFileNamePattern, otherPort))}
-	if err := other.Save(state.Record{
+	other := recordStore(filepath.Join(f.state, fmt.Sprintf(config.StateFileNamePattern, otherPort)))
+	if err := other.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: otherPort, Phase: state.PhaseRunning,
+		Port: otherPort, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save the other port's record: %v", err)
 	}
@@ -240,15 +241,17 @@ func TestBuildAndUpdateSeeASiblingRecordInAnAwkwardStateDirectory(t *testing.T) 
 			f.Settings.StateDir = filepath.Join(f.root, "state[1]")
 			f.Settings.ConfigPath = filepath.Join(f.Settings.StateDir, config.ConfigFileName)
 			f.Settings.LogPath = filepath.Join(f.Settings.StateDir, config.DefaultLogFileName)
-			f.Record = state.Store{Path: f.Settings.StateFile()}
-			f.Log = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+			f.Record = recordStore(f.Settings.StateFile())
+			f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes, logFormat)
+			f.Log = logging.New(f.LogFile, logging.LevelInfo)
+			f.Emit = TextEmitter{Out: f.out, Err: f.errOut}
 
 			otherPort := f.Settings.Port + 1
-			other := state.Store{Path: filepath.Join(f.Settings.StateDir, fmt.Sprintf(config.StateFileNamePattern, otherPort))}
+			other := recordStore(filepath.Join(f.Settings.StateDir, fmt.Sprintf(config.StateFileNamePattern, otherPort)))
 			f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
-			if err := other.Save(state.Record{
+			if err := other.Save(domain.Record{
 				PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-				Port: otherPort, Phase: state.PhaseRunning,
+				Port: otherPort, Phase: domain.PhaseRunning,
 			}); err != nil {
 				t.Fatalf("save the other port's record: %v", err)
 			}
@@ -263,4 +266,51 @@ func TestBuildAndUpdateSeeASiblingRecordInAnAwkwardStateDirectory(t *testing.T) 
 			}
 		})
 	}
+}
+
+// TestBuildRefusesWhenAnotherPortsRecordCannotBeRead pins the fail-closed
+// reading of the cross-port guard: a record nobody can parse is not a port
+// nobody serves. Replacing artifacts under a server this build cannot see is
+// exactly the failure the guard exists to prevent.
+func TestBuildRefusesWhenAnotherPortsRecordCannotBeRead(t *testing.T) {
+	f := newFixture(t)
+	f.host.spontaneouslyServed = true
+	other := 4321
+	path := filepath.Join(f.Settings.StateDir, fmt.Sprintf(config.StateFileNamePattern, other))
+	if err := os.MkdirAll(f.Settings.StateDir, 0o700); err != nil {
+		t.Fatalf("state dir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte("{not a record"), 0o600); err != nil {
+		t.Fatalf("seed the corrupt record: %v", err)
+	}
+
+	err := f.RunBuild(context.Background())
+	if got := exitcode.Of(err); got != exitcode.Preflight {
+		t.Fatalf("build exit = %d (err = %v), want %d", got, err, exitcode.Preflight)
+	}
+	f.wantNoSpawn(t)
+}
+
+// TestBuildRefusesWhenAnotherPortsProbeFails pins the other half: a record that
+// cannot be confirmed as "not serving" must not be read as "not serving" either.
+func TestBuildRefusesWhenAnotherPortsProbeFails(t *testing.T) {
+	f := newFixture(t)
+	f.host.spontaneouslyServed = true
+	other := 4321
+	store := recordStore(filepath.Join(f.Settings.StateDir, fmt.Sprintf(config.StateFileNamePattern, other)))
+	if err := f.Settings.Provision(); err != nil {
+		t.Fatalf("provision: %v", err)
+	}
+	if err := store.Save(domain.Record{
+		PID: 9001, SpawnedPID: 9000, StartedAt: fixtureStartTime, Port: other, Phase: domain.PhaseRunning,
+	}); err != nil {
+		t.Fatalf("seed the record: %v", err)
+	}
+	f.host.listenErr = errors.New("lsof timed out")
+
+	err := f.RunBuild(context.Background())
+	if got := exitcode.Of(err); got != exitcode.Preflight {
+		t.Fatalf("build exit = %d (err = %v), want %d when a probe fails", got, err, exitcode.Preflight)
+	}
+	f.wantNoSpawn(t)
 }

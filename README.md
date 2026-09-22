@@ -43,18 +43,22 @@ dshctl stop                   # 停止
 
 | 命令 | 说明 |
 | --- | --- |
-| `start` | 后台启动并等待端口就绪（不加命令名时的默认命令）；已在运行时不会启动第二个 |
-| `stop` | 停止服务并结束它所在的整棵进程树；不加 `--port` 时停止本状态目录管理的每一个服务 |
-| `restart` | 在同一把锁内先停后启；不加 `--port` 时重启本状态目录中正在运行的每一个服务 |
+| `start` | 后台启动并等待端口就绪（不加命令名时的默认命令）；已在运行时不会启动第二个；`--json` 输出一份运行文档 |
+| `stop` | 停止服务并结束它所在的整棵进程树；不加 `--port` 时停止本状态目录管理的每一个服务；`--json` 输出一份运行文档 |
+| `restart` | 在同一把锁内先停后启；不加 `--port` 时重启本状态目录中正在运行的每一个服务；`--json` 输出一份运行文档 |
 | `status` | 运行状态；不加 `--port` 时报告本状态目录管理的每一个服务；`--json` 输出结构化结果 |
 | `url` | 打印带 token 的访问地址；不加 `--port` 时每个运行中的实例一行；一个地址都没有时退出码 3 |
 | `logs` | 日志；`-n <行数>`（默认 200 行，见 `internal/service.DefaultLogLines`）、`-f/--follow` 跟随、`--build` 只看最近一次 build/update/rollback 记录 |
-| `build` | 清理已删除包的残留目录后执行 `pnpm run build` |
+| `build` | 清理已删除包的残留目录后执行 `pnpm run build`；`--json` 输出一份运行文档 |
 | `timeline` | 查看当前版本与 `origin/master` 的差距：落后/领先的提交数、差距内的 tag、最近的提交与部署历史；`--json` 输出结构化结果 |
-| `update` | 更新到指定版本（`latest`/tag/commit，默认 `latest`）：停服 → `git fetch` → 切换 → 清理 → `pnpm install` → 构建 → 恢复启动 |
-| `rollback` | 回退到之前部署过的位置：不带参数退 1 步、`-n <步数>` 退多步、`<tag>/<commit>` 定点回退；不联网 |
-| `doctor` | 只读体检；`--json` 输出结构化结果 |
-| `version` | 版本、提交、构建时间与目标平台；`--json` 输出结构化结果 |
+| `update` | 更新到指定版本（`latest`/tag/commit，默认 `latest`）：停服 → `git fetch` → 切换 → 清理 → `pnpm install` → 构建 → 恢复启动；`--json` 输出一份运行文档 |
+| `rollback` | 回退到之前部署过的位置：不带参数退 1 步、`-n <步数>` 退多步、`<tag>/<commit>` 定点回退；不联网；`--json` 输出一份运行文档 |
+| `doctor` | 只读体检（含编译工具链与 module 一行）；`--json` 输出结构化结果 |
+| `version` | 版本、提交、构建时间与目标平台；`--json` 另外带上编译用的 Go 工具链与 module |
+
+可变命令（`start`/`stop`/`restart`/`build`/`update`/`rollback`）的 `--json` 把整次运行输出成
+一份文档（事件文本与文本渲染一致，因此 `start` 的 `访问地址` 行也包含 token，别把文档转发给不该看到它的人）：`{"command": "...", "ok": true, "result": {...}, "events": [{"kind": "narrative", "text": "..."}]}`；
+失败时 `ok` 为 false、`error` 带上原因，且不再往标准错误写散文（退出码仍然说明结果）。
 
 `dshctl -h` 在一屏里列出每个命令的用法、参数与示例；`dshctl help <命令>`（或
 `dshctl <命令> -h`）打印单个命令的完整说明：参数、退出码与注意事项。
@@ -67,6 +71,7 @@ dshctl stop                   # 停止
 | `--port <端口>` | `DSH_PORT` | 监听端口，默认 `3080`；同时是「只操作这一个实例」的选择器（见「多个实例」） |
 | `--node <版本>` | `DSH_NODE_VERSION` | 指定 Node 版本；配置里没写明时成功启动后写入（见「Node 版本」） |
 | `--config <文件>` | `DSHCTL_CONFIG` | 配置文件路径 |
+| `--log-level <级别>` | `DSHCTL_LOG_LEVEL` | 日志文件记录到哪一级：`debug` / `info`（默认）/ `warn` / `error` |
 | `-v` | — | 打印生效配置及每一项的来源 |
 | `-h` / `-V` | — | 帮助 / 版本 |
 
@@ -83,6 +88,7 @@ dshctl stop                   # 停止
 | `stopTimeoutSeconds` | 整数 | `15` | 等待服务停止的上限，1–86400 秒 |
 | `lockTimeoutSeconds` | 整数 | `10` | 等待另一把操作锁的上限，1–86400 秒 |
 | `logRotateBytes` | 整数 | `4194304`（4 MiB） | 日志轮转阈值；`0` 表示不轮转；非 0 时不得小于 `65536` |
+| `logLevel` | 字符串 | `"info"` | 日志文件记录到哪一级：`debug`、`info`、`warn`、`error` |
 
 ```json
 {
@@ -103,7 +109,7 @@ dshctl stop                   # 停止
 - 只有可变命令（`start`/`stop`/`restart`/`build`/`update`/`rollback`）会创建和写入它；`status`、`url`、`logs`、`doctor`、`version` 不写盘。
 - dshctl 只在自己确有必要时改这个文件：写入它实际用过的 `repoDir`（`start`/`build`/`update`/`rollback`）与 `nodeVersion`（`start`），而且只写这两个键、只在这个文件还没有写明它们的时候写；你在文件里写过的值永远不会被覆盖，其他字段逐字保留。
 - 首次执行可变命令时生成的配置里**不含** `repoDir`：默认值只是「按这台机器的主目录猜的路径」，把猜测写进配置就等于把猜错的结果永久固定下来。
-- `dshctl -v <命令>` 会把生效值和每一项的来源（`flag` / `env` / `file` / `default`）打印出来，排查配置时先看它。
+- `dshctl -v <命令>` 会把生效值和每一项的来源（`flag` / `env` / `file` / `default`）打印出来（`version` 不读配置，因此只打印版本）；排查配置时先看它。
 
 ## 环境变量
 
@@ -112,15 +118,18 @@ dshctl stop                   # 停止
 | `DSHCTL_STATE_DIR` | 状态目录（dshctl 自己的文件都放这里） | `$DSH_HOME/dshctl`，再退回 `~/.dsh/dshctl` |
 | `DSH_HOME` | DSH 主目录，状态目录的父目录 | `~/.dsh` |
 | `DSHCTL_CONFIG` | 配置文件路径 | `<状态目录>/config.json` |
+| `DSHCTL_LOG_LEVEL` | 日志级别，等价 `--log-level` | `info` |
 | `DSH_LOG_FILE` | 日志文件路径 | `<状态目录>/dsh-web.log` |
 | `DSH_REPO_DIR` | 仓库目录，等价 `--repo` | `~/deepseek-harness` |
 | `DSH_PORT` | 监听端口，等价 `--port` | `3080` |
 | `DSH_NODE_VERSION` | Node 版本，等价 `--node`；覆盖配置文件里的 `nodeVersion`（仅本次运行） | 按 PATH 解析 |
+| `DSHCTL_LANG` | 输出语言，取值 `zh` / `en`；不设时按机器语言（`LC_ALL` > `LC_MESSAGES` > `LANG`），认不出时用英文 | 机器语言，否则英文 |
 
 规则：
 
 - 路径类变量必须是绝对路径或以 `~` 开头（不支持 `~user`）；相对路径会被拒绝，因为它会让状态目录和操作锁跟着当前目录漂移。
 - 只含空白的变量视为未设置。
+- 面向操作者的文案默认英文，机器语言是中文时用中文：`DSHCTL_LANG` 优先于 shell 导出的 locale 变量，认不出的语言按英文处理。**迁移进行中**：状态摘要、日志级别、构建信息等已进消息目录（英文/中文都有），命令帮助与部分错误文案仍是中文；新增文案必须进目录（见 `dshctl-style` 的规则 6）。
 - 优先级：命令行参数 > 环境变量 > 配置文件 > 默认值。所有配置项都按这个顺序，没有例外。两处补充：Node 版本的最后一层不是默认值，而是「没人指定就按 PATH 解析」（见「Node 版本」）；`repoDir` 在配置文件里的值与内置默认值完全相同时按默认值处理，不算你做过选择（见「仓库目录」）。
 - dshctl 另外读取操作系统自身的 `PATH`（解析 `node`、`pnpm`、`git`，以及 Unix 上的 `lsof`/`ss`/`netstat`/`ps`）和 `HOME`（Windows 上是 `USERPROFILE`）来确定主目录与默认路径；这两个不是 dshctl 的配置项，但会决定上面这些默认值。
 - 不可配置：Node 最低版本 `24.12.0` 是代码里的常量，任何配置项、参数或环境变量都改不动它；状态目录内的文件名（`dshctl.lock`、`dsh-web-<端口>.state.json`）也是固定的。

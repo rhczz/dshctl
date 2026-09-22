@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/host"
 	"github.com/rhczz/dshctl/internal/nodejs"
 	"github.com/rhczz/dshctl/internal/run"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // TestStartAcrossAWrapperThatSpawns is the regression test for the shape every
@@ -51,7 +51,7 @@ setInterval(() => {}, 1000);
 
 	f.Spawn = nil
 	f.LookPath = run.LookPath
-	f.Host = host.NewWithLookPath(run.LookPath)
+	f.Host = host.NewWithLookPath(run.LookPath, hostTools)
 	// The real host answers a real child's start time, so this test keeps the
 	// production budget instead of the shortened one the fixture gives the
 	// fictional machine.
@@ -189,13 +189,13 @@ func TestStopRemovesARecordWhoseProcessIsGone(t *testing.T) {
 
 // stateRecordWithWrapper builds a record in the shape a real start writes: the
 // listener is recorded together with the wrapper that spawned it.
-func stateRecordWithWrapper(f *fixture, pid int) state.Record {
-	return state.Record{
+func stateRecordWithWrapper(f *fixture, pid int) domain.Record {
+	return domain.Record{
 		PID:        pid,
 		SpawnedPID: pid,
 		StartedAt:  fixtureStartTime,
 		Port:       f.Settings.Port,
-		Phase:      state.PhaseRunning,
+		Phase:      domain.PhaseRunning,
 	}
 }
 

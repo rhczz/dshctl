@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"os/exec"
@@ -17,13 +19,15 @@ import (
 	"time"
 
 	"github.com/rhczz/dshctl/internal/config"
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/host"
 	"github.com/rhczz/dshctl/internal/logfile"
+	"github.com/rhczz/dshctl/internal/logging"
 	"github.com/rhczz/dshctl/internal/nodejs"
 	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
-	"github.com/rhczz/dshctl/internal/state"
+	"github.com/rhczz/dshctl/internal/version"
 )
 
 // fixtureStartTime is the start time every fictional process shares, so that a
@@ -241,6 +245,27 @@ func (h *fakeHost) remove(pid int) {
 	if h.listener == pid {
 		h.listener = 0
 	}
+}
+
+// recycle replaces a pid's process with a stranger: one that is in no group of
+// ours and holds the port. It is the shape a pid recycled between two
+// observations leaves behind, and the fixture models it because the window is
+// real.
+func (h *fakeHost) recycle(pid int, command string, startedAt int64) {
+	h.remove(pid)
+	entry := h.add(pid, command, startedAt)
+	h.mu.Lock()
+	entry.group = 0
+	h.mu.Unlock()
+	h.listen(pid)
+}
+
+// hasProcess reports whether the table knows this pid at all.
+func (h *fakeHost) hasProcess(pid int) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	_, ok := h.processes[pid]
+	return ok
 }
 
 // alive reports whether the table holds a live pid.
@@ -717,10 +742,14 @@ func newFixture(t *testing.T) *fixture {
 			Glob: filepath.Glob,
 			Stat: os.Stat,
 		},
-		Log:    logfile.New(logPath, settings.LogRotateBytes),
-		Record: state.Store{Path: settings.StateFile()},
-		Out:    out,
-		Err:    errOut,
+		LogFile: logfile.New(logPath, settings.LogRotateBytes, logFormat),
+		Log:     logging.New(logfile.New(logPath, settings.LogRotateBytes, logFormat), logging.LevelInfo),
+		Emit:    TextEmitter{Out: out, Err: errOut},
+		Record:  recordStore(settings.StateFile()),
+		BuildInfo: version.Info{
+			Version: "test", Platform: "test/arch",
+			GoVersion: "go1.test", Module: "github.com/rhczz/dshctl",
+		},
 		Getenv: envLookup,
 		LookPath: func(name string) (string, error) {
 			return "/fake/bin/" + name, nil
@@ -1151,6 +1180,29 @@ func minDuration(a, b time.Duration) time.Duration {
 	return b
 }
 
+// setLogLevel relogs the fixture's diagnostics at another level, which is what
+// the command line does from --log-level before a command runs.
+func (f *fixture) setLogLevel(t *testing.T, level logging.Level) {
+	t.Helper()
+	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes, logFormat)
+	f.Log = logging.New(f.LogFile, level)
+}
+
+// logContent reads the fixture's log file for assertions about what was
+// recorded. A log that was never written reads as empty, which is what "nothing
+// was recorded" means here.
+func (f *fixture) logContent(t *testing.T) string {
+	t.Helper()
+	data, err := os.ReadFile(f.Settings.LogPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return ""
+	}
+	if err != nil {
+		t.Fatalf("reading the log: %v", err)
+	}
+	return string(data)
+}
+
 // wantNoSpawn fails the test when the service started a process.
 func (f *fixture) wantNoSpawn(t *testing.T) {
 	t.Helper()
@@ -1211,16 +1263,16 @@ func (f *fixture) wantSignals(t *testing.T, want []fakeSignal) {
 
 // stateRecord builds a record for the fixture's port with a matching
 // fingerprint, which is the shape a successful start writes.
-func stateRecord(f *fixture, pid int) state.Record {
-	return state.Record{PID: pid, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: state.PhaseRunning}
+func stateRecord(f *fixture, pid int) domain.Record {
+	return domain.Record{PID: pid, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: domain.PhaseRunning}
 }
 
 // startServer makes the fixture look like a server this service started: a
 // matching record plus a listener.
-func (f *fixture) startServer(t *testing.T, pid int, url string) state.Record {
+func (f *fixture) startServer(t *testing.T, pid int, url string) domain.Record {
 	t.Helper()
 	f.host.serving(pid, "pnpm --dir repo dsh web")
-	record := state.Record{PID: pid, StartedAt: 1_700_000_000, Port: f.Settings.Port, Phase: state.PhaseRunning, URL: url}
+	record := domain.Record{PID: pid, StartedAt: 1_700_000_000, Port: f.Settings.Port, Phase: domain.PhaseRunning, URL: url}
 	if err := f.Record.Save(record); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -1239,7 +1291,7 @@ func sectionTitles(t *testing.T, path string) []string {
 	}
 	var titles []string
 	for _, line := range strings.Split(string(data), "\n") {
-		if title, ok := logfile.ParseSection(line); ok {
+		if title, ok := logFormat.Section(line); ok {
 			titles = append(titles, title)
 		}
 	}
@@ -1248,7 +1300,7 @@ func sectionTitles(t *testing.T, path string) []string {
 }
 
 // stateRecord reads the runtime record, or reports that there is none.
-func (f *fixture) stateRecord(t *testing.T) (state.Record, bool) {
+func (f *fixture) stateRecord(t *testing.T) (domain.Record, bool) {
 	t.Helper()
 	record, ok, err := f.Record.Load()
 	if err != nil {
@@ -1456,8 +1508,9 @@ func (f *fixture) run(t *testing.T, overrides config.Overrides) config.Settings 
 // ask them again for it. `New` wires the same two values, which is what keeps a
 // fixture and the service it stands for describing one machine.
 func (f *fixture) rebind() {
-	f.Record = state.Store{Path: f.Settings.StateFile()}
-	f.Log = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+	f.Record = recordStore(f.Settings.StateFile())
+	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes, logFormat)
+	f.Log = logging.New(f.LogFile, logging.LevelInfo)
 }
 
 // guess is the built-in checkout this machine's home implies.

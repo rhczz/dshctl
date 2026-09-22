@@ -55,24 +55,42 @@ type Facts struct {
 	Source string
 }
 
+// Tools names the external programs a probe may use, in the order they are
+// trusted.
+//
+// Which inventory tools an installation has, and which of them a product is
+// willing to trust, is not this package's decision: the parsers here know each
+// dialect, but only the caller knows what it has tested and what it prefers
+// first. The mechanism therefore asks for the list, and an empty one means
+// "cannot look" rather than a guessed default.
+type Tools struct {
+	// Port names the port-probing tools in trust order. The names this build can
+	// parse are "lsof", "ss" and "netstat"; a name it cannot parse is reported
+	// as a failed probe rather than ignored silently.
+	Port []string
+	// Process names the tool that reads process facts on Unix, e.g. "ps".
+	Process string
+}
+
 // Host is the operating-system surface dshctl depends on.
 type Host struct {
 	lookPath func(string) (string, error)
+	tools    Tools
 }
 
 // New returns a Host bound to the real machine.
-func New() *Host {
-	return &Host{lookPath: exec.LookPath}
+func New(tools Tools) *Host {
+	return &Host{lookPath: exec.LookPath, tools: tools}
 }
 
 // NewWithLookPath returns a Host whose executable lookups are substituted. The
 // port probes still use the real operating system; tests use it to decide which
 // of them report themselves as available.
-func NewWithLookPath(lookPath func(string) (string, error)) *Host {
+func NewWithLookPath(lookPath func(string) (string, error), tools Tools) *Host {
 	if lookPath == nil {
 		lookPath = exec.LookPath
 	}
-	return &Host{lookPath: lookPath}
+	return &Host{lookPath: lookPath, tools: tools}
 }
 
 // PortResult is what a port probe learned.

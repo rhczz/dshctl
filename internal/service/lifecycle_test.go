@@ -10,12 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/host"
 	"github.com/rhczz/dshctl/internal/lock"
 	"github.com/rhczz/dshctl/internal/logfile"
+	"github.com/rhczz/dshctl/internal/logging"
 	"github.com/rhczz/dshctl/internal/run"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // TestStartRefusesAForeignListener pins the first safety rule: a port owned by
@@ -147,8 +148,8 @@ func TestStartSucceedsWhenThePortAnswers(t *testing.T) {
 	if result.SpawnedPID == 0 {
 		t.Fatal("no process was spawned")
 	}
-	if result.Status.State != StateRunning {
-		t.Fatalf("state = %q, want %q", result.Status.State, StateRunning)
+	if result.Status.State != domain.StateRunning {
+		t.Fatalf("state = %q, want %q", result.Status.State, domain.StateRunning)
 	}
 	record, ok := f.stateRecord(t)
 	if !ok {
@@ -163,7 +164,7 @@ func TestStartSucceedsWhenThePortAnswers(t *testing.T) {
 	if record.PID != f.host.servedByListener {
 		t.Fatalf("record pid = %d, want the listener %d", record.PID, f.host.servedByListener)
 	}
-	if record.Phase != state.PhaseRunning {
+	if record.Phase != domain.PhaseRunning {
 		t.Fatalf("phase = %q, want running", record.Phase)
 	}
 	if record.StartedAt == 0 {
@@ -175,7 +176,7 @@ func TestStartSucceedsWhenThePortAnswers(t *testing.T) {
 // instead of blocking the start.
 func TestStartReplacesAStaleRecord(t *testing.T) {
 	f := newFixture(t)
-	stale := state.Record{PID: 5555, StartedAt: 1_600_000_000, Port: f.Settings.Port, Phase: state.PhaseRunning}
+	stale := domain.Record{PID: 5555, StartedAt: 1_600_000_000, Port: f.Settings.Port, Phase: domain.PhaseRunning}
 	if err := f.Record.Save(stale); err != nil {
 		t.Fatalf("save stale record: %v", err)
 	}
@@ -203,7 +204,7 @@ func TestStartStoresTheAnnouncedURL(t *testing.T) {
 	f := newFixture(t)
 	f.host.spontaneouslyServed = true
 	announced := fmt.Sprintf("http://127.0.0.1:%d/?token=deadbeef", f.Settings.Port)
-	if err := f.Log.Line("dsh web: " + announced); err != nil {
+	if err := f.LogFile.Line("dsh web: " + announced); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 
@@ -233,8 +234,8 @@ func TestStopOnlySignalsTheRecordedProcess(t *testing.T) {
 	if _, ok := f.stateRecord(t); ok {
 		t.Fatal("a completed stop must clear the runtime record")
 	}
-	if result.Status.State != StateStopped {
-		t.Fatalf("state = %q, want %q", result.Status.State, StateStopped)
+	if result.Status.State != domain.StateStopped {
+		t.Fatalf("state = %q, want %q", result.Status.State, domain.StateStopped)
 	}
 	if !strings.Contains(f.out.String(), "已停止") {
 		t.Fatalf("output = %q", f.out.String())
@@ -318,12 +319,12 @@ func seedInterruptedStart(t *testing.T, f *fixture, wrapper, listener int, wrapp
 	f.host.processes[wrapper].alive = wrapperAlive
 	f.host.listener = listener
 	f.host.mu.Unlock()
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID:        wrapper,
 		SpawnedPID: wrapper,
 		StartedAt:  fixtureStartTime,
 		Port:       f.Settings.Port,
-		Phase:      state.PhaseRunning,
+		Phase:      domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -379,7 +380,7 @@ func TestStartAdoptsASurvivorOfAnInterruptedStart(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Status: %v", err)
 			}
-			if status.State != StateRunning || !status.RecordLive {
+			if status.State != domain.StateRunning || !status.RecordLive {
 				t.Fatalf("status = %+v, want the adopted server recognized as running", status)
 			}
 		})
@@ -426,8 +427,8 @@ func TestStatusKeepsTheInterruptedRecordReadOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	if status.State != StateOrphan {
-		t.Fatalf("state = %q, want %q", status.State, StateOrphan)
+	if status.State != domain.StateOrphan {
+		t.Fatalf("state = %q, want %q", status.State, domain.StateOrphan)
 	}
 	record, ok := f.stateRecord(t)
 	if !ok || record.PID != wrapper {
@@ -501,8 +502,8 @@ func TestFailedStartCleansUpTheWholeGroup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	if status.State != StateStopped {
-		t.Fatalf("state = %q, want %q with the port free again", status.State, StateStopped)
+	if status.State != domain.StateStopped {
+		t.Fatalf("state = %q, want %q with the port free again", status.State, domain.StateStopped)
 	}
 }
 
@@ -535,8 +536,8 @@ func TestFailedStartCleansUpWhenTheLeaderDiesFirst(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	if status.State != StateStopped {
-		t.Fatalf("state = %q, want %q with the port free again", status.State, StateStopped)
+	if status.State != domain.StateStopped {
+		t.Fatalf("state = %q, want %q with the port free again", status.State, domain.StateStopped)
 	}
 }
 
@@ -627,7 +628,7 @@ func TestStopReportsAProcessThatSurvivesTheForceSignal(t *testing.T) {
 	}
 }
 
-// TestStopReportsAnotherHarnessServer pins the StateForeign branch of stop: a
+// TestStopReportsAnotherHarnessServer pins the domain.StateForeign branch of stop: a
 // DeepSeek Harness server of a *different* checkout owns the port, so the stop
 // reports it and leaves it alone.
 func TestStopReportsAnotherHarnessServer(t *testing.T) {
@@ -638,8 +639,8 @@ func TestStopReportsAnotherHarnessServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
-	if result.Status.State != StateForeign {
-		t.Fatalf("state = %q, want %q", result.Status.State, StateForeign)
+	if result.Status.State != domain.StateForeign {
+		t.Fatalf("state = %q, want %q", result.Status.State, domain.StateForeign)
 	}
 	f.wantNoSignals(t)
 	if !f.host.isAlive(4242) {
@@ -657,11 +658,11 @@ func TestStopRefusesToSignalARecycledPID(t *testing.T) {
 	// The record names pid 4321 with one start time; the live pid 4321 is a
 	// different process with a different start time.
 	f.host.serving(4321, "/usr/bin/tail -f /var/log/system.log")
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID:       4321,
 		StartedAt: 1_600_000_000,
 		Port:      f.Settings.Port,
-		Phase:     state.PhaseRunning,
+		Phase:     domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -722,7 +723,7 @@ func TestStopReportsAStrangerOnThePort(t *testing.T) {
 // answer, which must still clear a stale record.
 func TestStopSaysSoWhenNothingRuns(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Record.Save(state.Record{PID: 9999, StartedAt: 1_600_000_000, Port: f.Settings.Port, Phase: state.PhaseRunning}); err != nil {
+	if err := f.Record.Save(domain.Record{PID: 9999, StartedAt: 1_600_000_000, Port: f.Settings.Port, Phase: domain.PhaseRunning}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
 
@@ -774,20 +775,20 @@ func TestStatusClassifiesEveryState(t *testing.T) {
 	cases := []struct {
 		name      string
 		setup     func(*fixture, *testing.T)
-		want      string
+		want      domain.State
 		wantStale bool
 	}{
 		{
 			name:  "stopped",
 			setup: func(*fixture, *testing.T) {},
-			want:  StateStopped,
+			want:  domain.StateStopped,
 		},
 		{
 			name: "running",
 			setup: func(f *fixture, t *testing.T) {
 				f.startServer(t, 4321, "")
 			},
-			want: StateRunning,
+			want: domain.StateRunning,
 		},
 		{
 			name: "starting",
@@ -796,34 +797,34 @@ func TestStatusClassifiesEveryState(t *testing.T) {
 				f.host.add(4321, "pnpm --dir repo dsh web", fixtureStartTime)
 				f.host.listen(4321)
 				f.host.ready = false
-				if err := f.Record.Save(state.Record{
-					PID: 4321, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: state.PhaseRunning,
+				if err := f.Record.Save(domain.Record{
+					PID: 4321, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: domain.PhaseRunning,
 				}); err != nil {
 					t.Fatalf("save record: %v", err)
 				}
 			},
-			want: StateStarting,
+			want: domain.StateStarting,
 		},
 		{
 			name: "harness server of another checkout",
 			setup: func(f *fixture, t *testing.T) {
 				f.host.serving(4242, "node /opt/other/deepseek-harness/apps/cli/lib/bin.js web --port 3080")
 			},
-			want: StateForeign,
+			want: domain.StateForeign,
 		},
 		{
 			name: "unrelated program",
 			setup: func(f *fixture, t *testing.T) {
 				f.host.serving(4242, "/usr/sbin/nginx -g daemon off;")
 			},
-			want: StateOrphan,
+			want: domain.StateOrphan,
 		},
 		{
 			name: "unmanaged listener",
 			setup: func(f *fixture, t *testing.T) {
 				f.host.serving(7777, "python3 -m http.server 3080")
 			},
-			want: StateOrphan,
+			want: domain.StateOrphan,
 		},
 		{
 			// The recorded pid now belongs to a different process: the record is
@@ -832,13 +833,13 @@ func TestStatusClassifiesEveryState(t *testing.T) {
 			setup: func(f *fixture, t *testing.T) {
 				f.host.add(4321, "pnpm --dir repo dsh web", fixtureStartTime+10_000)
 				f.host.listen(4321)
-				if err := f.Record.Save(state.Record{
-					PID: 4321, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: state.PhaseRunning,
+				if err := f.Record.Save(domain.Record{
+					PID: 4321, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: domain.PhaseRunning,
 				}); err != nil {
 					t.Fatalf("save record: %v", err)
 				}
 			},
-			want:      StateForeign,
+			want:      domain.StateForeign,
 			wantStale: true,
 		},
 		{
@@ -846,13 +847,13 @@ func TestStatusClassifiesEveryState(t *testing.T) {
 			name: "recorded process gone, port taken",
 			setup: func(f *fixture, t *testing.T) {
 				f.host.serving(4242, "/usr/sbin/nginx -g daemon off;")
-				if err := f.Record.Save(state.Record{
-					PID: 5555, StartedAt: 1_600_000_000, Port: f.Settings.Port, Phase: state.PhaseRunning,
+				if err := f.Record.Save(domain.Record{
+					PID: 5555, StartedAt: 1_600_000_000, Port: f.Settings.Port, Phase: domain.PhaseRunning,
 				}); err != nil {
 					t.Fatalf("save record: %v", err)
 				}
 			},
-			want:      StateForeign,
+			want:      domain.StateForeign,
 			wantStale: true,
 		},
 		{
@@ -863,13 +864,13 @@ func TestStatusClassifiesEveryState(t *testing.T) {
 			setup: func(f *fixture, t *testing.T) {
 				f.host.add(5555, "pnpm --dir repo dsh web", fixtureStartTime)
 				f.host.serving(4242, "/usr/sbin/nginx -g daemon off;")
-				if err := f.Record.Save(state.Record{
-					PID: 5555, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: state.PhaseRunning,
+				if err := f.Record.Save(domain.Record{
+					PID: 5555, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: domain.PhaseRunning,
 				}); err != nil {
 					t.Fatalf("save record: %v", err)
 				}
 			},
-			want: StateOrphan,
+			want: domain.StateOrphan,
 		},
 	}
 	for _, testCase := range cases {
@@ -904,7 +905,7 @@ func TestStatusReportsAnUninspectablePortAsAnError(t *testing.T) {
 // pid is reported as stale and handed to the caller, which retires it.
 func TestStatusReportsARecordThatDescribesNothing(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Record.Save(state.Record{PID: 5555, StartedAt: 1_600_000_000, Port: f.Settings.Port, Phase: state.PhaseRunning}); err != nil {
+	if err := f.Record.Save(domain.Record{PID: 5555, StartedAt: 1_600_000_000, Port: f.Settings.Port, Phase: domain.PhaseRunning}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
 
@@ -912,8 +913,8 @@ func TestStatusReportsARecordThatDescribesNothing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	if status.State != StateStopped {
-		t.Fatalf("state = %q, want %q", status.State, StateStopped)
+	if status.State != domain.StateStopped {
+		t.Fatalf("state = %q, want %q", status.State, domain.StateStopped)
 	}
 	if !status.RecordStale || status.StaleRecord == nil {
 		t.Fatal("a record naming a dead pid must be reported as stale with the record attached")
@@ -927,7 +928,7 @@ func TestStatusReportsARecordThatDescribesNothing(t *testing.T) {
 // rather than by inspecting a chosen file.
 //
 // An earlier version of this test removed the lock file and then only checked
-// the returned state, so it passed while Status was creating the state
+// the returned state, so it passed while domain.Status was creating the state
 // directory, the config file and a new lock. The assertion below is what makes
 // the promise real: after a status, the state directory must not exist.
 func TestStatusCreatesNothingAtAll(t *testing.T) {
@@ -940,8 +941,8 @@ func TestStatusCreatesNothingAtAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	if status.State != StateStopped {
-		t.Fatalf("state = %q, want %q", status.State, StateStopped)
+	if status.State != domain.StateStopped {
+		t.Fatalf("state = %q, want %q", status.State, domain.StateStopped)
 	}
 	for _, path := range []string{f.state, f.Settings.ConfigPath, f.Settings.LogPath, f.Settings.StateFile(), f.Settings.LockFile()} {
 		if _, err := os.Lstat(path); !os.IsNotExist(err) {
@@ -955,7 +956,7 @@ func TestStatusCreatesNothingAtAll(t *testing.T) {
 // still on disk afterwards. The next mutating command is what retires it.
 func TestStatusReportsStaleWithoutRetiringIt(t *testing.T) {
 	f := newFixture(t)
-	stale := state.Record{PID: 999999, StartedAt: 1_600_000_000, Port: f.Settings.Port, Phase: state.PhaseRunning}
+	stale := domain.Record{PID: 999999, StartedAt: 1_600_000_000, Port: f.Settings.Port, Phase: domain.PhaseRunning}
 	if err := f.Record.Save(stale); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -1006,9 +1007,11 @@ func TestStatusDoesNotTakeTheLock(t *testing.T) {
 func TestBuildWritesTheSectionBeforeRotating(t *testing.T) {
 	f := newFixture(t)
 	f.Settings.LogRotateBytes = 512
-	f.Log = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes)
+	f.LogFile = logfile.New(f.Settings.LogPath, f.Settings.LogRotateBytes, logFormat)
+	f.Log = logging.New(f.LogFile, logging.LevelInfo)
+	f.Emit = TextEmitter{Out: f.out, Err: f.errOut}
 	// Fill the log so the next build rotates it.
-	if err := f.Log.Line(strings.Repeat("x", 1200)); err != nil {
+	if err := f.LogFile.Line(strings.Repeat("x", 1200)); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 	f.host.fail = func(cmd run.Command) error {
@@ -1023,7 +1026,7 @@ func TestBuildWritesTheSectionBeforeRotating(t *testing.T) {
 	if err := f.RunBuild(context.Background()); err != nil {
 		t.Fatalf("RunBuild: %v", err)
 	}
-	body, outcome, err := logfile.LastSection(f.Settings.LogPath, buildSectionTitles)
+	body, outcome, err := logfile.LastSection(f.Settings.LogPath, logFormat, buildSectionTitles)
 	if err != nil {
 		t.Fatalf("LastSection: %v", err)
 	}
@@ -1154,7 +1157,7 @@ func TestUpdateRestoresTheServiceOnSuccess(t *testing.T) {
 	if !ok || record.PID == 4321 {
 		t.Fatalf("record = %+v (ok=%v), want a freshly started server", record, ok)
 	}
-	if record.Phase != state.PhaseRunning {
+	if record.Phase != domain.PhaseRunning {
 		t.Fatalf("phase = %q, want running", record.Phase)
 	}
 }
@@ -1189,10 +1192,10 @@ func TestBuildDoesNotPruneOutsideTheCheckout(t *testing.T) {
 // the tail ended.
 func TestLogsPrintsTheTailAndFollowsWithoutGaps(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Line("first"); err != nil {
+	if err := f.LogFile.Line("first"); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	f.Log.SetPollInterval(5 * time.Millisecond)
+	f.LogFile.SetPollInterval(5 * time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -1201,7 +1204,7 @@ func TestLogsPrintsTheTailAndFollowsWithoutGaps(t *testing.T) {
 
 	// Give the follow a moment to attach, then write.
 	time.Sleep(50 * time.Millisecond)
-	if err := f.Log.Line("second"); err != nil {
+	if err := f.LogFile.Line("second"); err != nil {
 		t.Fatalf("append: %v", err)
 	}
 	deadline := time.Now().Add(3 * time.Second)
@@ -1229,7 +1232,7 @@ func TestLogsPrintsTheTailAndFollowsWithoutGaps(t *testing.T) {
 // never recorded a build.
 func TestLogsBuildOnlyReportsAMissingRecord(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Line("just server output"); err != nil {
+	if err := f.LogFile.Line("just server output"); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	if err := f.Logs(context.Background(), LogsOptions{BuildOnly: true}); err != nil {
@@ -1246,7 +1249,7 @@ func TestWebURLPrefersTheRecordedAddress(t *testing.T) {
 	announced := fmt.Sprintf("http://127.0.0.1:%d/?token=abc", f.Settings.Port)
 	f.startServer(t, 4321, announced)
 	// The log holds an older address that must not win.
-	if err := f.Log.Line("dsh web: " + announced + "-stale"); err != nil {
+	if err := f.LogFile.Line("dsh web: " + announced + "-stale"); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 
@@ -1264,7 +1267,7 @@ func TestWebURLPrefersTheRecordedAddress(t *testing.T) {
 func TestWebURLFallsBackToTheLog(t *testing.T) {
 	f := newFixture(t)
 	announced := fmt.Sprintf("http://127.0.0.1:%d/?token=fromlog", f.Settings.Port)
-	if err := f.Log.Line("dsh web: " + announced); err != nil {
+	if err := f.LogFile.Line("dsh web: " + announced); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 	// A running server with an address-less record.
@@ -1282,7 +1285,7 @@ func TestWebURLFallsBackToTheLog(t *testing.T) {
 // TestWebURLRefusesAMissingAddress pins the error instead of printing nothing.
 func TestWebURLRefusesAMissingAddress(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Line("no address here"); err != nil {
+	if err := f.LogFile.Line("no address here"); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	f.startServer(t, 4321, "")
@@ -1295,7 +1298,7 @@ func TestWebURLRefusesAMissingAddress(t *testing.T) {
 // prints on its own counts, so a diagnostic that mentions a URL is ignored.
 func TestWebURLDoesNotLeakAnUnrelatedURL(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Line("see https://example.com/help for details"); err != nil {
+	if err := f.LogFile.Line("see https://example.com/help for details"); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	f.startServer(t, 4321, "")
@@ -1372,4 +1375,25 @@ func emitStdout(w interface{ Write([]byte) (int, error) }, text string) error {
 	}
 	_, err := w.Write([]byte(text))
 	return err
+}
+
+// TestTheLogLevelDecidesWhatTheFileCarries pins the setting's only consumer: the
+// observation's detail is recorded at debug and not at the default level.
+func TestTheLogLevelDecidesWhatTheFileCarries(t *testing.T) {
+	quiet := newFixture(t)
+	if _, err := quiet.Status(context.Background(), quiet.Settings.Port); err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if content := quiet.logContent(t); strings.Contains(content, "观测端口") {
+		t.Fatalf("a debug line was recorded at the default level:\n%s", content)
+	}
+
+	loud := newFixture(t)
+	loud.setLogLevel(t, logging.LevelDebug)
+	if _, err := loud.Status(context.Background(), loud.Settings.Port); err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if content := loud.logContent(t); !strings.Contains(content, "观测端口") {
+		t.Fatalf("no debug line was recorded at debug level:\n%s", content)
+	}
 }

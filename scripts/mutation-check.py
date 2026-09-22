@@ -260,7 +260,7 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     ),
     (
         "the record no longer names the checkout it was started from",
-        "internal/state/state.go",
+        "internal/domain/record.go",
         "RepoDir string `json:\"repoDir,omitempty\"`",
         "RepoDir string `json:\"-\"`",
         ["./internal/state/", "./internal/service/"],
@@ -281,7 +281,7 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     ),
     (
         "the record no longer names the release it was started with",
-        "internal/state/state.go",
+        "internal/domain/record.go",
         "if r.NodeVersion != \"\" {\n\t\tbuilder.WriteString(\", node=\")\n\t\tbuilder.WriteString(r.NodeVersion)\n\t}",
         "",
         ["./internal/service/"],
@@ -401,7 +401,7 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "the version already deployed is rebuilt and restarted anyway",
         "internal/service/update.go",
-        "\tif target.commit == current {",
+        "\tif target.Commit == current {",
         "\tif false {",
         ["./internal/service/"],
     ),
@@ -469,6 +469,83 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         ["./internal/repo/"],
     ),
     (
+        "a language nobody speaks is rendered instead of falling back to English",
+        "internal/i18n/i18n.go",
+        "\t// \"C\" and \"POSIX\" are the absence of a locale, not a language.\n\treturn EN",
+        "\t// \"C\" and \"POSIX\" are the absence of a locale, not a language.\n\treturn ZH",
+        ["./internal/i18n/"],
+    ),
+    (
+        "two layers may claim the same message id",
+        "internal/i18n/catalog.go",
+        "\t\t\tif _, exists := merged[id]; exists {",
+        "\t\t\tif _, exists := merged[id]; false && exists {",
+        ["./internal/i18n/"],
+    ),
+    (
+        "another port's unreadable record is read as no service at all",
+        "internal/service/build.go",
+        "\t\tif err != nil {\n\t\t\t// A record nobody can read is not a port nobody serves",
+        "\t\tif false {\n\t\t\t// A record nobody can read is not a port nobody serves",
+        ["./internal/service/"],
+    ),
+    (
+        "a listener that ended before its fingerprint was read is recorded anyway",
+        "internal/service/start.go",
+        "\tif !s.listenerStillOurs(ctx, pid, listenerPID) {",
+        "\tif false {",
+        ["./internal/service/"],
+    ),
+    (
+        "a start that ends up not owning the port reports success",
+        "internal/service/start.go",
+        "\tif !status.Owning() {",
+        "\tif false {",
+        ["./internal/service/"],
+    ),
+    (
+        "the product trusts netstat before the tools that name the owner",
+        "internal/service/hosttools.go",
+        '\tPort:    []string{"lsof", "ss", "netstat"},',
+        '\tPort:    []string{"netstat", "ss", "lsof"},',
+        ["./internal/host/", "./internal/service/"],
+    ),
+    (
+        "the record store forgets the bound the product gave it",
+        "internal/service/records.go",
+        "\t\tMaxBytes: maxRecordBytes,",
+        "\t\tMaxBytes: 0,",
+        ["./internal/service/"],
+    ),
+    (
+        "the log markers stop naming the product that wrote them",
+        "internal/service/logformat.go",
+        '\tProduct: "dshctl",',
+        '\tProduct: "",',
+        ["./internal/service/", "./internal/conformance/"],
+    ),
+    (
+        "a failed mutating run is reported as a success in its document",
+        "internal/cli/jsonmode.go",
+        "\tdocument := mutatingDocument{Command: name, OK: err == nil, Result: result, Events: events.list()}",
+        "\tdocument := mutatingDocument{Command: name, OK: true, Result: result, Events: events.list()}",
+        ["./internal/cli/"],
+    ),
+    (
+        "the log level flag is ignored, so only the file and environment decide",
+        "internal/cli/cli.go",
+        "\tif parsed.logLevelSet {",
+        "\tif false {",
+        ["./internal/cli/"],
+    ),
+    (
+        "the toolchain that built the binary is left unnamed",
+        "internal/version/version.go",
+        "\treturn info.GoVersion, info.Main.Path",
+        '\treturn "", info.Main.Path',
+        ["./internal/version/"],
+    ),
+    (
         "a failed fetch still reports the timeline as confirmed",
         "internal/cli/commands.go",
         "\tif !report.Fetched {",
@@ -508,6 +585,11 @@ def run(packages: list[str]) -> tuple[str, str]:
     # a mutation that never compiled proves nothing about the suite.
     if "build failed" in output or "cannot use" in output or "[build failed]" in output:
         return "invalid", output
+    if "[setup failed]" in output or "no Go files" in output or "matched no packages" in output:
+        # A package that does not exist fails `go test` instantly and prints
+        # FAIL. Reading that as "the suite noticed" would turn every entry whose
+        # package moved into a false caught, so it is invalid: nothing ran.
+        return "invalid", output
     if "--- FAIL" in output or "panic:" in output or "test timed out" in output:
         return "caught", output
     if re.search(r"^FAIL\s+\S+", output, re.MULTILINE) or "signal: " in output:
@@ -518,6 +600,29 @@ def run(packages: list[str]) -> tuple[str, str]:
         # pinned decision as unpinned.
         return "caught", output
     return "invalid", output
+
+
+def audit() -> int:
+    """Check every anchor against the tree without running a test.
+
+    A stale anchor is the signature of moved code: the sharded sweep catches it
+    one shard per run, which is a slow way to learn that a file was renamed. This
+    is the same check for the whole list at once.
+    """
+    stale = []
+    for name, path, original, _, _ in MUTATIONS:
+        file = ROOT / path
+        if not file.exists():
+            stale.append(f"{name}: {path} 不存在")
+            continue
+        if file.read_text(encoding="utf-8").count(original) != 1:
+            stale.append(f"{name}: {path} 里的锚点不唯一或不存在")
+    if stale:
+        for entry in stale:
+            print(f"检查失败: {entry}", file=sys.stderr)
+        return 1
+    print(f"锚点检查通过（{len(MUTATIONS)} 条都唯一匹配）")
+    return 0
 
 
 def select(entries: list, only: str | None, shard: str | None) -> list:
@@ -550,12 +655,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--list", action="store_true", help="list the mutations and exit")
     parser.add_argument("--only", help="run just the mutation whose name contains this")
+    parser.add_argument("--audit", action="store_true", help="check every anchor against the tree")
     parser.add_argument(
         "--shard",
         help="run one deterministic partition of the sweep, written I/N (CI runs all N in parallel)",
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="show the failing output")
     arguments = parser.parse_args()
+
+    if arguments.audit:
+        return audit()
 
     if arguments.list:
         for name, path, _, _, packages in MUTATIONS:

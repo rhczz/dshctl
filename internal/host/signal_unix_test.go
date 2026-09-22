@@ -48,7 +48,7 @@ func TestSignalEndsARealProcess(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			command := startBlockingChild(t)
 			pid := command.Process.Pid
-			host := New()
+			host := New(testTools)
 			if !host.Alive(context.Background(), pid) {
 				t.Fatalf("the child (pid %d) is not alive before the signal", pid)
 			}
@@ -82,7 +82,7 @@ func TestSignalReportsAProcessThatIsGone(t *testing.T) {
 	// The two platforms report the same fact with different spellings: macOS
 	// wraps ECHILD as os.ErrProcessDone, Linux answers ESRCH.
 	for _, request := range []Request{Graceful, Force} {
-		err := New().Signal(5_000_000, request)
+		err := New(testTools).Signal(5_000_000, request)
 		if !errors.Is(err, syscall.ESRCH) && !errors.Is(err, os.ErrProcessDone) {
 			t.Fatalf("Signal(%v) error = %v, want the no-such-process classification", request, err)
 		}

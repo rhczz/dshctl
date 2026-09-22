@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/rhczz/dshctl/internal/domain"
 )
 
 // corruptRecordContent is not a runtime record in any shape dshctl writes: a
@@ -24,8 +26,8 @@ func TestStatusReportsACorruptRecordAsStaleWithoutRetiringIt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	if status.State != StateStopped {
-		t.Fatalf("state = %q, want %q: a corrupt record describes no server", status.State, StateStopped)
+	if status.State != domain.StateStopped {
+		t.Fatalf("state = %q, want %q: a corrupt record describes no server", status.State, domain.StateStopped)
 	}
 	if !status.RecordStale {
 		t.Fatal("a record that cannot be parsed must be reported as stale")
@@ -87,8 +89,8 @@ func TestStopClearsACorruptRecord(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
-	if result.Status.State != StateStopped {
-		t.Fatalf("state = %q, want %q", result.Status.State, StateStopped)
+	if result.Status.State != domain.StateStopped {
+		t.Fatalf("state = %q, want %q", result.Status.State, domain.StateStopped)
 	}
 	f.wantNoSignals(t)
 	// What the operator was promised ("下次 start/stop 会重建它") must hold: after

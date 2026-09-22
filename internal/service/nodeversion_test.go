@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/rhczz/dshctl/internal/config"
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/nodejs"
 	"github.com/rhczz/dshctl/internal/paths"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // The Node release is decided once and then written down: the first successful
@@ -589,12 +589,12 @@ func TestAnAdoptedSurvivorKeepsTheRuntimeItWasStartedWith(t *testing.T) {
 	listener := f.host.add(4242, "node apps/cli/src/bin.ts web", fixtureStartTime)
 	listener.group = 4241
 	f.host.listener = 4242
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID:         4241,
 		SpawnedPID:  4241,
 		StartedAt:   fixtureStartTime,
 		Port:        f.Settings.Port,
-		Phase:       state.PhaseRunning,
+		Phase:       domain.PhaseRunning,
 		NodeVersion: config.TestedNodeVersion,
 		NodePath:    "/opt/node/bin/node",
 	}); err != nil {

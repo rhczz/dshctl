@@ -68,7 +68,7 @@ func TestStartFailsFastWhenTheRealChildExitsImmediately(t *testing.T) {
 	// given the time the product gives it.
 	f.Spawn = nil
 	f.LookPath = run.LookPath
-	f.Host = host.NewWithLookPath(run.LookPath)
+	f.Host = host.NewWithLookPath(run.LookPath, hostTools)
 	f.fingerprint = fingerprintTimeout
 	f.Settings.StartTimeout = 30 * time.Second
 
@@ -119,7 +119,7 @@ setTimeout(() => process.exit(0), 30000);
 	// Real probes and a real resolver: this test runs real processes, so every
 	// substitute that only knows about fictional ones has to go — including the
 	// shortened fingerprint budget the fixture uses for those substitutes.
-	f.Host = host.NewWithLookPath(run.LookPath)
+	f.Host = host.NewWithLookPath(run.LookPath, hostTools)
 	f.fingerprint = fingerprintTimeout
 	f.Node = &nodejs.Resolver{LookPath: run.LookPath, Glob: filepath.Glob, Stat: os.Stat}
 

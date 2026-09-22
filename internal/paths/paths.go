@@ -1,5 +1,13 @@
 // Package paths resolves every file dshctl owns.
 //
+// It is a resource package: the names it exports (the environment variables, the
+// default directory, the derived state and config paths) are this product's
+// contract, and the README and the readme-env check read them from here. The
+// mechanism it also carries — validating that a path is absolute, expanding a
+// leading "~", refusing "~user" — is the part that would survive a change of
+// product, and it is deliberately kept next to the names so a caller cannot
+// resolve a path without it.
+//
 // All of dshctl's own state lives in one directory, so a single "rm -rf"
 // removes it without touching anything DeepSeek Harness keeps elsewhere. The
 // default is <harness home>/dshctl, where the harness home is $DSH_HOME or
@@ -39,6 +47,13 @@ const (
 	EnvNodeVersion = "DSH_NODE_VERSION"
 	// EnvConfigFile overrides the config file location.
 	EnvConfigFile = "DSHCTL_CONFIG"
+	// EnvLogLevel overrides how much detail is recorded in the log file.
+	EnvLogLevel = "DSHCTL_LOG_LEVEL"
+
+	// EnvLang overrides the language operator-facing text is rendered in. It
+	// outranks the shell's locale variables, so an operator can ask for English
+	// on a Chinese machine and the other way around.
+	EnvLang = "DSHCTL_LANG"
 	// EnvLogFile overrides the log file location.
 	EnvLogFile = "DSH_LOG_FILE"
 )

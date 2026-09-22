@@ -2,19 +2,19 @@
 
 dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止、重启、构建、更新与体检。单二进制、零第三方依赖，支持 darwin/linux/windows × amd64/arm64。
 
-本文件只写每个会话都必须生效的规则；操作细节在对应的 skill 里（见文末路由表）。
+本文件只写每个会话都必须生效的规则；细节在对应 skill（见路由表）。
 
 ## 命令
 
-- 本地只跑快检与定点复现：`make fmt-check conventions vet`（改 `.github/` 时加 `make workflow-check`，都是秒级静态检查），加上受影响包的 `go test ./internal/<pkg>/ -count=1`；要证明某条守卫会红、某个变异会被抓住时，只跑那一条（`-run NAME`、`python3 scripts/mutation-check.py --only NAME`）。先跑前两项，再跑 `vet` 与包测试。
-- 全量门禁只在 CI 跑，本地不执行：`make check`、`make ci`、全量 `make test`、`make test-race`、`make mutation`、`make coverage`、`make hermetic`、`make cross`。改动推送后以 GitHub Actions 的结论为准；不要用本地全量替 CI 复现，也不要没跑快检就推。
-- `make` 只是门禁命令清单，CI 直接跑同样的命令，`check-workflow.py` 强制一致；`make check`/`make ci` 是本地别名。
+- 本地只跑快检与定点复现：`make fmt-check conventions vet`（改 `.github/` 加 `make workflow-check`），加受影响包的 `go test ./internal/<pkg>/ -count=1`；要证明某条守卫会红、某个变异会被抓住时只跑那一条（`-run NAME`、`mutation-check.py --only NAME`）。
+- 全量门禁只在 CI 跑（`make check`/`ci`/`mutation`/`coverage`/`hermetic`/`cross`/全量测试），本地不执行；以 GitHub Actions 的结论为准，不要没跑快检就推。
+- `make` 只是门禁命令清单，CI 跑同样的命令，`check-workflow.py` 强制一致。
 - 版本一律锁死：Go 写确切补丁 `X.Y.Z`，action 按 commit SHA，govulncheck 固定版本；升级是独立的 `ci:` 提交。
-- 需要 Go 1.24+（CI 的 `floor` job 验证下限）与 python3（`scripts/` 下的检查）。
+- 需要 Go 1.24+（`floor` job 验证下限）与 python3。
 
 ## 包地图与依赖方向
 
-`cmd/dshctl → internal/cli → internal/service → 叶子`，方向不可逆、不得成环、不得引入第三方 import。叶子：`atomically`（崩溃安全的写入）、`buildinfo`、`exitcode`（退出码与类型化错误）、`config`（四层设置解析）、`detach`（后台子进程）、`history`（部署位置栈）、`host`（唯一直接和操作系统对话的包）、`lock`、`logfile`、`nodejs`（Node 解析与版本门槛）、`paths`、`repo`（checkout 检查与清理）、`run`（外部命令）、`state`（运行记录）、`version`。
+垂直分层（越靠内越纯，边只许自上而下）：`cmd/dshctl → internal/cli`（接入）`→ internal/service`（内核：引擎与操作）`→ internal/domain`（模型）与基础设施。`internal/domain`（状态、记录、归属、指纹、版本位置）与 `internal/i18n`（消息目录）是零内部依赖的叶子；基础设施叶子：`atomically`、`buildinfo`、`config`、`detach`、`exitcode`、`history`、`host`（唯一直接和操作系统对话的包）、`lock`、`logfile`、`logging`、`nodejs`、`paths`、`repo`、`run`、`state`、`version`；`conformance` 是测试专用包（金标与账本）。
 
 ## 固定 vs 配置
 
@@ -24,25 +24,24 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 2. 今天就有消费者要设它吗？否 → 常量，或要求调用方显式传值。
 3. 它是协议常量、外部规范或安全不变量吗？是 → 写死，任何 flag/env/配置都不得覆盖。
 
-`DEFAULT_*` 常量与测试钩子不是可配置性。配置错误必须在最早可判定点响亮失败：未知键拒绝，缺 pnpm/git/构建产物拒绝启动，绝不降级。
+`DEFAULT_*` 常量与测试钩子不是可配置性。配置错误在最早可判定点响亮失败：未知键拒绝、缺依赖拒绝启动，绝不降级。
 
-写死的例子（真源在测试里）：退出码、状态目录文件名、`dsh web:` 地址行格式、构建标记路径、Node 下限 `24.12.0`、进程归属 = 运行记录 + 启动时间指纹、轮转截断同一 inode、`latest` = `origin/master`、时间线窗口 10、部署历史每组 50 条。可配置的例子：`repoDir`、`port`、`nodeVersion`、三个超时、`logRotateBytes`。
+写死的例子（真源在测试里）：退出码、状态目录文件名、`dsh web:` 地址行格式、Node 下限 `24.12.0`、进程归属 = 运行记录 + 启动时间指纹、`latest` = `origin/master`；可配置的：`repoDir`、`port`、`nodeVersion`、三个超时、`logRotateBytes`。
 
 ## 其他不变量
 
-- 只读命令（`status`/`url`/`logs`/`doctor`/`version`/`help`）零写盘；`internal/cli/readonly_test.go` 跑真实二进制断言。唯一例外是 `timeline`：它必须 `git fetch` 才能知道远程最新，因此会写 `.git` 的远程跟踪引用（不写状态目录、不改工作区），并且 fetch 失败时以退出码 4 结束、绝不声称"已是最新"。
+- 只读命令零写盘，由真实二进制测试断言；唯一例外是 `timeline`（只写 `.git` 远程跟踪引用，失败绝不声称“已是最新”）。
 - 设置优先级 `flag > env > 文件 > 默认`，`-v` 打印每项来源；解析只在 `config.Load` 一处完成，操作函数内部不得再有隐藏默认。
-- "探测不了"绝不当作"没有"；绝不结束不是自己启动的进程（`internal/service` 包文档三条不变量）。
-- 校验只在四处边界：CLI 参数、配置文件、状态与日志文件、外部命令输出。
-- 状态文件 0600、状态目录 0700、写入原子替换。
-- README 是唯一对外契约，`internal/cli/documentation_test.go` 强制环境变量、配置键、命令表、退出码表与默认值都被记录。
-- 面向操作者的文案（错误、帮助、README）中文；测试失败信息、标识符与注释英文。
+- 绝不结束不是自己启动的进程；内核包文档列了五条不变量。
+- 校验只在四处边界：CLI 参数、配置文件、状态与日志文件、外部命令输出；`"探测不了"绝不当作"没有"`。
+- 状态文件 0600、状态目录 0700、写入原子替换；细节见 `dshctl-state-safety`。
+- README 是唯一对外契约，`internal/cli/documentation_test.go` 强制环境变量、配置键、命令表、退出码与默认值都被记录。
+- 面向操作者的每一句话都走 `internal/i18n` 的消息目录（英文默认，机器语言为中文时中文）；测试失败信息、标识符与注释英文。
 
 ## TDD
 
 - 先写会失败的测试再写实现；bug 先写复现测试，并证明它在修复前是红的。
-- 守卫只有在回归能让它变红时才是守卫：引入回归 → 看红 → 还原；`make mutation` 是这条规则的可执行形式（整套在 CI 上分片跑，本地只证明单条）。
-- 新增被钉住的决策要同时加一条 `MUTATIONS` 字面替换，并证明它会被抓住。
+- 守卫只有在回归能让它变红时才是守卫（引入回归 → 看红 → 还原）；`make mutation` 是其可执行形式（整套在 CI 分片跑，本地只证明单条）。新增被钉住的决策要同时加一条 `MUTATIONS` 字面替换并证明它会被抓住。
 - 禁止先实现后补测试、禁止放宽或删除断言、禁止新增 skip（CI 的 skip 白名单要同步）。
 - 测试描述行为而不是"正确性"；行为过时就连测试一起改，并在提交里说明。
 
@@ -58,21 +57,21 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 - 跨层调用只经 `service`；平台差异只出现在 build tag 文件里，上层不得有 `if windows`（两处已声明例外见 `dshctl-portability`）。
 - 接口只为可测性存在（当前只有 `run.Executor`/`Capturer`/`Outputer` 与 `service.OsHost`），文档要写明它买到了什么。
-- 新不变量同时写进包文档与一个测试；新包需"独立不变量 + 可独立测试 + 不引入反向依赖"三条同时成立。
+- 基础设施只提供机制，产品值定义在拥有契约的层：文件名、记录 schema、日志标记里的产品名、上限、工具清单、env 名不得写死在机制包里，要以参数或类型传入；判据是"把该包拿去给另一个产品用，需要改它的源码吗"。
+- 接口只为可测性或多前端替换存在：`run.Executor`/`Capturer`/`Outputer`、`service.OsHost`、`service.Emitter`，文档写明买到了什么。
+- 领域层零依赖、零 I/O、不放文案；新不变量同时写进包文档与一个测试；新包需"独立不变量 + 可独立测试 + 不引入反向依赖"三条同时成立。
 - 契约性决定连同被否决的方案与后果写进 `.agents/notes/`，与代码同一提交。
 
 ## 工作流
 
-1. 定位真源：包文档、pinning 测试、README、`.agents/notes`。
-2. 定夺该固定还是该可配、代码属于哪一层。
-3. 写失败测试，再实现。
-4. 按改动选门禁：本地只跑快检与定点复现，全量交给 CI。
-5. 提交信息 `<type>: <小写英文句子描述行为变化>`，type 用 feat/fix/test/docs/ci；PR 面向 main 且 CI 三平台必绿，一个 PR 只做一件事、大功能按子系统拆成堆叠 PR；发布只打 `v*` tag，版本由 ldflags 注入。
+1. 定位真源（包文档、pinning 测试、README、`.agents/notes`），定夺固定/可配与所属层，再写失败测试。
+3. 按改动选门禁：本地只跑快检与定点复现，全量交给 CI。
+4. 提交信息 `<type>: <小写英文句子描述行为变化>`，type 用 feat/fix/test/docs/ci；PR 面向 main 且 CI 三平台必绿，一个 PR 只做一件事、大功能按子系统拆成堆叠 PR；发布只打 `v*` tag，版本由 ldflags 注入。
 
 ## 完成定义
 
-- [ ] `make fmt-check conventions vet`（改 `.github/` 加 `make workflow-check`）与受影响包测试通过；全量门禁以 CI 的结论为准（本地不跑）。
-- [ ] 按改动确认 `mutation` / `cross` / `hermetic` / `coverage` 已由 CI 覆盖，并等它出结论；新增被钉住的决策同时补了 `MUTATIONS` 条目。
+- [ ] `make fmt-check conventions vet`（改 `.github/` 加 `make workflow-check`）与受影响包测试通过；全量以 CI 为准。
+- [ ] 确认 `mutation` / `cross` / `hermetic` / `coverage` 已由 CI 覆盖并等结论。
 - [ ] 新增或改变的行为有会失败的测试，新不变量有反向用例。
 - [ ] README 与包文档同步；契约性决定已写进 `.agents/notes/`。
 - [ ] 没有新增依赖、没有削弱断言、没有新增 skip、没有触碰 `bin/` 与 `dist/`。
@@ -82,6 +81,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 | 任务 | skill |
 |---|---|
 | 该固定还是该可配、代码放哪层、要不要抽象、要不要写决策记录 | `dshctl-decisions` |
+| 分层与内核契约、第二个前端（HTTP/gRPC）、新增消息、重写期金标与账本 | `dshctl-architecture` |
 | 开始实现、修 bug、决定先写哪种测试 | `dshctl-tdd` |
 | 写或改测试文件、修 flake、补覆盖率 | `dshctl-testing` |
 | 生命周期、并发、子进程、超时、清理 | `dshctl-defensive` |

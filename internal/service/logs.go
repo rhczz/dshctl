@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/logfile"
 )
@@ -40,7 +41,7 @@ func (s *Service) Logs(ctx context.Context, options LogsOptions) error {
 	if options.BuildOnly {
 		return s.printBuildSection(lines)
 	}
-	if !s.Log.Exists() {
+	if !s.LogFile.Exists() {
 		return exitcode.New(exitcode.Failure, "日志文件不存在: %s", s.Settings.LogPath)
 	}
 	if options.Follow {
@@ -49,7 +50,7 @@ func (s *Service) Logs(ctx context.Context, options LogsOptions) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if _, err := logfile.Tail(s.Settings.LogPath, lines, s.Out); err != nil {
+	if _, err := logfile.Tail(s.Settings.LogPath, lines, s.emitter().Stream()); err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
@@ -66,14 +67,14 @@ func (s *Service) Logs(ctx context.Context, options LogsOptions) error {
 // in that window belongs to neither step if the follow simply attaches at the
 // current end.
 func (s *Service) tailThenFollow(ctx context.Context, lines int) error {
-	_, position, err := logfile.TailFrom(s.Settings.LogPath, lines, s.Out)
+	_, position, err := logfile.TailFrom(s.Settings.LogPath, lines, s.emitter().Stream())
 	if err != nil {
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return ctxErr
 		}
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
-	if err := s.Log.StreamFrom(ctx, s.Out, position); err != nil {
+	if err := s.LogFile.StreamFrom(ctx, s.emitter().Stream(), position); err != nil {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -84,13 +85,13 @@ func (s *Service) tailThenFollow(ctx context.Context, lines int) error {
 
 // printBuildSection prints the body of the last build or update record.
 func (s *Service) printBuildSection(lines int) error {
-	body, outcome, err := logfile.LastSection(s.Settings.LogPath, buildSectionTitles)
+	body, outcome, err := logfile.LastSection(s.Settings.LogPath, logFormat, buildSectionTitles)
 	if err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 	switch outcome {
 	case logfile.NotFound:
-		fmt.Fprintf(s.Err, "日志中没有 build/update/rollback 记录: %s\n", s.Settings.LogPath)
+		s.failure(fmt.Sprintf("日志中没有 build/update/rollback 记录: %s", s.Settings.LogPath))
 		return nil
 	case logfile.Truncated:
 		return exitcode.New(exitcode.Failure,
@@ -101,7 +102,7 @@ func (s *Service) printBuildSection(lines int) error {
 		body = body[len(body)-lines:]
 	}
 	for _, line := range body {
-		fmt.Fprintln(s.Out, line)
+		s.narrate(line)
 	}
 	return nil
 }
@@ -132,7 +133,7 @@ func (s *Service) WebURL(ctx context.Context) (string, error) {
 // The port is the value's own, so one instance's address is never reported for
 // another: an address carries a token, and handing an operator the token of a
 // different server is exactly the mistake this pairing exists to prevent.
-func (s *Service) observedAddress(status Status) (string, error) {
+func (s *Service) observedAddress(status domain.Status) (string, error) {
 	switch {
 	case status.Owning():
 		// The server is up (or starting): its address is the one it announced.
@@ -148,7 +149,7 @@ func (s *Service) observedAddress(status Status) (string, error) {
 				"日志已超过 %d MiB，未能在其中定位端口 %d 的访问地址\n提示: 可运行 dshctl logs -n 50 查看尾部输出",
 				logScanMiB, s.boundPort())
 		}
-		if status.State == StateStarting {
+		if status.State == domain.StateStarting {
 			return "", exitcode.New(exitcode.Failure,
 				"服务正在启动，尚未公布端口 %d 的访问地址;稍后重试或查看 dshctl logs", s.boundPort())
 		}
@@ -160,7 +161,7 @@ func (s *Service) observedAddress(status Status) (string, error) {
 		// Its address is in the log; managing it again is one command away.
 		address, _ := announcedURL(s.Settings.LogPath, s.boundPort())
 		if address != "" {
-			fmt.Fprintln(s.Err, "提示: 这是上次启动被中断后仍存活的服务;运行 dshctl start 或 dshctl stop 可恢复管理")
+			s.failure("提示: 这是上次启动被中断后仍存活的服务;运行 dshctl start 或 dshctl stop 可恢复管理")
 			return address, nil
 		}
 		return "", exitcode.New(exitcode.Failure,
@@ -168,7 +169,7 @@ func (s *Service) observedAddress(status Status) (string, error) {
 
 	default:
 		return "", exitcode.New(exitcode.NotRunning,
-			"DSH Web 未在运行(%s)，没有可访问的地址", statusSummary(status))
+			"DSH Web 未在运行(%s)，没有可访问的地址", StatusSummary(status))
 	}
 }
 

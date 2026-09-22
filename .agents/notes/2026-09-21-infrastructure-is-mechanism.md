@@ -1,0 +1,60 @@
+# 决策: 基础设施提供机制，产品值定义在拥有契约的层
+
+状态: 已实施
+
+## 问题
+
+多个机制包里写死了产品值：`state` 认识 `dsh-web-<port>.state.json` 与 64 KiB 上限、
+`logfile` 认识段落标记里的 `dshctl` 与时间格式、`host` 认识探针工具清单与候选顺序、
+`paths` 把环境变量名与"校验/展开"机制混在一起。后果不是"不好看"，而是机制不可复用：
+换一套文件名、换一个产品名、换一批工具，都要改机制包的源码，上层的差异化只能绕着它长。
+这与 i18n 的教训是同一条：**能力（机制）与资源（产品值）必须分开**。
+
+## 决定
+
+1. **判据写进 AGENTS.md**：把该包拿去给另一个产品用，需要改它的源码吗？需要就是写死了。
+2. 机制包不许认识：文件名的构成、记录 schema、日志标记里的产品名与时间格式、
+   大小/条数上限、探针工具清单、环境变量名。这些值由 `internal/service` 与
+   `internal/domain`（拥有契约的层）以**常量、参数或类型**传入。
+3. 分层文档与工作清单放在 `dshctl-architecture` 的
+   `references/mechanism-and-resource.md`（含每个包的机制描述与待提取项）。
+4. **`config` 不泛化**：它的四层优先级合并与 schema 同处一包，但它的 schema 就是
+   这个产品的设置，泛化成"通用设置解析框架"只会得到一个只有单一消费者的框架。
+   分类上它是**资源包**（拥有设置契约），不是机制包；机制部分（严格 JSON 文档、
+   未知键拒绝、四层合并的形态）留在原处并在包文档里说明。
+5. `paths` 同理保留产品变量名（它们是对外契约，README 与 `readme-env` 检查都依赖），
+   只把"校验与展开"标注为机制；不为此新开一个包。
+
+## 备选方案
+
+- **把所有机制包都泛化**（含 `config`）：会得到一批只有本项目一个消费者的"框架"，
+  抽象成本高于复用收益，且每层间接都是下一个 bug 的藏身处。
+- **什么都不做，只在文档里声明原则**：原则会腐烂，因为没有任何检查或结构支撑它；
+  至少 `state` 与 `logfile` 的提取能在编译期把产品值赶到资源层。
+- **新开一个 `internal/mechanism` 大包**：把互不相关的机制塞进一个包，
+  破坏"一个包一个不变量"，也会让依赖图变粗。
+
+## 后果
+
+- 已完成：`domain.Record` 与指纹规则从 `state` 搬到领域层；`i18n` 只留能力、
+  消息目录归各层；`logging` 只管"写到日志文件"，格式仍由 `logfile` 承担。
+- 已提取：`logfile` 的标记形状（`Format{Prefix, Product, Layout}`，产品值在
+  `internal/service/logformat.go`）；`logging` 只认识"写进日志文件"。
+- 已提取：`state` 的 `Store[T]`（机制）与服务层的 `recordStore`（产品值：上限、校验、时间戳）。
+- 已提取：`host` 的工具清单与顺序（`host.Tools` + 服务层的 `hostTools`）。
+- 判定为资源包（不拆分）：`config`、`paths`，以及 `repo`/`history` 的产品值
+  （remote/branch、prune 布局、历史上限与 schema）——它们拥有各自契约，
+  提取留到出现第二个产品时再做。
+- 未提取：只读命令的 `Print*` 渲染器应搬进接入层（见 reference 的未提取一节）。
+- 一个例外被登记为边：`history → state`，只为了共用 `state.ReadDocument` 的
+  "替换中重读"容错——历史文件与运行记录在 Windows 上有同一种竞态，复制一份实现
+  就是等着其中一份丢掉修复。
+- 每项提取的验收方式相同：机制包的测试用一个**测试自有的**格式/类型跑通，
+  产品值的测试留在资源层并配 `MUTATIONS` 锚点，金标证明对外字节不变。
+
+## 验证
+
+- `AGENTS.md` 的"基础设施只提供机制"一条，与 `dshctl-architecture` 的判据与 reference。
+- `python3 scripts/check-conventions.py`：`LAYERS` 保证资源层与机制包的边是登记过的。
+- 已完成的样本：`internal/domain/identity_test.go`（纯规则，脱离机器测试）、
+  `internal/i18n/i18n_test.go`（能力）+ `internal/service/messages_test.go`（资源）。

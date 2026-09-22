@@ -1,6 +1,6 @@
 ---
 name: dshctl-style
-description: 按 dshctl 的书写规范改代码与注释：gofmt -s、注释讲契约不讲过程、中英语言分工、错误包装、命名与文件布局、TODO 分级、折行与结尾换行。用于写新文件、评审风格、把外部代码改成本仓库写法，或 fmt-check/vet 报错时。
+description: 按 dshctl 的书写规范改代码与注释：gofmt -s、注释讲契约不讲过程、语言分工与 i18n 目录、错误包装、命名与文件布局、TODO 分级、折行与结尾换行。用于写新文件、评审风格、把外部代码改成本仓库写法，或 fmt-check/vet 报错时。
 ---
 
 # dshctl 书写规范
@@ -21,9 +21,9 @@ description: 按 dshctl 的书写规范改代码与注释：gofmt -s、注释讲
 
 5. **每个导出标识符都要有文档注释，字段用 `// X is …` 句式**。范例：`internal/run` 的 `Result`/`ExitError`、`internal/exitcode` 的 `Error`、`internal/service` 的 `StartResult`/`StopResult`、`internal/state` 的 `Record`。
 
-6. **语言分工：操作者读的中文，开发者读的英文**。错误文案、命令 `Help`、README 用中文；测试失败信息、标识符、注释、包文档用英文。判据是读者：终端前的操作者读中文，改代码的人读英文——测试失败信息是给后者的。树里遗留的中文失败信息不是门禁问题，改动那个文件时顺手改成英文即可。
+6. **语言分工：面向操作者的句子进目录，开发者读的用英文**。错误文案与命令 `Help` 必须走 `internal/i18n` 的消息目录（`Messages` 里一条消息两种语言，英文默认、机器语言为中文时中文，见 `dshctl-architecture`）；测试失败信息、标识符、注释、包文档、README 的开发者段落用英文。判据是读者：终端前的操作者读目录里的那句话，改代码的人读英文。**新代码里不再写死中文文案**；迁移尚未覆盖的旧文件，改动时顺手迁进目录。
 
-7. **错误包装**：`fmt.Errorf("中文描述: %w", err)`；命令、参数、路径加反引号或 `%q`/`%s`；句尾不加句号。范例：`internal/detach` 的 `无法启动 %s: %w`、`internal/nodejs` 的 `` 无法执行 `%s -v`: %w ``。退出码与分类只用 `internal/exitcode` 的 `New`/`Wrap`，不自己造码。
+7. **错误包装**：`fmt.Errorf("描述: %w", err)`；命令、参数、路径加反引号或 `%q`/`%s`；句尾不加句号。范例：`internal/detach` 的 `无法启动 %s: %w`、`internal/nodejs` 的 `` 无法执行 `%s -v`: %w ``。退出码与分类只用 `internal/exitcode` 的 `New`/`Wrap`，不自己造码。
 
 8. **命名**：测试辅助用 `mustX`/`newX`/`writeX`（`internal/repo/prune_audit_test.go` 的 `mustCheckout`、`internal/service/fake_test.go` 的 `writeFile`）；虚构对象用 `fakeX`（`internal/service/fake_test.go` 的 `fakeProcess`）；正则与魔法数抽成有语义的包级 `var`/`const`（`internal/service/start.go` 的 `webURLPattern`）。
 

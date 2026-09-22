@@ -27,7 +27,7 @@ func TestNetstatArgsAskForTheBSDDialect(t *testing.T) {
 // probe, so the arguments and the parser are pinned against the tool the platform
 // actually ships rather than against captured output.
 func TestNetstatFindsASocketThisProcessHolds(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	if _, ok := host.tool("netstat"); !ok {
 		t.Skip("netstat is unavailable, so the netstat probe has nothing to ask")
 	}

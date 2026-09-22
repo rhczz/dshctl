@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/host"
 )
@@ -26,11 +27,11 @@ func hostFacts(command, source string) host.Facts {
 // one layer further out. The instances themselves stay in the report, because a
 // caller that wants every one of them is the reason the list exists.
 func TestTheStatusReportNamesOnlyInstancesThatMatter(t *testing.T) {
-	statuses := []Status{
-		{State: StateRunning, Port: 3080},
-		{State: StateStopped, Port: 3081},
-		{State: StateOrphan, Port: 3082, ListenerPID: 42},
-		{State: StateRunning, Port: 3083},
+	statuses := []domain.Status{
+		{State: domain.StateRunning, Port: 3080},
+		{State: domain.StateStopped, Port: 3081},
+		{State: domain.StateOrphan, Port: 3082, ListenerPID: 42},
+		{State: domain.StateRunning, Port: 3083},
 	}
 	report := NewStatusReport(statuses)
 
@@ -53,32 +54,32 @@ func TestTheStatusReportNamesOnlyInstancesThatMatter(t *testing.T) {
 func TestPrintStatusNamesTheState(t *testing.T) {
 	cases := []struct {
 		name   string
-		status Status
+		status domain.Status
 		want   []string
 	}{
 		{
 			name:   "running",
-			status: Status{State: StateRunning, URL: "http://127.0.0.1:3080", ListenerPID: 42, URLFromRecord: "http://127.0.0.1:3080/?token=x", RepoDir: "/repo", LogPath: "/log"},
+			status: domain.Status{State: domain.StateRunning, URL: "http://127.0.0.1:3080", ListenerPID: 42, URLFromRecord: "http://127.0.0.1:3080/?token=x", RepoDir: "/repo", LogPath: "/log"},
 			want:   []string{"运行中", "http://127.0.0.1:3080", "42", "token=x", "/repo", "/log"},
 		},
 		{
 			name:   "starting",
-			status: Status{State: StateStarting, RecordedPID: 42, LogPath: "/log"},
+			status: domain.Status{State: domain.StateStarting, RecordedPID: 42, LogPath: "/log"},
 			want:   []string{"启动中", "42", "/log"},
 		},
 		{
 			name:   "foreign",
-			status: Status{State: StateForeign, URL: "http://127.0.0.1:3080", ListenerCommand: "nginx", LogPath: "/log"},
+			status: domain.Status{State: domain.StateForeign, URL: "http://127.0.0.1:3080", ListenerCommand: "nginx", LogPath: "/log"},
 			want:   []string{"端口被占用", "nginx", "/log"},
 		},
 		{
 			name:   "unmanaged",
-			status: Status{State: StateOrphan, URL: "http://127.0.0.1:3080", ListenerCommand: "python3", Port: 3080, ListenerPID: 9},
+			status: domain.Status{State: domain.StateOrphan, URL: "http://127.0.0.1:3080", ListenerCommand: "python3", Port: 3080, ListenerPID: 9},
 			want:   []string{"无法确认归属", "python3", "手动处理"},
 		},
 		{
 			name:   "stopped",
-			status: Status{State: StateStopped, LogPath: "/log"},
+			status: domain.Status{State: domain.StateStopped, LogPath: "/log"},
 			want:   []string{"未运行", "/log"},
 		},
 	}
@@ -101,18 +102,18 @@ func TestPrintStatusNamesTheState(t *testing.T) {
 // success because the service exists and is managed.
 func TestServeExitCode(t *testing.T) {
 	cases := []struct {
-		state string
+		state domain.State
 		want  int
 	}{
-		{StateRunning, exitcode.OK},
-		{StateStarting, exitcode.OK},
-		{StateStopped, exitcode.NotRunning},
-		{StateForeign, exitcode.NotRunning},
-		{StateOrphan, exitcode.NotRunning},
+		{domain.StateRunning, exitcode.OK},
+		{domain.StateStarting, exitcode.OK},
+		{domain.StateStopped, exitcode.NotRunning},
+		{domain.StateForeign, exitcode.NotRunning},
+		{domain.StateOrphan, exitcode.NotRunning},
 	}
 	for _, testCase := range cases {
-		status := Status{State: testCase.state}
-		if got := status.ServeExitCode(); got != testCase.want {
+		status := domain.Status{State: testCase.state}
+		if got := ServeExitCode(status); got != testCase.want {
 			t.Fatalf("ServeExitCode(%q) = %d, want %d", testCase.state, got, testCase.want)
 		}
 		if status.Owning() != (testCase.want == exitcode.OK) {

@@ -201,6 +201,8 @@ def check_hermetic_gates(text: str) -> None:
     for needle, description in (
         ("check-workflow.py", "the workflow-shape check"),
         ("check-conventions.py", "the writing and structure conventions"),
+        ("check-accounting.py --strict", "the rewrite ledger, as the merge gate"),
+        ("check-orphans.py", "the orphan-package check"),
         ("hermetic-check.sh", "the throwaway-HOME run"),
         ("-coverprofile=", "the coverage profile of that run"),
         ("check-coverage.py", "the coverage gate"),
@@ -210,6 +212,20 @@ def check_hermetic_gates(text: str) -> None:
     ):
         if needle not in block:
             fail(f"the hermetic job no longer runs {description} ({needle!r})")
+
+
+def check_release_candidates(text: str) -> None:
+    """A release-candidate tag must not become a normal release."""
+    block = job_block(text, "release")
+    if not block:
+        fail(f"{RELEASE}: the release job is missing")
+    for needle, description in (
+        ("*-rc*", "the pattern that recognises a release candidate"),
+        ("prerelease=(--prerelease)", "the flag a candidate is published with"),
+        ('"${prerelease[@]}"', "the expansion that passes it to gh release create"),
+    ):
+        if needle not in block:
+            fail(f"{RELEASE}: a -rc tag would be published as a normal release ({description})")
 
 
 def check_mutation_gate(text: str) -> None:
@@ -483,6 +499,7 @@ def main() -> None:
 
     ci_jobs = check_ci(ci_text)
     release_jobs = check_release(release_text)
+    check_release_candidates(release_text)
 
     print(
         f"workflow check passed: ci has {len(ci_jobs)} jobs ({', '.join(sorted(ci_jobs))}), "

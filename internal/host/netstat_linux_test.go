@@ -26,7 +26,7 @@ func TestNetstatArgsAskForTheLinuxDialect(t *testing.T) {
 // probe where the distribution still ships it. net-tools is optional on modern
 // images, so the absence of the tool is reported rather than silently accepted.
 func TestNetstatFindsASocketThisProcessHolds(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	if _, ok := host.tool("netstat"); !ok {
 		t.Skip("netstat is not installed, so the netstat probe has nothing to ask")
 	}
@@ -50,7 +50,7 @@ func TestNetstatFindsASocketThisProcessHolds(t *testing.T) {
 // the fallback Linux uses when lsof is not installed, which is the common case
 // on a slim image.
 func TestSSNamesTheSocketThisProcessHolds(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	if _, ok := host.tool("ss"); !ok {
 		t.Skip("ss is not installed, so the ss probe has nothing to ask")
 	}
@@ -74,7 +74,7 @@ func TestSSNamesTheSocketThisProcessHolds(t *testing.T) {
 // TestSSReportsAFreePortAsFree pins ss's negative verdict, which — unlike
 // lsof's — is final because ss reads the whole table.
 func TestSSReportsAFreePortAsFree(t *testing.T) {
-	host := New()
+	host := New(testTools)
 	if _, ok := host.tool("ss"); !ok {
 		t.Skip("ss is not installed, so the ss probe has nothing to ask")
 	}

@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/rhczz/dshctl/internal/config"
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/host"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // This file pins the behaviour every command shares, so the model stays one
@@ -33,9 +33,9 @@ func TestStopEndsTheRecordedServerBehindAStranger(t *testing.T) {
 	f.Settings.StopTimeout = 100 * time.Millisecond
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
 	f.host.serving(6666, "/usr/sbin/nginx -g daemon off;")
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: state.PhaseRunning,
+		Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -84,9 +84,9 @@ func TestStopSucceedsWhenAStrangerTakesThePort(t *testing.T) {
 func TestStatusReportsALiveRecordAsNotStale(t *testing.T) {
 	f := newFixture(t)
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: state.PhaseRunning,
+		Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -95,8 +95,8 @@ func TestStatusReportsALiveRecordAsNotStale(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	if status.State != StateStopped {
-		t.Fatalf("state = %q, want %q", status.State, StateStopped)
+	if status.State != domain.StateStopped {
+		t.Fatalf("state = %q, want %q", status.State, domain.StateStopped)
 	}
 	if !status.RecordLive {
 		t.Fatal("the record names a live server and must be reported as live")
@@ -104,8 +104,8 @@ func TestStatusReportsALiveRecordAsNotStale(t *testing.T) {
 	if status.RecordStale || status.StaleRecord != nil {
 		t.Fatalf("a live record was reported as stale: %+v", status)
 	}
-	if !strings.Contains(statusSummary(status), "仍然存活") {
-		t.Fatalf("summary = %q, want it to say the recorded process is alive", statusSummary(status))
+	if !strings.Contains(StatusSummary(status), "仍然存活") {
+		t.Fatalf("summary = %q, want it to say the recorded process is alive", StatusSummary(status))
 	}
 
 	// The human report says the same thing, and names the command that ends it.
@@ -150,10 +150,10 @@ func TestBuildRefusesWhileAnotherPortsSurvivorServes(t *testing.T) {
 	f.host.listenersByPort = map[int]int{otherPort: listener}
 	f.host.mu.Unlock()
 
-	other := state.Store{Path: filepath.Join(f.state, fmt.Sprintf(config.StateFileNamePattern, otherPort))}
-	if err := other.Save(state.Record{
+	other := recordStore(filepath.Join(f.state, fmt.Sprintf(config.StateFileNamePattern, otherPort)))
+	if err := other.Save(domain.Record{
 		PID: wrapper, SpawnedPID: wrapper, StartedAt: fixtureStartTime,
-		Port: otherPort, Phase: state.PhaseRunning,
+		Port: otherPort, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save other port's record: %v", err)
 	}
@@ -173,9 +173,9 @@ func TestUpdateStopsARecordedServerThatNoLongerListens(t *testing.T) {
 	f := newFixture(t)
 	f.host.spontaneouslyServed = true
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: state.PhaseRunning,
+		Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -236,7 +236,7 @@ func TestWebURLExplainsASurvivor(t *testing.T) {
 	f := newFixture(t)
 	seedInterruptedStart(t, f, 8000, 8001, false)
 	address := "http://127.0.0.1:" + strconv.Itoa(f.Settings.Port) + "/?token=survivor"
-	if err := f.Log.Line("dsh web: " + address); err != nil {
+	if err := f.LogFile.Line("dsh web: " + address); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 
@@ -260,9 +260,9 @@ func TestUpdateRefusesWhenItCannotVerifyTheRunningServer(t *testing.T) {
 	f := newFixture(t)
 	f.Host = unknownFingerprint{inner: f.Host}
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: state.PhaseRunning,
+		Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -290,9 +290,9 @@ func TestStatusReportsARecycledRecordAsStaleEvenWithAStrangerOnThePort(t *testin
 	// 4242 exists, but it is not the process the record was written for.
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime+500)
 	f.host.serving(6666, "/usr/sbin/nginx -g daemon off;")
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: state.PhaseRunning,
+		Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -301,8 +301,8 @@ func TestStatusReportsARecycledRecordAsStaleEvenWithAStrangerOnThePort(t *testin
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	if status.State != StateOrphan {
-		t.Fatalf("state = %q, want %q", status.State, StateOrphan)
+	if status.State != domain.StateOrphan {
+		t.Fatalf("state = %q, want %q", status.State, domain.StateOrphan)
 	}
 	if status.RecordLive {
 		t.Fatal("a recycled pid was reported as a live record")
@@ -321,9 +321,9 @@ func TestAdoptSurvivorRefusesAListenerOutsideTheRecordedTree(t *testing.T) {
 	f.host.add(8000, "pnpm --dir repo dsh web", fixtureStartTime)
 	f.host.add(8001, "node /somewhere/else/apps/cli/lib/bin.js web", fixtureStartTime)
 	f.host.listen(8001)
-	saved := state.Record{
+	saved := domain.Record{
 		PID: 8000, SpawnedPID: 8000, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: state.PhaseRunning,
+		Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	}
 	if err := f.Record.Save(saved); err != nil {
 		t.Fatalf("save record: %v", err)
@@ -360,9 +360,9 @@ func TestStatusReportsPortReadiness(t *testing.T) {
 	f.host.ready = false
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
 	f.host.listen(4242)
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: state.PhaseRunning,
+		Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -370,7 +370,7 @@ func TestStatusReportsPortReadiness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	if starting.State != StateStarting || starting.Ready {
+	if starting.State != domain.StateStarting || starting.Ready {
 		t.Fatalf("status = %+v, want a not-ready starting state", starting)
 	}
 
@@ -379,7 +379,7 @@ func TestStatusReportsPortReadiness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Status: %v", err)
 	}
-	if running.State != StateRunning || !running.Ready {
+	if running.State != domain.StateRunning || !running.Ready {
 		t.Fatalf("status = %+v, want a ready running state", running)
 	}
 }

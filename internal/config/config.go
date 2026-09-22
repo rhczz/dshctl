@@ -24,6 +24,7 @@ import (
 
 	"github.com/rhczz/dshctl/internal/atomically"
 	"github.com/rhczz/dshctl/internal/exitcode"
+	"github.com/rhczz/dshctl/internal/logging"
 	"github.com/rhczz/dshctl/internal/paths"
 )
 
@@ -132,6 +133,8 @@ type Settings struct {
 	LockTimeout time.Duration
 	// LogRotateBytes is the size at which the log rolls; 0 disables rotation.
 	LogRotateBytes int64
+	// LogLevel is how much detail is recorded in the log file.
+	LogLevel logging.Level
 	// StateDir is the resolved state directory.
 	StateDir string
 	// ConfigPath is the resolved config file path.
@@ -152,6 +155,8 @@ type Sources struct {
 	NodeVersion string
 	// Timeouts names the source of the timeout and rotation values.
 	Timeouts string
+	// LogLevel names the source of LogLevel.
+	LogLevel string
 	// StateDir names the source of the state directory.
 	StateDir string
 	// ConfigPath names the source of the config file path.
@@ -172,6 +177,9 @@ type File struct {
 	Port *int `json:"port,omitempty"`
 	// NodeVersion is the preferred Node release, or "latest".
 	NodeVersion *string `json:"nodeVersion,omitempty"`
+	// LogLevel is how much detail the log file carries: debug, info, warn or
+	// error. Absent means the built-in default.
+	LogLevel *string `json:"logLevel,omitempty"`
 	// StartTimeoutSeconds bounds the wait for the server to answer.
 	StartTimeoutSeconds *int `json:"startTimeoutSeconds,omitempty"`
 	// StopTimeoutSeconds bounds the wait for the server to stop.
@@ -192,6 +200,8 @@ type Overrides struct {
 	Port *int
 	// NodeVersion wins over every other source.
 	NodeVersion *string
+	// LogLevel wins over every other source.
+	LogLevel *string
 }
 
 // Default returns the configuration used when nothing is configured. The
@@ -206,6 +216,7 @@ func Default(home string) Settings {
 		StopTimeout:    DefaultStopTimeout,
 		LockTimeout:    DefaultLockTimeout,
 		LogRotateBytes: DefaultLogRotateBytes,
+		LogLevel:       logging.LevelInfo,
 	}
 }
 
@@ -266,6 +277,7 @@ func Load(getenv paths.Getenv, overrides Overrides) (Settings, error) {
 		// their layers are the document and the default. Naming the default here
 		// is what makes every line of `-v` answer the same question.
 		Timeouts:   "default",
+		LogLevel:   "default",
 		StateDir:   stateSource,
 		ConfigPath: configSource,
 	}
@@ -292,6 +304,9 @@ func Load(getenv paths.Getenv, overrides Overrides) (Settings, error) {
 	}
 	if overrides.Port != nil {
 		sources.Port = "flag"
+	}
+	if overrides.LogLevel != nil {
+		sources.LogLevel = "flag"
 	}
 	// The Node release is layered last because it needs the document itself, not
 	// just the settings the document produced (see applyNodeVersion).
@@ -621,6 +636,7 @@ func (s Settings) Describe() []string {
 		"停止超时: " + seconds(s.StopTimeout) + " (" + s.Sources.Timeouts + ")",
 		"锁超时:   " + seconds(s.LockTimeout) + " (" + s.Sources.Timeouts + ")",
 		"日志轮转: " + strconv.FormatInt(s.LogRotateBytes, 10) + " 字节 (0 表示不轮转) (" + s.Sources.Timeouts + ")",
+		"日志级别: " + s.LogLevel.String() + " (" + s.Sources.LogLevel + ")",
 	}
 }
 
@@ -893,6 +909,13 @@ func applyFile(settings *Settings, document File, guess string) error {
 	if document.Port != nil {
 		settings.Port = *document.Port
 	}
+	if document.LogLevel != nil {
+		level, err := applyLogLevel("配置文件 logLevel", *document.LogLevel)
+		if err != nil {
+			return err
+		}
+		settings.LogLevel = level
+	}
 	if document.StartTimeoutSeconds != nil {
 		timeout, err := durationFromSeconds("startTimeoutSeconds", *document.StartTimeoutSeconds)
 		if err != nil {
@@ -944,10 +967,23 @@ func markFileSources(sources *Sources, document File, configuredRepoDir string) 
 	if document.Port != nil {
 		sources.Port = "file"
 	}
+	if document.LogLevel != nil {
+		sources.LogLevel = "file"
+	}
 	if document.StartTimeoutSeconds != nil || document.StopTimeoutSeconds != nil ||
 		document.LockTimeoutSeconds != nil || document.LogRotateBytes != nil {
 		sources.Timeouts = "file"
 	}
+}
+
+// applyLogLevel reads one layer's log level, so all three layers report the same
+// error for the same mistake.
+func applyLogLevel(source string, text string) (logging.Level, error) {
+	level, err := logging.ParseLevel(text)
+	if err != nil {
+		return logging.LevelInfo, usagef("%s: %v", source, err)
+	}
+	return level, nil
 }
 
 // applyEnv layers the DSH_* environment variables over the settings.
@@ -966,6 +1002,13 @@ func applyEnv(settings *Settings, getenv paths.Getenv) error {
 		}
 		settings.Port = port
 	}
+	if raw := strings.TrimSpace(getenv(paths.EnvLogLevel)); raw != "" {
+		level, err := applyLogLevel("环境变量 "+paths.EnvLogLevel, raw)
+		if err != nil {
+			return err
+		}
+		settings.LogLevel = level
+	}
 	return nil
 }
 
@@ -976,6 +1019,9 @@ func markEnvSources(sources *Sources, getenv paths.Getenv) {
 	}
 	if strings.TrimSpace(getenv(paths.EnvPort)) != "" {
 		sources.Port = "env"
+	}
+	if strings.TrimSpace(getenv(paths.EnvLogLevel)) != "" {
+		sources.LogLevel = "env"
 	}
 }
 
@@ -990,6 +1036,13 @@ func applyOverrides(settings *Settings, overrides Overrides) error {
 	}
 	if overrides.Port != nil {
 		settings.Port = *overrides.Port
+	}
+	if overrides.LogLevel != nil {
+		level, err := applyLogLevel("参数 --log-level", *overrides.LogLevel)
+		if err != nil {
+			return err
+		}
+		settings.LogLevel = level
 	}
 	return nil
 }

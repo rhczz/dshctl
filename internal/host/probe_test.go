@@ -4,6 +4,7 @@ package host
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -167,11 +168,11 @@ tcp        0      0 127.0.0.1:5432          0.0.0.0:*               LISTEN
 // tool is missing, which is what makes a caller fail closed instead of
 // concluding the port is free.
 func TestToolResolution(t *testing.T) {
-	missing := NewWithLookPath(func(string) (string, error) { return "", errTestLookup })
+	missing := NewWithLookPath(func(string) (string, error) { return "", errTestLookup }, testTools)
 	if _, ok := missing.tool("lsof"); ok {
 		t.Fatal("a missing tool must not be reported as available")
 	}
-	present := NewWithLookPath(func(name string) (string, error) { return "/usr/bin/" + name, nil })
+	present := NewWithLookPath(func(name string) (string, error) { return "/usr/bin/" + name, nil }, testTools)
 	path, ok := present.tool("lsof")
 	if !ok || path != "/usr/bin/lsof" {
 		t.Fatalf("tool = (%q, %v), want the resolved path", path, ok)
@@ -239,8 +240,7 @@ func TestListenViaLsofClassifiesExitStatuses(t *testing.T) {
 					return lsof, nil
 				}
 				return "", errTestLookup
-			})
-
+			}, testTools)
 			result, handled, err := h.listenViaLsof(context.Background(), 3080)
 			if testCase.wantErr {
 				if err == nil {
@@ -297,8 +297,7 @@ func TestListeningConfirmsLsofWithTheWholeTableProbes(t *testing.T) {
 			return ss, nil
 		}
 		return "", errTestLookup
-	})
-
+	}, testTools)
 	result, err := h.Listening(context.Background(), 3080)
 	if err != nil {
 		t.Fatalf("Listening: %v", err)
@@ -320,8 +319,7 @@ func TestListeningAnswersFreeWhenOnlyLsofExists(t *testing.T) {
 			return lsof, nil
 		}
 		return "", errTestLookup
-	})
-
+	}, testTools)
 	result, err := h.Listening(context.Background(), 3080)
 	if err != nil {
 		t.Fatalf("a host whose only tool is lsof must still answer: %v", err)
@@ -346,9 +344,51 @@ func TestListeningReportsAnErrorWhenTheTableProbeFails(t *testing.T) {
 			return ss, nil
 		}
 		return "", errTestLookup
-	})
-
+	}, testTools)
 	if _, err := h.Listening(context.Background(), 3080); err == nil {
 		t.Fatal("an unconfirmable port must be reported as unknown, not as free")
+	}
+}
+
+// TestTheInventoryOrderDecidesWhichProbeAnswers pins the caller's order as the
+// authority: the first installed tool that can answer does, so the product that
+// trusts lsof gets the owner it names even when a table-reading tool that cannot
+// name anybody is installed beside it.
+func TestTheInventoryOrderDecidesWhichProbeAnswers(t *testing.T) {
+	dir := t.TempDir()
+	// `lsof -ti` answers with the pid alone, and the probe asks it that way.
+	lsof := stubTool(t, dir, "lsof", "1111\n")
+	ss := stubTool(t, dir, "ss", "LISTEN 0 4096 127.0.0.1:3080 0.0.0.0:* users:(\"node\",pid=2222,fd=3)\n")
+	lookPath := func(name string) (string, error) {
+		switch name {
+		case "lsof":
+			return lsof, nil
+		case "ss":
+			return ss, nil
+		}
+		return "", errTestLookup
+	}
+
+	lsofFirst := NewWithLookPath(lookPath, Tools{Port: []string{"lsof", "ss"}, Process: "ps"})
+	result, err := lsofFirst.Listening(context.Background(), 3080)
+	if err != nil || result.PID != 1111 {
+		t.Fatalf("lsof first: result = %+v, err = %v, want the pid lsof named", result, err)
+	}
+
+	ssFirst := NewWithLookPath(lookPath, Tools{Port: []string{"ss", "lsof"}, Process: "ps"})
+	result, err = ssFirst.Listening(context.Background(), 3080)
+	if err != nil || result.PID != 2222 {
+		t.Fatalf("ss first: result = %+v, err = %v, want the pid ss named", result, err)
+	}
+}
+
+// TestAnUnknownProbeNameIsReportedNotSkipped pins the fail-closed reading of a
+// configuration mistake: a tool this build cannot parse makes the probe unable
+// to look, which is never the same answer as "the port is free".
+func TestAnUnknownProbeNameIsReportedNotSkipped(t *testing.T) {
+	host := NewWithLookPath(func(string) (string, error) { return "/usr/bin/true", nil },
+		Tools{Port: []string{"fuser"}, Process: "ps"})
+	if _, err := host.Listening(context.Background(), 3080); !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("Listening = %v, want ErrUnsupported for an unreadable tool", err)
 	}
 }

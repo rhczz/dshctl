@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/host"
 )
 
@@ -48,9 +49,9 @@ func TestTheFingerprintToleranceAbsorbsTheGranularityOfTheClock(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Status: %v", err)
 		}
-		if status.State != StateRunning {
+		if status.State != domain.StateRunning {
 			t.Fatalf("state = %q, want %q: a start time %s apart was read as somebody else's process",
-				status.State, StateRunning, clockDrift)
+				status.State, domain.StateRunning, clockDrift)
 		}
 
 		result, err := f.Stop(context.Background())
@@ -58,9 +59,9 @@ func TestTheFingerprintToleranceAbsorbsTheGranularityOfTheClock(t *testing.T) {
 			t.Fatalf("Stop: %v", err)
 		}
 		f.wantSignals(t, []fakeSignal{{4321, host.Graceful}})
-		if result.Status.State != StateStopped {
+		if result.Status.State != domain.StateStopped {
 			t.Fatalf("state = %q, want %q after a stop of a clock-drift match",
-				result.Status.State, StateStopped)
+				result.Status.State, domain.StateStopped)
 		}
 	})
 
@@ -83,9 +84,9 @@ func TestTheFingerprintToleranceAbsorbsTheGranularityOfTheClock(t *testing.T) {
 			t.Fatalf("pid %d alive = false, want true: a start time %d s past the record is a recycled pid",
 				4321, farDrift)
 		}
-		if result.Status.State != StateForeign {
+		if result.Status.State != domain.StateForeign {
 			t.Fatalf("state = %q, want %q for a record whose pid was recycled",
-				result.Status.State, StateForeign)
+				result.Status.State, domain.StateForeign)
 		}
 		if _, ok := f.stateRecord(t); ok {
 			t.Fatal("the record of a recycled pid is still on disk, want it retired")

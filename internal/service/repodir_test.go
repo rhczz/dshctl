@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/rhczz/dshctl/internal/config"
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/paths"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // The checkout a command acts on is resolved from the configuration, while the
@@ -393,7 +393,7 @@ func TestTheRecordWrittenBeforeThePortAnswersCarriesTheCheckout(t *testing.T) {
 		_, err := f.Start(context.Background())
 		done <- err
 	}()
-	var seen state.Record
+	var seen domain.Record
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) && seen.PID == 0 {
 		if record, ok, err := f.Record.Load(); err == nil && ok {
@@ -513,9 +513,9 @@ func TestAForeignCheckoutDoesNotBlockABuild(t *testing.T) {
 	f.servePATHNode(t, config.TestedNodeVersion)
 	other := makeCheckout(t, filepath.Join(f.root, "other-checkout"))
 	f.host.serving(8200, "pnpm --dir other dsh web")
-	f.saveRecord(t, state.Record{
+	f.saveRecord(t, domain.Record{
 		PID: 8200, StartedAt: fixtureStartTime, Port: f.Settings.Port + 1,
-		Phase: state.PhaseRunning, RepoDir: other,
+		Phase: domain.PhaseRunning, RepoDir: other,
 	})
 
 	if err := f.RunBuild(context.Background()); err != nil {
@@ -531,8 +531,8 @@ func TestASiblingOnTheSameCheckoutStillBlocksABuild(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture(t)
 			f.servePATHNode(t, config.TestedNodeVersion)
-			record := state.Record{
-				PID: 8200, StartedAt: fixtureStartTime, Port: f.Settings.Port + 1, Phase: state.PhaseRunning,
+			record := domain.Record{
+				PID: 8200, StartedAt: fixtureStartTime, Port: f.Settings.Port + 1, Phase: domain.PhaseRunning,
 			}
 			if checkout == "same" {
 				record.RepoDir = f.repo
@@ -640,9 +640,9 @@ func (f *fixture) withEnv(t *testing.T, key, value string) {
 }
 
 // saveRecord writes a runtime record for another port into the state directory.
-func (f *fixture) saveRecord(t *testing.T, record state.Record) {
+func (f *fixture) saveRecord(t *testing.T, record domain.Record) {
 	t.Helper()
-	store := state.Store{Path: filepath.Join(f.state, fmt.Sprintf(config.StateFileNamePattern, record.Port))}
+	store := recordStore(filepath.Join(f.state, fmt.Sprintf(config.StateFileNamePattern, record.Port)))
 	if err := store.Save(record); err != nil {
 		t.Fatalf("save the record: %v", err)
 	}
@@ -650,11 +650,11 @@ func (f *fixture) saveRecord(t *testing.T, record state.Record) {
 
 // survivorRecord writes the record shape an interrupted start leaves behind: a
 // wrapper that is gone, with the port served by a process in its group.
-func (f *fixture) survivorRecord(t *testing.T, wrapper int, checkout string) state.Record {
+func (f *fixture) survivorRecord(t *testing.T, wrapper int, checkout string) domain.Record {
 	t.Helper()
-	record := state.Record{
+	record := domain.Record{
 		PID: wrapper, SpawnedPID: wrapper, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: state.PhaseRunning, RepoDir: checkout,
+		Port: f.Settings.Port, Phase: domain.PhaseRunning, RepoDir: checkout,
 	}
 	f.host.add(wrapper, "pnpm --dir repo dsh web", fixtureStartTime)
 	if err := f.Record.Save(record); err != nil {

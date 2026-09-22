@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/lock"
 )
@@ -60,9 +61,9 @@ func TestAMutatingCommandReportsExitCodeFiveWhileAnotherOperationHoldsTheLock(t 
 		if err != nil {
 			t.Fatalf("stop returned %v while the holder was about to let go, want it to wait and succeed", err)
 		}
-		if result.Status.State != StateStopped {
+		if result.Status.State != domain.StateStopped {
 			t.Fatalf("state = %q, want %q after a stop that waited for the lock",
-				result.Status.State, StateStopped)
+				result.Status.State, domain.StateStopped)
 		}
 		f.wantSignals(t, []fakeSignal{{4321, hostGraceful}})
 	})

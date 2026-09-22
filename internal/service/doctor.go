@@ -8,6 +8,7 @@ import (
 
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/detach"
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/lock"
 	"github.com/rhczz/dshctl/internal/nodejs"
 	"github.com/rhczz/dshctl/internal/paths"
@@ -36,7 +37,7 @@ type Check struct {
 
 // Doctor inspects the environment without changing it.
 func (s *Service) Doctor(ctx context.Context) []Check {
-	checks := make([]Check, 0, 14)
+	checks := make([]Check, 0, 15)
 	add := func(name, status, detail string) {
 		checks = append(checks, Check{Name: name, Status: status, Detail: detail})
 	}
@@ -92,12 +93,15 @@ func (s *Service) Doctor(ctx context.Context) []Check {
 	s.doctorService(ctx, add)
 	s.doctorLock(add)
 
-	if size, err := s.Log.Size(); err != nil {
+	if size, err := s.LogFile.Size(); err != nil {
 		add("日志", CheckWarn, err.Error())
 	} else {
 		add("日志", CheckOK, fmt.Sprintf("%s (%s)", s.Settings.LogPath, humanBytes(size)))
 	}
 	add("进程分离方式", CheckOK, detach.Describe())
+	if s.BuildInfo.GoVersion != "" {
+		add("构建信息", CheckOK, s.BuildInfo.GoVersion+" · "+s.BuildInfo.Module)
+	}
 	return checks
 }
 
@@ -159,14 +163,14 @@ func (s *Service) doctorService(ctx context.Context, add func(string, string, st
 	status := observed.status
 
 	switch status.State {
-	case StateRunning:
+	case domain.StateRunning:
 		add("端口", CheckOK, fmt.Sprintf("%d 由 dshctl 启动的服务占用 (pid=%d)", s.Settings.Port, status.ListenerPID))
-	case StateStarting:
+	case domain.StateStarting:
 		add("端口", CheckWarn, fmt.Sprintf("%d 由 dshctl 的服务占用 (pid=%d)，端口尚未就绪", s.Settings.Port, status.ListenerPID))
-	case StateForeign:
+	case domain.StateForeign:
 		add("端口", CheckWarn, fmt.Sprintf("%d 被其他进程占用 (pid=%d: %s)",
 			s.Settings.Port, status.ListenerPID, status.ListenerCommand))
-	case StateOrphan:
+	case domain.StateOrphan:
 		if status.Survivor {
 			add("端口", CheckWarn, fmt.Sprintf(
 				"%d 上是上次启动被中断后仍存活的服务 (pid=%d);运行 dshctl start 或 dshctl stop 可恢复管理",

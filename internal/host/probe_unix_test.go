@@ -267,7 +267,7 @@ func TestRunCaptureReportsAToolThatCannotBeExecuted(t *testing.T) {
 
 	// Inspect: the kernel still knows the process exists, so a ps that cannot run
 	// must not turn into "the server is gone".
-	host := &Host{lookPath: lookPath}
+	host := &Host{tools: testTools, lookPath: lookPath}
 	facts := host.Inspect(context.Background(), os.Getpid())
 	if !facts.Alive {
 		t.Fatalf("Inspect = %+v, want a live process: a tool that cannot be run says nothing", facts)
@@ -281,7 +281,7 @@ func TestRunCaptureReportsAToolThatCannotBeExecuted(t *testing.T) {
 
 	// Listening: every probe exists but none can run, so the port state is
 	// unknown. It must be an error — never a silent "free".
-	listeningHost := NewWithLookPath(lookPath)
+	listeningHost := NewWithLookPath(lookPath, testTools)
 	result, err := listeningHost.Listening(context.Background(), 3080)
 	if err == nil {
 		t.Fatalf("Listening = %+v, nil, want an error when no probe could be executed", result)
@@ -308,7 +308,7 @@ func TestRunCaptureReportsAToolThatCannotBeExecuted(t *testing.T) {
 func TestInspectKeepsTheProcessWhenPSExitsNonZero(t *testing.T) {
 	dir := t.TempDir()
 	ps := stubScript(t, dir, "ps", "#!/bin/sh\nexit 1\n")
-	host := &Host{lookPath: func(name string) (string, error) {
+	host := &Host{tools: testTools, lookPath: func(name string) (string, error) {
 		if name == "ps" {
 			return ps, nil
 		}
@@ -365,8 +365,7 @@ func TestListeningKeepsGoingWhenAFailingProbeIsFollowedByAnAnswer(t *testing.T) 
 			return ss, nil
 		}
 		return "", errTestLookup
-	})
-
+	}, testTools)
 	result, err := host.Listening(context.Background(), 3080)
 	if err != nil {
 		t.Fatalf("Listening: %v, want the listener the later probe reported", err)
@@ -396,8 +395,7 @@ func TestListeningReportsEveryFailingProbe(t *testing.T) {
 			return ss, nil
 		}
 		return "", errTestLookup
-	})
-
+	}, testTools)
 	_, err := host.Listening(context.Background(), 3080)
 	if err == nil {
 		t.Fatal("two probes that could not look must not be reported as a free port")
@@ -426,8 +424,7 @@ func TestListenViaNetstatReportsItsExitStatus(t *testing.T) {
 			return netstat, nil
 		}
 		return "", errTestLookup
-	})
-
+	}, testTools)
 	result, handled, err := host.listenViaNetstat(context.Background(), 3080)
 	if err == nil {
 		t.Fatalf("listenViaNetstat = (%+v, %v, nil), want an error for a netstat that exited non-zero", result, handled)

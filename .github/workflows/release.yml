@@ -99,10 +99,20 @@ jobs:
         run: |
           set -euo pipefail
           tag="${GITHUB_REF_NAME}"
+          # A release candidate is not a release: `-rc` marks a build for people
+          # to try, and publishing it as the latest stable release is how a
+          # candidate ends up installed by somebody who asked for the stable one.
+          prerelease=()
+          case "$tag" in
+            *-rc*) prerelease=(--prerelease) ;;
+          esac
           if gh release view "$tag" > /dev/null 2>&1; then
             # Re-running the workflow for a tag replaces the artifacts instead of
             # failing on the release that is already there.
             gh release upload "$tag" dist/* --clobber
+            if [ "${#prerelease[@]}" -gt 0 ]; then
+              gh release edit "$tag" --prerelease
+            fi
           else
-            gh release create "$tag" --title "$tag" --generate-notes dist/*
+            gh release create "$tag" --title "$tag" --generate-notes "${prerelease[@]}" dist/*
           fi

@@ -55,7 +55,7 @@ func reserveLoopbackPort(t *testing.T) int {
 // assertions executed is the one outcome that hides a regression.
 func wantListening(t *testing.T, port int) (PortResult, error, bool) {
 	t.Helper()
-	result, err := New().Listening(context.Background(), port)
+	result, err := New(testTools).Listening(context.Background(), port)
 	if errors.Is(err, ErrUnsupported) {
 		t.Skipf("no port probe tool is installed here: %v", err)
 	}
@@ -151,7 +151,7 @@ func assertAFreePortIsReportedFree(t *testing.T, host *Host, exclude int) {
 
 // TestListeningReportsARealFreePortAsFree pins the free verdict end to end.
 func TestListeningReportsARealFreePortAsFree(t *testing.T) {
-	assertAFreePortIsReportedFree(t, New(), 0)
+	assertAFreePortIsReportedFree(t, New(testTools), 0)
 }
 
 // TestListeningFollowsThePortAcrossTwoSockets pins that the port number is what
@@ -160,7 +160,7 @@ func TestListeningReportsARealFreePortAsFree(t *testing.T) {
 func TestListeningFollowsThePortAcrossTwoSockets(t *testing.T) {
 	_, busy := bindLoopback(t, "tcp", "127.0.0.1:0")
 
-	host := New()
+	host := New(testTools)
 	result, err := host.Listening(context.Background(), busy)
 	if errors.Is(err, ErrUnsupported) {
 		return

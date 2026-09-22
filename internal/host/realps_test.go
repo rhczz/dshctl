@@ -11,7 +11,7 @@ import (
 // TestInspectReadsARealProcess pins the ps path against the kernel itself. It
 // skips where ps is denied, which is the environment the fallback exists for.
 func TestInspectReadsARealProcess(t *testing.T) {
-	facts := New().Inspect(context.Background(), os.Getpid())
+	facts := New(testTools).Inspect(context.Background(), os.Getpid())
 	if !facts.Alive {
 		t.Fatal("this process must be reported as alive")
 	}

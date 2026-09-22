@@ -10,7 +10,6 @@ import (
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/run"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // RunBuild installs nothing: it removes stale residue and runs the repository's
@@ -56,17 +55,17 @@ func (s *Service) buildLocked(ctx context.Context) error {
 	}
 	// Rotate before the section marker is written, so a marker and its body can
 	// never end up in different files.
-	if rotated, err := s.Log.RotateIfNeeded(); err != nil {
+	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	} else if rotated {
-		fmt.Fprintf(s.Out, "日志已轮转: %s\n", s.Log.BackupPath())
+		s.narrate(fmt.Sprintf("日志已轮转: %s", s.LogFile.BackupPath()))
 	}
-	if err := s.Log.Section("build"); err != nil {
+	if err := s.LogFile.Section(sectionBuild); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 	s.note("--- pnpm run build ---")
 
-	fmt.Fprintf(s.Out, "正在构建仓库 %s ... (输出实时显示，同时写入日志)\n", s.Settings.RepoDir)
+	s.narrate(fmt.Sprintf("正在构建仓库 %s ... (输出实时显示，同时写入日志)", s.Settings.RepoDir))
 	if err := s.stream(ctx, run.Command{
 		Name: pnpm,
 		Args: []string{"run", "build"},
@@ -77,7 +76,7 @@ func (s *Service) buildLocked(ctx context.Context) error {
 		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("构建失败: %w\n详见日志: %s", err, s.Settings.LogPath))
 	}
 	s.note("build 成功")
-	fmt.Fprintln(s.Out, "构建完成")
+	s.narrate("构建完成")
 	// A build proves the checkout is usable, which is exactly what a document
 	// that decides nothing is missing: recording it is what makes the next plain
 	// command operate on the tree that was just built instead of on a default
@@ -140,15 +139,28 @@ func (s *Service) otherPortsServing(ctx context.Context) (servingPorts, error) {
 	}
 	var serving servingPorts
 	for _, path := range matches {
-		stored := state.Store{Path: path}
+		stored := recordStore(path)
 		record, ok, err := stored.Load()
-		if err != nil || !ok || record.Port == s.Settings.Port {
+		if err != nil {
+			// A record nobody can read is not a port nobody serves: the guard
+			// exists to protect a running server's artifacts, and "cannot look"
+			// has to leave it as strict as it was. The build is refused instead
+			// of replacing artifacts under a server this build cannot see.
+			return nil, exitcode.Wrap(exitcode.Preflight, fmt.Errorf(
+				"无法读取 %s 的运行记录，无法确认它是否在使用 %s: %w", path, s.Settings.RepoDir, err))
+		}
+		if !ok || record.Port == s.Settings.Port {
 			continue
 		}
 		if record.RepoDir != "" && record.RepoDir != s.Settings.RepoDir {
 			continue
 		}
-		if s.recordServes(ctx, record) {
+		serves, err := s.recordServesOrFails(ctx, record)
+		if err != nil {
+			return nil, exitcode.Wrap(exitcode.Preflight, fmt.Errorf(
+				"无法确认端口 %d 上的服务是否在使用 %s: %w", record.Port, s.Settings.RepoDir, err))
+		}
+		if serves {
 			serving = append(serving, servingPort{port: record.Port, pid: record.PID})
 		}
 	}
@@ -157,13 +169,16 @@ func (s *Service) otherPortsServing(ctx context.Context) (servingPorts, error) {
 
 // prune removes residue left by packages upstream deleted.
 func (s *Service) prune(ctx context.Context) error {
-	result, err := s.Repo.Prune(ctx, s.report)
+	result, err := s.Repo.Prune(ctx, func(message string) {
+		s.narrate(message)
+		s.note(message)
+	})
 	if err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 	if len(result.Removed) > 0 {
 		message := fmt.Sprintf("已清理 %d 个残留目录", len(result.Removed))
-		fmt.Fprintln(s.Out, message)
+		s.narrate(message)
 		s.note("prune 完成: " + message)
 	}
 	return nil
@@ -171,13 +186,13 @@ func (s *Service) prune(ctx context.Context) error {
 
 // stream runs a command with both streams mirrored to the console and the log.
 func (s *Service) stream(ctx context.Context, command run.Command) error {
-	handle, err := s.Log.OpenAppend()
+	handle, err := s.LogFile.OpenAppend()
 	if err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 	defer handle.Close()
-	command.Stdout = io.MultiWriter(s.Out, handle)
-	command.Stderr = io.MultiWriter(s.Err, handle)
+	command.Stdout = io.MultiWriter(s.emitter().Stream(), handle)
+	command.Stderr = io.MultiWriter(s.emitter().Diagnostics(), handle)
 	return s.Exec.Run(ctx, command)
 }
 

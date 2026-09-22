@@ -35,8 +35,8 @@ func FuzzSectionMarkersRoundTrip(f *testing.F) {
 		if strings.ContainsRune(title, '\r') {
 			return
 		}
-		line := sectionPrefix + " 2026-01-02 03:04:05 dshctl " + title + " " + sectionPrefix
-		got, ok := ParseSection(line)
+		line := testFormat.Prefix + " 2026-01-02 03:04:05 dshctl " + title + " " + testFormat.Prefix
+		got, ok := testFormat.Section(line)
 		if !ok {
 			t.Fatalf("a marker built from the accepted title %q was not recognized: %q", title, line)
 		}
@@ -65,21 +65,21 @@ func FuzzParseSectionRejectsOrdinaryLines(f *testing.F) {
 		f.Add(seed)
 	}
 	f.Fuzz(func(t *testing.T, line string) {
-		title, ok := ParseSection(line)
+		title, ok := testFormat.Section(line)
 		if !ok {
 			return
 		}
 		// A recognized marker is a well-formed one: the writer's own shape.
 		trimmed := strings.TrimRight(line, "\r")
-		if !strings.HasPrefix(trimmed, sectionPrefix+" ") || !strings.HasSuffix(trimmed, " "+sectionPrefix) {
-			t.Fatalf("ParseSection(%q) recognized a line that is not a marker", line)
+		if !strings.HasPrefix(trimmed, testFormat.Prefix+" ") || !strings.HasSuffix(trimmed, " "+testFormat.Prefix) {
+			t.Fatalf("testFormat.Section(%q) recognized a line that is not a marker", line)
 		}
 		if err := ValidateTitle(title); err != nil {
-			t.Fatalf("ParseSection(%q) returned the title %q, which the writer would refuse: %v",
+			t.Fatalf("testFormat.Section(%q) returned the title %q, which the writer would refuse: %v",
 				line, title, err)
 		}
 		if strings.Contains(title, " ") {
-			t.Fatalf("ParseSection(%q) returned a title with a space: %q", line, title)
+			t.Fatalf("testFormat.Section(%q) returned a title with a space: %q", line, title)
 		}
 	})
 }

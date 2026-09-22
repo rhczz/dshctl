@@ -391,7 +391,7 @@ func testRepodirW1RecordsTheCheckoutWhenTheDocumentDecidesNone(t *testing.T) {
 // testRepodirW2KeepsADecidedCheckout pins the limit of the write-back: a
 // document that names its own checkout is the operator's, and a run from another
 // tree must not rewrite it. The disagreement is reported instead, which is the
-// caller's job (internal/service).
+// caller's job (internal/app).
 func testRepodirW2KeepsADecidedCheckout(t *testing.T) {
 	w := newTestWorld(t)
 	w.writeDocument(`{"repoDir": ` + quote(w.checkout()) + `, "port": 3999}`)

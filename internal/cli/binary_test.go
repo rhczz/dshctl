@@ -256,6 +256,9 @@ func binaryEnvironment(t *testing.T, root, home, stateDir string) []string {
 	t.Helper()
 	environment := []string{
 		"HOME=" + home,
+		// The suite asserts the rendering the operator reads, which is Chinese in
+		// v0.2.5; the language of a run is pinned like every other setting.
+		"DSHCTL_LANG=zh",
 		"DSH_HOME=" + filepath.Join(home, ".dsh"),
 		"DSHCTL_STATE_DIR=" + stateDir,
 		"DSHCTL_CONFIG=" + filepath.Join(stateDir, "config.json"),

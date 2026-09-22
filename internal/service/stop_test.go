@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/host"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // TestStopClearsTheRecordOfARecycledPID pins the shape a stopped-then-reused pid
@@ -28,9 +28,9 @@ func TestStopClearsTheRecordOfARecycledPID(t *testing.T) {
 	f.host.mu.Lock()
 	f.host.processes[4321].startedAt = fixtureStartTime + 10_000
 	f.host.mu.Unlock()
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID: 4321, SpawnedPID: 4321, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: state.PhaseRunning,
+		Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -46,8 +46,8 @@ func TestStopClearsTheRecordOfARecycledPID(t *testing.T) {
 	if _, err := os.Lstat(f.Settings.StateFile()); !os.IsNotExist(err) {
 		t.Fatalf("a record naming a recycled pid survived the stop (err=%v)", err)
 	}
-	if result.Status.State != StateForeign {
-		t.Fatalf("state = %q, want %q", result.Status.State, StateForeign)
+	if result.Status.State != domain.StateForeign {
+		t.Fatalf("state = %q, want %q", result.Status.State, domain.StateForeign)
 	}
 }
 
@@ -60,9 +60,9 @@ func TestStopClearsTheRecordOfARecycledPID(t *testing.T) {
 func TestStopReportsALiveRecordWithoutStartedAt(t *testing.T) {
 	f := newFixture(t)
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: 0,
-		Port: f.Settings.Port, Phase: state.PhaseRunning,
+		Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -129,8 +129,8 @@ func TestStopEndsAProcessThatDiesBeforeTheSignal(t *testing.T) {
 	if _, ok := f.stateRecord(t); ok {
 		t.Fatal("a completed stop must clear the record")
 	}
-	if result.Status.State != StateStopped {
-		t.Fatalf("state = %q, want %q", result.Status.State, StateStopped)
+	if result.Status.State != domain.StateStopped {
+		t.Fatalf("state = %q, want %q", result.Status.State, domain.StateStopped)
 	}
 }
 
@@ -207,9 +207,9 @@ func TestStopFailsWhenTheForceSignalFails(t *testing.T) {
 // "keep" half.
 func TestStopClearsARecordThatDescribesNothing(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID: 999999, SpawnedPID: 999999, StartedAt: 1_600_000_000,
-		Port: f.Settings.Port, Phase: state.PhaseRunning,
+		Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -253,9 +253,9 @@ func TestStopTimesOutWhenTheTreeKeepsThePort(t *testing.T) {
 		f.host.listener = 4322
 	}
 	f.host.mu.Unlock()
-	if err := f.Record.Save(state.Record{
+	if err := f.Record.Save(domain.Record{
 		PID: 4321, SpawnedPID: 4321, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: state.PhaseRunning,
+		Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}

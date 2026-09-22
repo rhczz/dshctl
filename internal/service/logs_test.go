@@ -29,7 +29,7 @@ func TestLogsUsesTheDefaultLineCount(t *testing.T) {
 	f := newFixture(t)
 	const seeded = 250
 	for index := 1; index <= seeded; index++ {
-		if err := f.Log.Line(fmt.Sprintf("line-%03d", index)); err != nil {
+		if err := f.LogFile.Line(fmt.Sprintf("line-%03d", index)); err != nil {
 			t.Fatalf("seed log: %v", err)
 		}
 	}
@@ -70,7 +70,7 @@ func TestLogsReportsAMissingLog(t *testing.T) {
 // interrupted it".
 func TestLogsReportsACancelledContext(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Line("server output"); err != nil {
+	if err := f.LogFile.Line("server output"); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -91,22 +91,22 @@ func TestLogsReportsACancelledContext(t *testing.T) {
 // nothing.
 func TestLogsBuildOnlyPrintsTheLastRecord(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Line("before any build"); err != nil {
+	if err := f.LogFile.Line("before any build"); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
-	if err := f.Log.Section("build"); err != nil {
+	if err := f.LogFile.Section("build"); err != nil {
 		t.Fatalf("section: %v", err)
 	}
-	if err := f.Log.Line("first build body"); err != nil {
+	if err := f.LogFile.Line("first build body"); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
-	if err := f.Log.Section("build"); err != nil {
+	if err := f.LogFile.Section("build"); err != nil {
 		t.Fatalf("section: %v", err)
 	}
-	if err := f.Log.Line("second build body line one"); err != nil {
+	if err := f.LogFile.Line("second build body line one"); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
-	if err := f.Log.Line("second build body line two"); err != nil {
+	if err := f.LogFile.Line("second build body line two"); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 
@@ -128,11 +128,11 @@ func TestLogsBuildOnlyPrintsTheLastRecord(t *testing.T) {
 // section would defeat the flag.
 func TestLogsBuildOnlyTrimsToTheRequestedLines(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Section("build"); err != nil {
+	if err := f.LogFile.Section("build"); err != nil {
 		t.Fatalf("section: %v", err)
 	}
 	for index := 1; index <= 20; index++ {
-		if err := f.Log.Line(fmt.Sprintf("build-output-%02d", index)); err != nil {
+		if err := f.LogFile.Line(fmt.Sprintf("build-output-%02d", index)); err != nil {
 			t.Fatalf("seed log: %v", err)
 		}
 	}
@@ -203,7 +203,7 @@ func TestLogsBuildOnlyReportsATruncatedLog(t *testing.T) {
 func TestWebURLRefusesAnotherPortsAddress(t *testing.T) {
 	f := newFixture(t)
 	f.startServer(t, 4321, "http://127.0.0.1:"+strconv.Itoa(f.Settings.Port+1)+"/?token=somebody-else")
-	if err := f.Log.Line("dsh web: http://127.0.0.1:" + strconv.Itoa(f.Settings.Port+1) + "/?token=somebody-else"); err != nil {
+	if err := f.LogFile.Line("dsh web: http://127.0.0.1:" + strconv.Itoa(f.Settings.Port+1) + "/?token=somebody-else"); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 
@@ -238,10 +238,10 @@ func TestWebURLExplainsWhyThereIsNoAddress(t *testing.T) {
 // create.
 func TestLogsBuildOnlyReadsTheRealSectionPath(t *testing.T) {
 	f := newFixture(t)
-	if err := f.Log.Section("update"); err != nil {
+	if err := f.LogFile.Section("update"); err != nil {
 		t.Fatalf("section: %v", err)
 	}
-	if err := f.Log.Line("pulled to abc1234"); err != nil {
+	if err := f.LogFile.Line("pulled to abc1234"); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 	// A decoy that even matches the state file's name pattern: if the command

@@ -3,17 +3,17 @@ package state
 import (
 	"encoding/json"
 	"errors"
+	"github.com/rhczz/dshctl/internal/domain"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 // store returns a store over a fresh file.
-func store(t *testing.T) Store {
+func store(t *testing.T) Store[testDoc] {
 	t.Helper()
-	return Store{Path: filepath.Join(t.TempDir(), "dsh-web.state.json")}
+	return testStore(filepath.Join(t.TempDir(), "dsh-web.state.json"))
 }
 
 // TestRoundTrip pins that a saved record reads back unchanged.
@@ -25,7 +25,7 @@ func store(t *testing.T) Store {
 // a later command describe the instance instead of the configuration.
 func TestRoundTrip(t *testing.T) {
 	box := store(t)
-	record := Record{
+	record := testDoc{
 		PID:         4242,
 		StartedAt:   1_700_000_000,
 		Port:        3080,
@@ -34,7 +34,7 @@ func TestRoundTrip(t *testing.T) {
 		NodeVersion: "24.20.0",
 		NodePath:    "/opt/node/bin/node",
 		RepoDir:     "/srv/deepseek-harness",
-		Phase:       PhaseRunning,
+		Phase:       testPhaseRunning,
 	}
 	if err := box.Save(record); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -77,7 +77,7 @@ func TestARecordFromOlderBuildOmitsTheCheckout(t *testing.T) {
 	if loaded.RepoDir != "" || loaded.NodeVersion != "" || loaded.NodePath != "" {
 		t.Fatalf("loaded = %+v, want the fields the older build never wrote to read as unknown", loaded)
 	}
-	if loaded.PID != 4242 || loaded.Port != 3080 || loaded.Phase != PhaseRunning {
+	if loaded.PID != 4242 || loaded.Port != 3080 || loaded.Phase != testPhaseRunning {
 		t.Fatalf("loaded = %+v, want every field it does carry", loaded)
 	}
 }
@@ -87,7 +87,7 @@ func TestARecordFromOlderBuildOmitsTheCheckout(t *testing.T) {
 // absent fact for an empty string that was saved.
 func TestSaveKeepsEveryOptionalFieldOutWhenEmpty(t *testing.T) {
 	box := store(t)
-	if err := box.Save(Record{PID: 4242, StartedAt: 1_700_000_000, Port: 3080, Phase: PhaseRunning}); err != nil {
+	if err := box.Save(testDoc{PID: 4242, StartedAt: 1_700_000_000, Port: 3080, Phase: testPhaseRunning}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	data, err := os.ReadFile(box.Path)
@@ -180,7 +180,7 @@ func TestLoadAcceptsUnknownFields(t *testing.T) {
 	if !ok {
 		t.Fatal("a record with unknown fields must still be readable")
 	}
-	if record.PID != 4242 || record.Port != 3080 || record.Phase != PhaseRunning {
+	if record.PID != 4242 || record.Port != 3080 || record.Phase != testPhaseRunning {
 		t.Fatalf("record = %+v, want the fields this build knows", record)
 	}
 	if record.URL != "http://127.0.0.1:3080/?token=x" {
@@ -191,7 +191,7 @@ func TestLoadAcceptsUnknownFields(t *testing.T) {
 // TestLoadRejectsAnOversizedRecord pins the read bound.
 func TestLoadRejectsAnOversizedRecord(t *testing.T) {
 	box := store(t)
-	padding := strings.Repeat("x", maxRecordBytes+1)
+	padding := strings.Repeat("x", maxTestBytes+1)
 	content := `{"pid": 1, "port": 1, "phase": "running", "note": "` + padding + `"}`
 	if err := os.WriteFile(box.Path, []byte(content), 0o600); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -232,10 +232,10 @@ func TestLoadAndRemoveHandleResidueAtTheRecordPath(t *testing.T) {
 // the disk, where a later stop could read it.
 func TestSaveRefusesAUsableButMeaninglessRecord(t *testing.T) {
 	box := store(t)
-	if err := box.Save(Record{PID: 0, Port: 3080}); err == nil {
+	if err := box.Save(testDoc{PID: 0, Port: 3080}); err == nil {
 		t.Fatal("saving a zero pid must fail")
 	}
-	if err := box.Save(Record{PID: -1, Port: 3080}); err == nil {
+	if err := box.Save(testDoc{PID: -1, Port: 3080}); err == nil {
 		t.Fatal("saving a negative pid must fail")
 	}
 	_, ok, err := box.Load()
@@ -247,21 +247,21 @@ func TestSaveRefusesAUsableButMeaninglessRecord(t *testing.T) {
 // TestSaveReplacesAtomically pins that a reader never sees a partial document.
 func TestSaveReplacesAtomically(t *testing.T) {
 	box := store(t)
-	if err := box.Save(Record{PID: 1, Port: 1, Phase: PhaseRunning}); err != nil {
+	if err := box.Save(testDoc{PID: 1, Port: 1, Phase: testPhaseRunning}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
-	if err := box.Save(Record{PID: 2, Port: 1, Phase: PhaseRunning, URL: "http://x"}); err != nil {
+	if err := box.Save(testDoc{PID: 2, Port: 1, Phase: testPhaseRunning, URL: "http://x"}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	data, err := os.ReadFile(box.Path)
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}
-	var decoded Record
+	var decoded domain.Record
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("the file is not a complete document: %v\n%s", err, data)
 	}
-	if decoded.PID != 2 || decoded.Phase != PhaseRunning || decoded.URL != "http://x" {
+	if decoded.PID != 2 || decoded.Phase != testPhaseRunning || decoded.URL != "http://x" {
 		t.Fatalf("decoded = %+v, want the second record", decoded)
 	}
 	// No temporary files may be left behind.
@@ -282,7 +282,7 @@ func TestRemove(t *testing.T) {
 	if err := box.Remove(); err != nil {
 		t.Fatalf("removing a missing record must not fail: %v", err)
 	}
-	if err := box.Save(Record{PID: 7, Port: 1, Phase: PhaseRunning}); err != nil {
+	if err := box.Save(testDoc{PID: 7, Port: 1, Phase: testPhaseRunning}); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 	if err := box.Remove(); err != nil {
@@ -293,74 +293,4 @@ func TestRemove(t *testing.T) {
 	}
 }
 
-// TestMatch pins the fingerprint comparison that makes PID reuse detectable.
-func TestMatch(t *testing.T) {
-	tolerance := 5 * time.Second
-	record := Record{PID: 42, StartedAt: 1_700_000_000}
-	cases := []struct {
-		name      string
-		record    Record
-		startedAt int64
-		want      bool
-	}{
-		{"exact", record, 1_700_000_000, true},
-		{"within tolerance", record, 1_700_000_003, true},
-		{"within tolerance backwards", record, 1_699_999_997, true},
-		{"just outside", record, 1_700_000_010, false},
-		{"recycled much later", record, 1_700_009_000, false},
-		{"unknown observed time still matches", record, 0, true},
-		{"unknown recorded time still matches", Record{PID: 42}, 1_700_000_000, true},
-		{"both unknown", Record{PID: 42}, 0, true},
-	}
-	for _, testCase := range cases {
-		t.Run(testCase.name, func(t *testing.T) {
-			if got := Match(testCase.record, testCase.startedAt, tolerance); got != testCase.want {
-				t.Fatalf("Match = %v, want %v", got, testCase.want)
-			}
-		})
-	}
-}
-
-// TestDescribe pins the diagnostic line, including the runtime the recorded
-// server was started with.
-//
-// The release belongs here because it is the one fact the record carries that
-// nothing else can answer afterwards: --node can differ from the settings
-// document, so a server already running has no other place to say what it runs.
-// A record written by an older build carries none, which the empty case pins.
-func TestDescribe(t *testing.T) {
-	record := Record{
-		PID: 42, StartedAt: 1_700_000_000, Port: 3080, Phase: PhaseRunning,
-		URL: "http://x", NodeVersion: "24.20.0", NodePath: "/opt/node/bin/node",
-		RepoDir: "/srv/deepseek-harness",
-	}
-	text := record.Describe()
-	for _, want := range []string{"pid=42", "port=3080", "phase=running", "http://x", "node=24.20.0", "repo=/srv/deepseek-harness"} {
-		if !contains(text, want) {
-			t.Fatalf("Describe = %q, missing %q", text, want)
-		}
-	}
-	if contains(text, "node=") && contains(text, "/opt/node/bin/node") {
-		t.Fatalf("Describe = %q, want the release rather than the whole path on one line", text)
-	}
-
-	// The checkout is a fact about the instance rather than a detail of the
-	// runtime, so a record that carries none must not look as if it served from
-	// somewhere: an empty path in the line would read as a directory named "".
-	withoutRuntime := Record{PID: 42, StartedAt: 1_700_000_000, Port: 3080, Phase: PhaseRunning}
-	for _, absent := range []string{"node=", "repo="} {
-		if contains(withoutRuntime.Describe(), absent) {
-			t.Fatalf("Describe = %q, want no %q for a record that carries none", withoutRuntime.Describe(), absent)
-		}
-	}
-}
-
 // contains reports whether haystack holds needle.
-func contains(haystack, needle string) bool {
-	for index := 0; index+len(needle) <= len(haystack); index++ {
-		if haystack[index:index+len(needle)] == needle {
-			return true
-		}
-	}
-	return false
-}

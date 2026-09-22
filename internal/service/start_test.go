@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/rhczz/dshctl/internal/config"
+	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
-	"github.com/rhczz/dshctl/internal/state"
 )
 
 // TestStartReportsAServerThatIsStillStarting pins the second early return: a
@@ -23,8 +23,8 @@ func TestStartReportsAServerThatIsStillStarting(t *testing.T) {
 	f.host.add(4321, "pnpm --dir repo dsh web", fixtureStartTime)
 	f.host.listen(4321)
 	f.host.ready = false
-	if err := f.Record.Save(state.Record{
-		PID: 4321, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: state.PhaseRunning,
+	if err := f.Record.Save(domain.Record{
+		PID: 4321, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: domain.PhaseRunning,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -39,8 +39,8 @@ func TestStartReportsAServerThatIsStillStarting(t *testing.T) {
 	if result.SpawnedPID != 0 {
 		t.Fatalf("SpawnedPID = %d, want 0: a starting server must not be duplicated", result.SpawnedPID)
 	}
-	if result.Status.State != StateStarting {
-		t.Fatalf("state = %q, want %q", result.Status.State, StateStarting)
+	if result.Status.State != domain.StateStarting {
+		t.Fatalf("state = %q, want %q", result.Status.State, domain.StateStarting)
 	}
 	want := fmt.Sprintf("DSH Web 正在启动中: %s (pid=%d)\n", f.Settings.URL(), 4321)
 	if f.out.String() != want {
@@ -210,7 +210,7 @@ func TestStartPrintsTheAnnouncedAddress(t *testing.T) {
 	f := newFixture(t)
 	f.host.spontaneouslyServed = true
 	announced := fmt.Sprintf("http://127.0.0.1:%d/?token=startme", f.Settings.Port)
-	if err := f.Log.Line("dsh web: " + announced); err != nil {
+	if err := f.LogFile.Line("dsh web: " + announced); err != nil {
 		t.Fatalf("seed log: %v", err)
 	}
 

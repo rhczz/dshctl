@@ -3,8 +3,25 @@ package service
 import (
 	"fmt"
 	"io"
+
+	"github.com/rhczz/dshctl/internal/domain"
+	"github.com/rhczz/dshctl/internal/exitcode"
 	"sort"
 )
+
+// ServeExitCode maps an observed state onto the process exit code, so a shell
+// condition can ask whether the service is up.
+//
+// Running and starting both report success: the service exists and is being
+// managed. Everything else reports "not running". It lives here rather than on
+// the model because exit codes are the operator's contract, which the model has
+// no business knowing.
+func ServeExitCode(status domain.Status) int {
+	if status.Owning() {
+		return exitcode.OK
+	}
+	return exitcode.NotRunning
+}
 
 // StatusReport is what `status` observed.
 //
@@ -16,15 +33,15 @@ import (
 // reads.
 type StatusReport struct {
 	// Status is the instance the command was about.
-	Status Status `json:"status"`
+	Status domain.Status `json:"status"`
 	// Ports lists every observed instance: the instance the command was about
 	// first, then the rest in ascending port order. It is what makes a server
 	// started with another port visible instead of orphaned.
-	Ports []Status `json:"ports,omitempty"`
+	Ports []domain.Status `json:"ports,omitempty"`
 	// Others is the instances worth naming beside the one above: the ones that
 	// are serving, or that need attention. An instance that is simply not running
 	// is left out, because a report is not a roll call of everything that is off.
-	Others []Status `json:"-"`
+	Others []domain.Status `json:"-"`
 }
 
 // NewStatusReport assembles the report from the observed instances.
@@ -32,15 +49,15 @@ type StatusReport struct {
 // The instance the command was about is always first: the selection puts the
 // configured port there, or the one that was named, so a report of a single
 // instance is that instance.
-func NewStatusReport(statuses []Status) StatusReport {
+func NewStatusReport(statuses []domain.Status) StatusReport {
 	report := StatusReport{Ports: statuses}
 	if len(statuses) == 0 {
 		return report
 	}
 	report.Status = statuses[0]
-	report.Others = make([]Status, 0, len(statuses)-1)
+	report.Others = make([]domain.Status, 0, len(statuses)-1)
 	for _, status := range statuses[1:] {
-		if status.Port == report.Status.Port || status.State == StateStopped {
+		if status.Port == report.Status.Port || status.State == domain.StateStopped {
 			continue
 		}
 		report.Others = append(report.Others, status)
@@ -101,7 +118,7 @@ func PrintURLs(w io.Writer, extra io.Writer, report URLReport) error {
 		if status.Port == report.Status.Port && !status.Owning() && !status.Survivor {
 			continue
 		}
-		if _, err := fmt.Fprintf(extra, "端口 %d 上没有可访问的地址(%s)\n", status.Port, statusSummary(status)); err != nil {
+		if _, err := fmt.Fprintf(extra, "端口 %d 上没有可访问的地址(%s)\n", status.Port, StatusSummary(status)); err != nil {
 			return err
 		}
 	}
@@ -109,10 +126,10 @@ func PrintURLs(w io.Writer, extra io.Writer, report URLReport) error {
 }
 
 // PrintStatus writes the human-readable status report.
-func PrintStatus(w io.Writer, status Status) error {
-	summary := statusSummary(status)
+func PrintStatus(w io.Writer, status domain.Status) error {
+	summary := StatusSummary(status)
 	switch status.State {
-	case StateRunning:
+	case domain.StateRunning:
 		if _, err := fmt.Fprintf(w, "状态: 运行中\n地址: %s\nPID:  %d\n", status.URL, status.ListenerPID); err != nil {
 			return err
 		}
@@ -141,19 +158,19 @@ func PrintStatus(w io.Writer, status Status) error {
 			return err
 		}
 		return nil
-	case StateStarting:
+	case domain.StateStarting:
 		if _, err := fmt.Fprintf(w, "状态: 启动中或关闭中(端口未就绪)\nPID:  %d\n日志: %s\n",
 			status.RecordedPID, status.LogPath); err != nil {
 			return err
 		}
 		return nil
-	case StateForeign:
+	case domain.StateForeign:
 		if _, err := fmt.Fprintf(w, "状态: 端口被占用（非 dshctl 启动的进程）\n地址: %s\n进程: %s\n日志: %s\n",
 			status.URL, status.ListenerCommand, status.LogPath); err != nil {
 			return err
 		}
 		return nil
-	case StateOrphan:
+	case domain.StateOrphan:
 		if _, err := fmt.Fprintf(w, "状态: 端口被一个 dshctl 无法确认归属的进程占用\n地址: %s\n进程: %s\n",
 			status.URL, status.ListenerCommand); err != nil {
 			return err
@@ -164,7 +181,7 @@ func PrintStatus(w io.Writer, status Status) error {
 		}
 		_, err := fmt.Fprintln(w, "提示: dshctl 不会结束它;确认可以安全停止后请手动处理")
 		return err
-	case StateUnobservable:
+	case domain.StateUnobservable:
 		// Nothing about this instance is known, and saying "not running" would
 		// be a claim the failed probe cannot support.
 		if _, err := fmt.Fprintf(w, "状态: 无法探测端口 %d 的状态: %s\n", status.Port, status.ProbeError); err != nil {
