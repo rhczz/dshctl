@@ -57,9 +57,9 @@ const maxTakeovers = 100
 // Error implements error.
 func (e *TimeoutError) Error() string {
 	if e.Holder != 0 {
-		return fmt.Sprintf("另一个 dshctl 操作正在进行 (pid=%d)，已等待 %s", e.Holder, e.Waited)
+		return i18nLine(MsgTimeoutWithHolder, e.Holder, e.Waited)
 	}
-	return fmt.Sprintf("另一个 dshctl 操作正在进行，已等待 %s", e.Waited)
+	return i18nLine(MsgTimeout, e.Waited)
 }
 
 // Lock is a held advisory lock.
@@ -85,25 +85,25 @@ func Held(path string) (int, bool, error) {
 	case errors.Is(statErr, fs.ErrNotExist):
 		return 0, false, nil
 	case statErr != nil:
-		return 0, false, fmt.Errorf("无法检查锁文件 %s: %w", path, statErr)
+		return 0, false, fmt.Errorf("%s: %w", i18nLine(MsgCheckFailed, path), statErr)
 	case info.Mode()&os.ModeSymlink != 0:
 		return 0, false, nil
 	case !info.Mode().IsRegular():
-		return 0, false, fmt.Errorf("锁路径 %s 不是普通文件，无法检查", path)
+		return 0, false, fmt.Errorf("%s", i18nLine(MsgNotRegularFile, path))
 	}
 	file, err := os.OpenFile(path, os.O_RDONLY, 0)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return 0, false, nil
 		}
-		return 0, false, fmt.Errorf("无法打开锁文件 %s: %w", path, err)
+		return 0, false, fmt.Errorf("%s: %w", i18nLine(MsgOpenFailed, path), err)
 	}
 	defer file.Close()
 
 	acquired, err := tryLock(file)
 	switch {
 	case err != nil:
-		return 0, false, fmt.Errorf("无法检查锁文件 %s: %w", path, err)
+		return 0, false, fmt.Errorf("%s: %w", i18nLine(MsgCheckFailed, path), err)
 	case acquired:
 		// Nobody held it; undo the probe so a real Acquire can still win.
 		_ = unlock(file)
@@ -141,7 +141,7 @@ func Acquire(ctx context.Context, path string, timeout time.Duration) (*Lock, er
 			return lock, nil
 		}
 	}
-	return nil, fmt.Errorf("锁文件 %s 反复被替换，放弃等待", path)
+	return nil, fmt.Errorf("%s", i18nLine(MsgReplaced, path))
 }
 
 // tryAcquire attempts one acquisition round.
@@ -152,14 +152,14 @@ func tryAcquire(ctx context.Context, path string, deadline time.Time, timeout ti
 	// The state directory is disposable by design, so it may be removed between
 	// two attempts; recreate it rather than failing with a bare ENOENT.
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return nil, false, fmt.Errorf("无法创建锁的父目录 %s: %w", filepath.Dir(path), err)
+		return nil, false, fmt.Errorf("%s: %w", i18nLine(MsgMkdirFailed, filepath.Dir(path)), err)
 	}
 	if err := discardNonFile(path); err != nil {
 		return nil, false, err
 	}
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
-		return nil, false, fmt.Errorf("无法打开锁文件 %s: %w", path, err)
+		return nil, false, fmt.Errorf("%s: %w", i18nLine(MsgOpenFailed, path), err)
 	}
 
 	for {
@@ -167,7 +167,7 @@ func tryAcquire(ctx context.Context, path string, deadline time.Time, timeout ti
 		switch {
 		case lockErr != nil:
 			file.Close()
-			return nil, false, fmt.Errorf("无法锁定 %s: %w", path, lockErr)
+			return nil, false, fmt.Errorf("%s: %w", i18nLine(MsgFlockFailed, path), lockErr)
 		case acquired:
 			changed, err := fileChanged(file, path)
 			if err != nil {
@@ -183,7 +183,7 @@ func tryAcquire(ctx context.Context, path string, deadline time.Time, timeout ti
 			if err := writeRecord(file); err != nil {
 				_ = unlock(file)
 				file.Close()
-				return nil, false, fmt.Errorf("无法写入锁记录 %s: %w", path, err)
+				return nil, false, fmt.Errorf("%s: %w", i18nLine(MsgRecordWriteFailed, path), err)
 			}
 			return &Lock{file: file}, false, nil
 		case time.Now().After(deadline):
@@ -214,14 +214,14 @@ func tryAcquire(ctx context.Context, path string, deadline time.Time, timeout ti
 func fileChanged(file *os.File, path string) (bool, error) {
 	openInfo, err := file.Stat()
 	if err != nil {
-		return false, fmt.Errorf("无法检查锁文件 %s: %w", path, err)
+		return false, fmt.Errorf("%s: %w", i18nLine(MsgCheckFailed, path), err)
 	}
 	pathInfo, err := os.Lstat(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return true, nil
 		}
-		return false, fmt.Errorf("无法检查锁文件 %s: %w", path, err)
+		return false, fmt.Errorf("%s: %w", i18nLine(MsgCheckFailed, path), err)
 	}
 	return !os.SameFile(openInfo, pathInfo), nil
 }
@@ -277,13 +277,13 @@ func discardNonFile(path string) error {
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("无法检查锁文件 %s: %w", path, err)
+		return fmt.Errorf("%s: %w", i18nLine(MsgCheckFailed, path), err)
 	}
 	if info.Mode().IsRegular() {
 		return nil
 	}
 	if err := os.RemoveAll(path); err != nil {
-		return fmt.Errorf("无法清理锁路径上的残留 %s: %w", path, err)
+		return fmt.Errorf("%s: %w", i18nLine(MsgResidueFailed, path), err)
 	}
 	return nil
 }
