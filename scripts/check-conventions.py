@@ -130,6 +130,7 @@ LAYERS = {
     "internal/state": {"internal/atomically", "internal/i18n"},
     "internal/history": {"internal/atomically", "internal/state"},
     "internal/nodejs": {"internal/i18n", "internal/paths", "internal/run"},
+    "internal/lock": {"internal/i18n"},
     "internal/logging": {"internal/logfile"},
     "internal/repo": {"internal/i18n", "internal/run"},
     "internal/version": {"internal/buildinfo"},
