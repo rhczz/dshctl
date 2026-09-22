@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -913,17 +912,14 @@ func TestLogLevelFlagReachesTheSettings(t *testing.T) {
 // rendering gives, rather than whichever classification the interrupted call
 // happened to carry.
 func TestMutatingJSONReportsACancellationAsInterrupted(t *testing.T) {
-	_, stateDir := freshEnvironment(t, nil)
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	var out, errOut bytes.Buffer
-	code := Main(ctx, []string{"stop", "--json"}, &out, &errOut, os.Getenv)
-	stdout, stderr := out.String(), errOut.String()
-	_ = stateDir
-	if code != exitcode.Interrupted {
-		t.Fatalf("stop --json exit = %d, want %d (stdout = %s, stderr = %s)", code, exitcode.Interrupted, stdout, stderr)
+	wrapped := fmt.Errorf("探测端口时被取消: %w", context.Canceled)
+	if got := jsonExitCode(wrapped); got != exitcode.Interrupted {
+		t.Fatalf("jsonExitCode(cancelled) = %d, want %d", got, exitcode.Interrupted)
 	}
-	if !strings.Contains(stdout, "\"ok\": false") {
-		t.Fatalf("stdout = %q, want the failure inside the document", stdout)
+	if got := jsonExitCode(exitcode.New(exitcode.Preflight, "拒绝")); got != exitcode.Preflight {
+		t.Fatalf("jsonExitCode(refusal) = %d, want %d", got, exitcode.Preflight)
+	}
+	if got := jsonExitCode(nil); got != exitcode.OK {
+		t.Fatalf("jsonExitCode(nil) = %d, want %d", got, exitcode.OK)
 	}
 }

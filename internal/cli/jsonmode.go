@@ -104,15 +104,22 @@ func runJSON(env *Env, name string, run func(*service.Service) (any, error), set
 		return printErr
 	}
 	if err != nil {
-		// A cancelled run answers 130 in both renderings. The text path checks
-		// this before it classifies the error, because a cancellation wrapped by
-		// whichever call was running is still a cancellation.
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return exitcode.SilentExit(exitcode.Interrupted)
-		}
-		return exitcode.SilentExit(exitcode.Of(err))
+		return exitcode.SilentExit(jsonExitCode(err))
 	}
 	return nil
+}
+
+// jsonExitCode maps a failed run onto the process exit code.
+//
+// A cancellation answers 130 here exactly as it does in the text rendering: the
+// check comes before the classification, because a cancellation wrapped by
+// whichever call was running is still a cancellation, and the document's `ok`
+// field is not the place to learn that the operator interrupted the run.
+func jsonExitCode(err error) int {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return exitcode.Interrupted
+	}
+	return exitcode.Of(err)
 }
 
 // jsonFlag registers the flag every mutating command accepts.
