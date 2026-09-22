@@ -348,7 +348,7 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 				}
 				if time.Since(ownerlessSince) >= ownerlessListenGrace {
 					return 0, exitcode.New(exitcode.Preflight,
-						"端口 %d 已有监听，但平台探测工具未报告其归属进程，无法确认它是本次启动的服务", s.boundPort())
+						i18nLine(MsgProbeOwnerUnknown), s.boundPort())
 				}
 			} else {
 				ownerlessSince = time.Time{}
@@ -358,11 +358,11 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 				// outlived its reaper.
 				if exited != nil && exited(ctx) {
 					return 0, exitcode.New(exitcode.Failure,
-						"DSH Web 进程 (pid=%d) 已退出，端口 %d 始终没有就绪(详见日志)", expectedPID, s.boundPort())
+						i18nLine(MsgWaitStartingExitedLog), expectedPID, s.boundPort())
 				}
 				if !s.Host.Alive(ctx, expectedPID) {
 					return 0, exitcode.New(exitcode.Failure,
-						"DSH Web 进程 (pid=%d) 已退出，端口 %d 始终没有就绪", expectedPID, s.boundPort())
+						i18nLine(MsgWaitStartingExited), expectedPID, s.boundPort())
 				}
 			}
 		} else if observation.pid == expectedPID || s.descendsFromSpawned(expectedPID, observation.pid) {
@@ -379,7 +379,7 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 			// A listener outside the spawned group is a race with another
 			// process and is refused.
 			return 0, exitcode.New(exitcode.Preflight,
-				"端口 %d 被另一个进程占用 (pid=%d: %s)",
+				i18nLine(MsgPortTakenByOther),
 				s.boundPort(), observation.pid, describeFacts(observation.facts))
 		}
 		if time.Now().After(deadline) {
@@ -387,13 +387,13 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 			// what it is, rather than as a bare timeout.
 			if !ownerlessSince.IsZero() {
 				return 0, exitcode.New(exitcode.Preflight,
-					"端口 %d 已有监听，但平台探测工具未报告其归属进程，无法确认它是本次启动的服务", s.boundPort())
+					i18nLine(MsgProbeOwnerUnknown), s.boundPort())
 			}
 			if lastErr != nil {
 				return 0, exitcode.Wrap(exitcode.Failure, lastErr)
 			}
 			return 0, exitcode.New(exitcode.Failure,
-				"等待端口 %d 就绪超时 (%s)", s.boundPort(), timeout)
+				i18nLine(MsgWaitReadyTimeout), s.boundPort(), timeout)
 		}
 		if err := s.sleep(ctx, s.poll); err != nil {
 			return 0, err
@@ -432,7 +432,7 @@ func (s *Service) waitForStopped(ctx context.Context, timeout time.Duration) err
 		}
 		if time.Now().After(deadline) {
 			return exitcode.New(exitcode.Failure,
-				"端口 %d 仍被 pid=%d 占用，停止超时", s.boundPort(), result.PID)
+				i18nLine(MsgStopTimeoutPortBusy), s.boundPort(), result.PID)
 		}
 		if err := s.sleep(ctx, s.poll); err != nil {
 			return err

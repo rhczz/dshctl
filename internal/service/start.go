@@ -332,16 +332,16 @@ func (s *Service) writeBack(repoDir, nodeVersion string) {
 	}
 	wrote, err := s.Settings.RecordRuntime(repoDir, nodeVersion)
 	if err != nil {
-		s.warning(fmt.Sprintf("无法把本次运行的信息写入配置 %s: %v(以后仍会按既有设置重新解析)", s.Settings.ConfigPath, err))
+		s.warning(i18nLine(MsgConfigWriteFailed, s.Settings.ConfigPath, err))
 		return
 	}
 	if wrote.RepoDir {
-		message := fmt.Sprintf("已将仓库目录 %s 写入配置: %s", repoDir, s.Settings.ConfigPath)
+		message := i18nLine(MsgConfigWroteRepo, repoDir, s.Settings.ConfigPath)
 		s.narrate(message)
 		s.note(message)
 	}
 	if wrote.NodeVersion {
-		message := fmt.Sprintf("已将 Node %s 写入配置: %s", nodeVersion, s.Settings.ConfigPath)
+		message := i18nLine(MsgConfigWroteNode, nodeVersion, s.Settings.ConfigPath)
 		s.narrate(message)
 		s.note(message)
 	}
@@ -391,7 +391,7 @@ func (s *Service) warnRunningCheckoutMismatch(observed observed) {
 	if running == "" || running == s.Settings.RepoDir {
 		return
 	}
-	s.warning(fmt.Sprintf("运行中的服务 (pid=%d) 来自 %s，配置中的 repoDir 是 %s；两者操作的不是同一份 checkout", observed.status.ListenerPID, running, s.Settings.RepoDir))
+	s.warning(i18nLine(MsgRunningOtherCheckout, observed.status.ListenerPID, running, s.Settings.RepoDir))
 }
 
 // namesCheckoutItself reports whether this invocation names a checkout of its
@@ -422,7 +422,7 @@ func (s *Service) reportRepoOverride() {
 	if s.Settings.Sources.RepoDir != "flag" {
 		return
 	}
-	s.narrate(fmt.Sprintf("本次使用仓库 %s(配置中为 %s；如需固定请修改 %s)", s.Settings.RepoDir, configured, s.Settings.ConfigPath))
+	s.narrate(i18nLine(MsgUsingRepoOverride, s.Settings.RepoDir, configured, s.Settings.ConfigPath))
 }
 
 // warnOverriddenRepoDir reports a settings document whose checkout this run does
@@ -440,7 +440,7 @@ func (s *Service) warnOverriddenRepoDir() {
 	if configured == "" || configured == s.Settings.RepoDir {
 		return
 	}
-	s.warning(fmt.Sprintf("环境变量 %s=%s 覆盖了配置里的 repoDir=%s，本次运行使用 %s", paths.EnvRepoDir, s.Settings.RepoDir, configured, s.Settings.RepoDir))
+	s.warning(i18nLine(MsgEnvRepoOverride, paths.EnvRepoDir, s.Settings.RepoDir, configured, s.Settings.RepoDir))
 }
 
 // reportNodeOverride tells the operator when this run uses a release other than
@@ -455,7 +455,7 @@ func (s *Service) reportNodeOverride(installation nodejs.Installation) {
 	if configured == "" || nodejs.Matches(installation.Version, configured) {
 		return
 	}
-	s.narrate(fmt.Sprintf("本次使用 Node %s(配置中为 %s；如需固定请修改 %s)", installation.Version, configured, s.Settings.ConfigPath))
+	s.narrate(i18nLine(MsgUsingNodeOverride, installation.Version, configured, s.Settings.ConfigPath))
 }
 
 // spawn starts the detached server with the log as its output.
@@ -495,8 +495,8 @@ func spawnDetached(path string, args []string, dir string, env []string, log *os
 // nothing able to manage it. The port is checked afterwards — the cleanup is
 // only reported as done once the port is actually free.
 func (s *Service) cleanupFailedStart(ctx context.Context, pid int, cause error) error {
-	s.failure("启动失败或超时，正在清理本次启动的进程 ...")
-	s.note("start 失败")
+	s.failure(i18nLine(MsgCleaningUp))
+	s.note(i18nLine(MsgStartFailed))
 
 	if err := s.endGroup(ctx, pid); err != nil {
 		s.warning(fmt.Sprintf("%v", err))
@@ -514,12 +514,12 @@ func (s *Service) cleanupFailedStart(ctx context.Context, pid int, cause error) 
 	if err := s.waitForStopped(ctx, s.Settings.StopTimeout); err != nil {
 		// The port is still held, so nothing was really cleaned up. Saying so is
 		// the difference between a recoverable state and a mystery.
-		s.failure(fmt.Sprintf("端口 %d 仍被占用，本次启动的进程没有全部退出: %v", s.boundPort(), err))
+		s.failure(i18nLine(MsgCleanupPortBusy, s.boundPort(), err))
 	}
 
-	s.failure("已清理。日志尾部:")
+	s.failure(i18nLine(MsgCleanupDone))
 	_, _ = logfile.Tail(s.Settings.LogPath, startTailLines, s.emitter().Diagnostics())
-	return exitcode.Wrap(exitcode.Failure, fmt.Errorf("%w(日志: %s)", cause, s.Settings.LogPath))
+	return exitcode.Wrap(exitcode.Failure, fmt.Errorf("%w%s", cause, i18nLine(MsgWithLog, s.Settings.LogPath)))
 }
 
 // endGroup asks every process this start created to exit, then forces what is
@@ -580,12 +580,12 @@ func (s *Service) waitForGroupExit(ctx context.Context, pid int, timeout time.Du
 func (s *Service) preflight(ctx context.Context) (nodejs.Installation, string, error) {
 	if !s.Repo.Exists() {
 		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight,
-			"仓库目录不存在: %s\n提示: 用 --repo 或环境变量 %s 指定仓库路径",
+			i18nLine(MsgRepoMissing),
 			s.Settings.RepoDir, paths.EnvRepoDir)
 	}
 	if !s.Repo.IsServerCheckout() {
 		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight,
-			"%s 看起来不是 DeepSeek Harness 仓库(缺少 %s 或 %s)\n提示: 用 --repo 指向正确的 checkout",
+			i18nLine(MsgRepoNotCheckout),
 			s.Settings.RepoDir, config.ServerManifestRel, config.WorkspaceManifestRel)
 	}
 	installation, err := s.resolveNode(ctx)
@@ -598,7 +598,7 @@ func (s *Service) preflight(ctx context.Context) (nodejs.Installation, string, e
 	}
 	if !s.Repo.BuildReady() {
 		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight,
-			"仓库尚未构建(缺少 %s 或 node_modules)\n提示: 先运行 dshctl build, 再执行 dshctl start",
+			i18nLine(MsgRepoNotBuilt),
 			s.Repo.BuildRecordPath())
 	}
 	return installation, pnpm, nil
@@ -656,7 +656,7 @@ func (s *Service) warnOverriddenNodeVersion(installation nodejs.Installation) {
 	if configured == "" || nodejs.Matches(installation.Version, configured) {
 		return
 	}
-	s.warning(fmt.Sprintf("环境变量 %s=%s 覆盖了配置里的 nodeVersion=%s，本次运行使用 %s", paths.EnvNodeVersion, s.Settings.NodeVersion, configured, installation.Version))
+	s.warning(i18nLine(MsgEnvNodeOverride, paths.EnvNodeVersion, s.Settings.NodeVersion, configured, installation.Version))
 }
 
 // pnpmPath resolves the pnpm executable.
@@ -667,7 +667,7 @@ func (s *Service) pnpmPath() (string, error) {
 	}
 	path, err := lookPath("pnpm")
 	if err != nil {
-		return "", exitcode.New(exitcode.Preflight, "找不到 pnpm，请先安装并确保它在 PATH 中")
+		return "", exitcode.New(exitcode.Preflight, "%s", i18nLine(MsgPnpmMissing))
 	}
 	return path, nil
 }
@@ -720,7 +720,7 @@ func (s *Service) urlFromLog(ctx context.Context) string {
 	}
 	address, truncated := announcedURL(s.Settings.LogPath, s.boundPort())
 	if address == "" && truncated {
-		s.warning(fmt.Sprintf("日志过大，未能在其中找到本次启动公布的访问地址;可用 dshctl logs 查看或等待服务输出"))
+		s.warning(i18nLine(MsgStartLogTooLarge))
 	}
 	return address
 }

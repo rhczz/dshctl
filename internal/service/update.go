@@ -26,7 +26,7 @@ func shutdownMessage() string { return i18nLine(MsgShutdownMessage) }
 
 // deployRequest is one version move: what to move to, and how to name it.
 type deployRequest struct {
-	// verb names the operation in messages ("更新" / "回退").
+	// verb names the operation in messages.
 	verb string
 	// section is the log section title the move is recorded under.
 	section string

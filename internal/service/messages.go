@@ -74,6 +74,46 @@ const (
 	MsgStopSurvivedForce        = "service.stop.survived-force"
 	MsgStopRecordKept           = "service.stop.record-kept"
 	MsgRestartOccupant          = "service.stop.restart-occupant"
+	MsgRowStateDir              = "service.doctor.row.state-dir"
+	MsgRowConfig                = "service.doctor.row.config"
+	MsgRowRepo                  = "service.doctor.row.repo"
+	MsgRowRepoVersion           = "service.doctor.row.repo-version"
+	MsgRowDeps                  = "service.doctor.row.deps"
+	MsgRowArtifacts             = "service.doctor.row.artifacts"
+	MsgRowNode                  = "service.doctor.row.node"
+	MsgRowPnpm                  = "service.doctor.row.pnpm"
+	MsgRowPort                  = "service.doctor.row.port"
+	MsgRowRecord                = "service.doctor.row.record"
+	MsgRowServiceRepo           = "service.doctor.row.service-repo"
+	MsgRowLock                  = "service.doctor.row.lock"
+	MsgRowLog                   = "service.doctor.row.log"
+	MsgRowDetach                = "service.doctor.row.detach"
+	MsgRowBuildInfo             = "service.doctor.row.build-info"
+	MsgDirNotCreated            = "service.doctor.state-dir-not-created"
+	MsgConfigNotCreated         = "service.doctor.config-not-created"
+	MsgRepoMissingDetail        = "service.doctor.repo-missing"
+	MsgRepoNotGitDetail         = "service.doctor.repo-not-git"
+	MsgRepoNotCheckoutDetail    = "service.doctor.repo-not-checkout"
+	MsgRepoDirty                = "service.doctor.repo-dirty"
+	MsgDepsInstalled            = "service.doctor.deps-installed"
+	MsgDepsMissing              = "service.doctor.deps-missing"
+	MsgArtifactsMissing         = "service.doctor.artifacts-missing"
+	MsgNodeViaShim              = "service.doctor.node-via-shim"
+	MsgPnpmNotRunnable          = "service.doctor.pnpm-not-runnable"
+	MsgStatusUnobservableDoctor = "service.doctor.unobservable"
+	MsgPortOwnedRunning         = "service.doctor.port-owned-running"
+	MsgPortOwnedStarting        = "service.doctor.port-owned-starting"
+	MsgPortForeignDoctor        = "service.doctor.port-foreign"
+	MsgPortSurvivorDoctor       = "service.doctor.port-survivor"
+	MsgPortUnclaimedDoctor      = "service.doctor.port-unclaimed"
+	MsgPortFree                 = "service.doctor.port-free"
+	MsgRecordCorrupt            = "service.doctor.record-corrupt"
+	MsgRecordStaleDoctor        = "service.doctor.record-stale"
+	MsgRecordMissing            = "service.doctor.record-missing"
+	MsgServiceOtherRepo         = "service.doctor.service-other-repo"
+	MsgLockFree                 = "service.doctor.lock-free"
+	MsgLockHeldBy               = "service.doctor.lock-held"
+	MsgLockUnreadable           = "service.doctor.lock-unreadable"
 	MsgRecordUnreadable         = "service.repo.record-unreadable"
 	MsgPortServiceUnconfirmable = "service.repo.port-unconfirmable"
 	MsgPruneRemoved             = "service.build.prune-removed"
@@ -340,6 +380,166 @@ var Messages = i18n.Catalog{
 	MsgTextWarning: {
 		EN: "warning: %s\n",
 		ZH: "警告: %s\n",
+	},
+	MsgRowStateDir: {
+		EN: "state directory",
+		ZH: "状态目录",
+	},
+	MsgRowConfig: {
+		EN: "settings document",
+		ZH: "配置文件",
+	},
+	MsgRowRepo: {
+		EN: "checkout",
+		ZH: "仓库目录",
+	},
+	MsgRowRepoVersion: {
+		EN: "checkout revision",
+		ZH: "仓库版本",
+	},
+	MsgRowDeps: {
+		EN: "dependencies",
+		ZH: "依赖",
+	},
+	MsgRowArtifacts: {
+		EN: "build artifacts",
+		ZH: "构建产物",
+	},
+	MsgRowNode: {
+		EN: "Node",
+		ZH: "Node",
+	},
+	MsgRowPnpm: {
+		EN: "pnpm",
+		ZH: "pnpm",
+	},
+	MsgRowPort: {
+		EN: "port",
+		ZH: "端口",
+	},
+	MsgRowRecord: {
+		EN: "runtime record",
+		ZH: "运行记录",
+	},
+	MsgRowServiceRepo: {
+		EN: "service checkout",
+		ZH: "服务仓库",
+	},
+	MsgRowLock: {
+		EN: "operation lock",
+		ZH: "操作锁",
+	},
+	MsgRowLog: {
+		EN: "log",
+		ZH: "日志",
+	},
+	MsgRowDetach: {
+		EN: "detach method",
+		ZH: "进程分离方式",
+	},
+	MsgRowBuildInfo: {
+		EN: "build info",
+		ZH: "构建信息",
+	},
+	MsgDirNotCreated: {
+		EN: " not created yet; the first run creates it",
+		ZH: " 尚未创建，首次运行会自动创建",
+	},
+	MsgConfigNotCreated: {
+		EN: " not created yet; the defaults will be written",
+		ZH: " 尚未创建，将写入默认值",
+	},
+	MsgRepoMissingDetail: {
+		EN: "%s does not exist; name it once with --repo or %s and a successful run writes it into %s",
+		ZH: "%s 不存在；用 --repo 或环境变量 %s 指定一次，成功运行后会写入 %s",
+	},
+	MsgRepoNotGitDetail: {
+		EN: "%s is not a git repository",
+		ZH: "%s 不是 git 仓库",
+	},
+	MsgRepoNotCheckoutDetail: {
+		EN: "%s has no %s or %s; it does not look like a DeepSeek Harness checkout",
+		ZH: "%s 缺少 %s 或 %s，不像是 DeepSeek Harness checkout",
+	},
+	MsgRepoDirty: {
+		EN: " (tracked changes present)",
+		ZH: " (有未提交改动)",
+	},
+	MsgDepsInstalled: {
+		EN: " installed",
+		ZH: " 已安装",
+	},
+	MsgDepsMissing: {
+		EN: " does not exist; run pnpm install first",
+		ZH: " 不存在，请先执行 pnpm install",
+	},
+	MsgArtifactsMissing: {
+		EN: "missing %s; run dshctl build",
+		ZH: "缺少 %s，请运行 dshctl build",
+	},
+	MsgNodeViaShim: {
+		EN: ", resolved through a shim",
+		ZH: "，经转发条目解析",
+	},
+	MsgPnpmNotRunnable: {
+		EN: "%s exists but cannot be executed",
+		ZH: "%s 存在但无法执行",
+	},
+	MsgStatusUnobservableDoctor: {
+		EN: "the service state cannot be observed; see the row above",
+		ZH: "无法观察服务状态，见上一条",
+	},
+	MsgPortOwnedRunning: {
+		EN: "%d is held by a service dshctl started (pid=%d)",
+		ZH: "%d 由 dshctl 启动的服务占用 (pid=%d)",
+	},
+	MsgPortOwnedStarting: {
+		EN: "%d is held by a service dshctl started (pid=%d), but the port is not ready yet",
+		ZH: "%d 由 dshctl 的服务占用 (pid=%d)，端口尚未就绪",
+	},
+	MsgPortForeignDoctor: {
+		EN: "%d is held by another process (pid=%d: %s)",
+		ZH: "%d 被其他进程占用 (pid=%d: %s)",
+	},
+	MsgPortSurvivorDoctor: {
+		EN: "%d is served by a survivor of an interrupted start (pid=%d); dshctl start or dshctl stop manages it again",
+		ZH: "%d 上是上次启动被中断后仍存活的服务 (pid=%d);运行 dshctl start 或 dshctl stop 可恢复管理",
+	},
+	MsgPortUnclaimedDoctor: {
+		EN: "%d is held by a process dshctl cannot claim (pid=%d: %s)",
+		ZH: "%d 被一个 dshctl 无法确认归属的进程占用 (pid=%d: %s)",
+	},
+	MsgPortFree: {
+		EN: "%d is free",
+		ZH: "%d 空闲",
+	},
+	MsgRecordCorrupt: {
+		EN: "%s cannot be parsed; the next start or stop rebuilds it",
+		ZH: "%s 无法解析，下次 start/stop 会重建它",
+	},
+	MsgRecordStaleDoctor: {
+		EN: "the record names pid=%d, which is gone or has been reused (a stale record; the next start or stop clears it)",
+		ZH: "记录 pid=%d 已不存在或已被复用(陈旧记录，下次 start/stop 会清理)",
+	},
+	MsgRecordMissing: {
+		EN: "none (the service has never been started)",
+		ZH: "不存在(尚未启动过服务)",
+	},
+	MsgServiceOtherRepo: {
+		EN: "the running service (pid=%d) comes from %s while the configuration says %s; stop it with its port and start again with --repo %s to switch",
+		ZH: "运行中的服务 (pid=%d) 来自 %s，配置中是 %s；用对应端口执行 dshctl stop 后再用 --repo %s start 可切换",
+	},
+	MsgLockFree: {
+		EN: "free",
+		ZH: "空闲",
+	},
+	MsgLockHeldBy: {
+		EN: "held by pid=%d; another dshctl operation is running",
+		ZH: "被 pid=%d 持有，另一个 dshctl 操作正在进行",
+	},
+	MsgLockUnreadable: {
+		EN: "held, but the lock file carries no readable pid",
+		ZH: "已被持有，但锁文件里没有可读的 pid 记录",
 	},
 	MsgRecordUnreadable: {
 		EN: "the runtime record %s could not be read, so whether it is using %s cannot be confirmed: %w",
@@ -678,8 +878,8 @@ var Messages = i18n.Catalog{
 		ZH: "端口 %d 仍被占用，本次启动的进程没有全部退出: %v",
 	},
 	MsgWithLog: {
-		EN: "%w (log: %s)",
-		ZH: "%w(日志: %s)",
+		EN: " (log: %s)",
+		ZH: "(日志: %s)",
 	},
 	MsgGroupSurvivedForce: {
 		EN: "the process group this start created (leader %d) still exists after a forced end",

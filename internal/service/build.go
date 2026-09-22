@@ -45,7 +45,7 @@ func (s *Service) buildLocked(ctx context.Context) error {
 	// server of ours is serving. update stops this port's server because it
 	// restarts it; build cannot do that on the operator's behalf, so it refuses
 	// as long as any of them is running — the same rule, one step stricter.
-	if err := s.refuseWhileServing(ctx, "构建"); err != nil {
+	if err := s.refuseWhileServing(ctx, i18nLine(MsgBuildSection)); err != nil {
 		return err
 	}
 	if err := s.prune(ctx); err != nil {
@@ -94,7 +94,7 @@ func (s *Service) buildLocked(ctx context.Context) error {
 // restart (build) refuses instead.
 //
 // Parameters:
-//   - action: the command's name, for the message ("构建" / "更新").
+//   - action: the command's name, for the message.
 func (s *Service) refuseWhileServing(ctx context.Context, action string) error {
 	observed, err := s.observe(ctx)
 	if err != nil {
