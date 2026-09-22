@@ -92,7 +92,7 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv f
 	// joins later. Both are resolved once, before any command can print.
 	catalog, err := i18n.Merge(service.Messages, Messages)
 	if err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18nLine(MsgErrorPrefix)+"\n", err)
 		return exitcode.Failure
 	}
 	i18n.Use(i18n.New(i18n.Resolve(getenv), catalog))
@@ -107,7 +107,7 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv f
 
 	parsed, rest, err := parseGlobals(args)
 	if err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n\n", err)
+		fmt.Fprintf(stderr, i18nLine(MsgErrorPrefixBlank), err)
 		Usage(stderr)
 		return exitcode.Usage
 	}
@@ -127,7 +127,7 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv f
 	}
 	command := findCommand(commands, name)
 	if command == nil {
-		fmt.Fprintf(stderr, "错误: 未知命令 %q\n\n", name)
+		fmt.Fprintf(stderr, i18nLine(MsgUnknownCommand), name)
 		Usage(stderr)
 		return exitcode.Usage
 	}
@@ -150,7 +150,7 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv f
 	if command.Name != "version" {
 		settings, err := loadSettings(parsed, getenv)
 		if err != nil {
-			fmt.Fprintf(stderr, "错误: %v\n", err)
+			fmt.Fprintf(stderr, i18nLine(MsgErrorPrefix)+"\n", err)
 			return exitcode.Of(err)
 		}
 		env.Settings = settings
@@ -169,7 +169,7 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv f
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return exitcode.Interrupted
 		}
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18nLine(MsgErrorPrefix)+"\n", err)
 		return exitcode.Of(err)
 	}
 	return exitcode.OK
@@ -183,7 +183,7 @@ func runHelp(stdout, stderr io.Writer, commands []Command, rest []string) int {
 	}
 	command := findCommand(commands, rest[1])
 	if command == nil {
-		fmt.Fprintf(stderr, "错误: 未知命令 %q\n", rest[1])
+		fmt.Fprintf(stderr, i18nLine(MsgUnknownHelpTopic), rest[1])
 		return exitcode.Usage
 	}
 	printCommandHelp(stdout, *command)
@@ -217,13 +217,13 @@ func parseGlobals(args []string) (globals, []string, error) {
 		case "--config", "--repo", "--node", "--port", "--log-level":
 			if !hasValue {
 				if index+1 >= len(args) {
-					return parsed, nil, fmt.Errorf("参数 %s 需要一个值", name)
+					return parsed, nil, fmt.Errorf("%s", i18nLine(MsgGlobalNeedsValue, name))
 				}
 				index++
 				value = args[index]
 			}
 			if strings.TrimSpace(value) == "" {
-				return parsed, nil, fmt.Errorf("参数 %s 的值不能为空", name)
+				return parsed, nil, fmt.Errorf("%s", i18nLine(MsgGlobalEmptyValue, name))
 			}
 			switch name {
 			case "--config":
@@ -238,7 +238,7 @@ func parseGlobals(args []string) (globals, []string, error) {
 			case "--port":
 				port, err := strconv.Atoi(value)
 				if err != nil {
-					return parsed, nil, fmt.Errorf("参数 --port 不是数字: %q", value)
+					return parsed, nil, fmt.Errorf("%s", i18nLine(MsgPortNotANumber, value))
 				}
 				parsed.port = &port
 			case "--log-level":
@@ -246,7 +246,7 @@ func parseGlobals(args []string) (globals, []string, error) {
 				parsed.logLevelSet = true
 			}
 		default:
-			return parsed, nil, fmt.Errorf("未知的全局参数: %s", arg)
+			return parsed, nil, fmt.Errorf("%s", i18nLine(MsgUnknownGlobal, arg))
 		}
 	}
 	return parsed, nil, nil
@@ -308,8 +308,8 @@ func newFlagSet(env *Env, name string) *flag.FlagSet {
 	flags := flag.NewFlagSet(name, flag.ContinueOnError)
 	flags.SetOutput(env.Stderr)
 	flags.Usage = func() {
-		fmt.Fprintf(env.Stderr, "用法: dshctl [全局参数] %s [命令参数]\n", name)
-		fmt.Fprintf(env.Stderr, "全局参数(--repo/--port/--node/--config/-v)须写在命令名之前。\n")
+		fmt.Fprintf(env.Stderr, i18nLine(MsgUsageLine)+"\n", name)
+		fmt.Fprintln(env.Stderr, i18nLine(MsgUsageGlobals))
 		flags.PrintDefaults()
 	}
 	return flags
