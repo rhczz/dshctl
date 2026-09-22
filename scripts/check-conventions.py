@@ -94,6 +94,7 @@ LAYERS = {
         "internal/exitcode",
         "internal/history",
         "internal/i18n",
+        "internal/repo",
         "internal/run",
         "internal/service",
         "internal/version",

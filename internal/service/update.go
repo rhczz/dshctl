@@ -318,7 +318,7 @@ func (s *Service) resolveDeployTarget(ctx context.Context, request deployRequest
 		// A named version is useful offline when it is already known locally:
 		// a failed fetch is a warning, not a refusal.
 		if err := s.Repo.Fetch(ctx, nil, nil); err != nil {
-			s.warning(i18nLine(MsgUpdateFetchFailed, request.target, err))
+			s.warning(fmt.Sprintf("%s: %v", i18nLine(MsgUpdateFetchFailed, request.target), err))
 		}
 	}
 	commit, err := s.Repo.ResolveRevision(ctx, request.target)

@@ -881,7 +881,7 @@ func readFile(path string) (File, bool, error) {
 			// An empty file is a legal way to say "everything at its default".
 			return File{}, true, nil
 		}
-		return File{}, false, usagef("%s", i18nLine(MsgParseFailed, path, err))
+		return File{}, false, usagef("%s: %v", i18nLine(MsgParseFailed, path), err)
 	}
 	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
 		return File{}, false, usagef("%s", i18nLine(MsgTrailingContent, path))
