@@ -6,6 +6,7 @@ import (
 
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/i18n"
+	"github.com/rhczz/dshctl/internal/nodejs"
 	"github.com/rhczz/dshctl/internal/repo"
 )
 
@@ -18,7 +19,7 @@ import (
 func TestMain(m *testing.M) {
 	// The catalog the binary installs: every layer's words, merged. A test that
 	// renders a lower layer's error needs that layer's catalog too.
-	catalog, err := i18n.Merge(Messages, config.Messages, repo.Messages)
+	catalog, err := i18n.Merge(Messages, config.Messages, nodejs.Messages, repo.Messages)
 	if err != nil {
 		panic(err)
 	}

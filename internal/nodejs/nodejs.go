@@ -119,7 +119,7 @@ func (r *Resolver) Resolve(ctx context.Context, prefs Preferences) (Installation
 func (r *Resolver) discover(ctx context.Context) (Installation, *Failure) {
 	path, err := r.lookPath("node")
 	if err != nil {
-		return Installation{}, &Failure{Observations: []Observation{{Source: SourcePath, Detail: "没有 node"}}}
+		return Installation{}, &Failure{Observations: []Observation{{Source: SourcePath, Detail: i18nLine(MsgNoNodeOnPath)}}}
 	}
 	installation, probeErr := r.inspect(ctx, path)
 	if probeErr != nil {
@@ -147,7 +147,7 @@ func (r *Resolver) findRequested(ctx context.Context, requested, home string) (I
 	if err != nil {
 		return Installation{}, &Failure{
 			Requested:    requested,
-			Observations: []Observation{managers, {Source: SourcePath, Detail: "没有 node"}},
+			Observations: []Observation{managers, {Source: SourcePath, Detail: i18nLine(MsgNoNodeOnPath)}},
 		}
 	}
 	installation, probeErr := r.inspect(ctx, path)
@@ -177,7 +177,7 @@ func (r *Resolver) inspect(ctx context.Context, path string) (Installation, erro
 
 	out, err := r.output().Output(ctx, run.Command{Name: path, Args: []string{"-v"}})
 	if err != nil {
-		return Installation{}, fmt.Errorf("无法执行 `%s -v`: %w", path, err)
+		return Installation{}, fmt.Errorf("%s", i18nLine(MsgProbeFailed, path, err))
 	}
 	version := ParseVersion(out)
 	// The token has to look like a release. A binary that answers with a
@@ -185,7 +185,7 @@ func (r *Resolver) inspect(ctx context.Context, path string) (Installation, erro
 	// unreadable version is clearer than letting "not" travel onward as a release
 	// that the gate then refuses.
 	if version == "" || !startsWithDigit(version) {
-		return Installation{}, fmt.Errorf("`%s -v` 的输出里没有版本: %q", path, strings.TrimSpace(out))
+		return Installation{}, fmt.Errorf("%s", i18nLine(MsgProbeNoVersion, path, strings.TrimSpace(out)))
 	}
 	installation := Installation{
 		Version:  version,
@@ -214,15 +214,15 @@ func (r *Resolver) inspect(ctx context.Context, path string) (Installation, erro
 
 // unusableDetail explains why a binary on PATH could not be turned into a
 // runtime, in the words of the failure itself.
-func unusableDetail(err error) string { return "无法确定版本: " + err.Error() }
+func unusableDetail(err error) string { return i18nLine(MsgVersionUndetermined) + err.Error() }
 
 // managersObservation summarises what the version managers had to offer.
 func managersObservation(candidates []candidate) Observation {
 	if len(candidates) == 0 {
-		return Observation{Source: SourceManagers, Detail: "没有安装"}
+		return Observation{Source: SourceManagers, Detail: i18nLine(MsgManagersNone)}
 	}
 	// installed() reports releases from the highest down.
-	return Observation{Source: SourceManagers, Detail: "最新的是 " + candidates[0].version}
+	return Observation{Source: SourceManagers, Detail: i18nLine(MsgManagersNewest) + candidates[0].version}
 }
 
 // Failure reports why no runtime could be resolved. It carries facts rather
@@ -242,11 +242,11 @@ type Failure struct {
 func (f *Failure) Error() string {
 	switch {
 	case f.Requested != "":
-		return fmt.Sprintf("找不到 Node %s", f.Requested)
+		return i18nLine(MsgNotFoundRequested, f.Requested)
 	case f.Err != nil:
-		return fmt.Sprintf("PATH 上的 node 无法使用: %v", f.Err)
+		return i18nLine(MsgPathNodeUnusable, f.Err)
 	default:
-		return "PATH 上没有 node"
+		return i18nLine(MsgPathNodeMissing)
 	}
 }
 
@@ -298,7 +298,7 @@ func Assess(installation Installation, minimum, tested string) Verdict {
 	if Compare(installation.Version, minimum) < 0 {
 		return Verdict{
 			Status: TooOld,
-			Reason: fmt.Sprintf("Node %s 低于最低要求 %s(%s，来源 %s)",
+			Reason: i18nLine(MsgBelowMinimum,
 				installation.Version, minimum, installation.NodePath, originLabel(installation.Source)),
 			Remedy: Remedies(minimum, tested),
 		}
@@ -306,8 +306,7 @@ func Assess(installation Installation, minimum, tested string) Verdict {
 	if majorOf(installation.Version) != majorOf(tested) {
 		return Verdict{
 			Status: Untested,
-			Reason: fmt.Sprintf("Node %s 不在 dshctl 的验证范围内(已验证 %s；%s，来源 %s)；"+
-				"若 Web 端出现 \"Failed to load plugins\" 请改用 Node %d.x",
+			Reason: i18nLine(MsgUntestedMajor,
 				installation.Version, tested, installation.NodePath, originLabel(installation.Source), majorOf(tested)),
 		}
 	}
@@ -336,9 +335,9 @@ func Remedies(minimum, tested string) string {
 func Describe(failure *Failure, minimum, tested string) string {
 	var builder strings.Builder
 	if failure.Requested != "" {
-		fmt.Fprintf(&builder, "找不到 Node %s(已查找 nvm/fnm 的安装目录与 PATH)", failure.Requested)
+		fmt.Fprintf(&builder, i18nLine(MsgRemedyNotFound), failure.Requested)
 	} else {
-		builder.WriteString("找不到可用的 node")
+		builder.WriteString(i18nLine(MsgRemedyNoUsableNode))
 	}
 	for _, observation := range failure.Observations {
 		builder.WriteString("\n")
@@ -642,7 +641,7 @@ func describeObservation(observation Observation) string {
 	label := observationLabel(observation.Source)
 	switch {
 	case observation.Path != "" && observation.Version != "":
-		return fmt.Sprintf("  %s: %s 是 %s", label, observation.Path, observation.Version)
+		return i18nLine(MsgObservationLine, label, observation.Path, observation.Version)
 	case observation.Path != "":
 		return fmt.Sprintf("  %s: %s %s", label, observation.Path, observation.Detail)
 	default:

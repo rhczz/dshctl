@@ -126,7 +126,7 @@ LAYERS = {
     },
     "internal/state": {"internal/atomically"},
     "internal/history": {"internal/atomically", "internal/state"},
-    "internal/nodejs": {"internal/paths", "internal/run"},
+    "internal/nodejs": {"internal/i18n", "internal/paths", "internal/run"},
     "internal/logging": {"internal/logfile"},
     "internal/repo": {"internal/i18n", "internal/run"},
     "internal/version": {"internal/buildinfo"},

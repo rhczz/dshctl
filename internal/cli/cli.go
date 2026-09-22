@@ -18,6 +18,7 @@ import (
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/i18n"
+	"github.com/rhczz/dshctl/internal/nodejs"
 	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
 	"github.com/rhczz/dshctl/internal/service"
@@ -91,7 +92,7 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv f
 	// The language is a property of the invocation, and the catalog is the merge
 	// of every layer's words: the kernel's, this shell's, and any front-end that
 	// joins later. Both are resolved once, before any command can print.
-	catalog, err := i18n.Merge(service.Messages, Messages, config.Messages, repo.Messages)
+	catalog, err := i18n.Merge(service.Messages, Messages, config.Messages, nodejs.Messages, repo.Messages)
 	if err != nil {
 		fmt.Fprintf(stderr, i18nLine(MsgErrorPrefix)+"\n", err)
 		return exitcode.Failure
