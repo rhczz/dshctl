@@ -35,6 +35,30 @@ const (
 	MsgCheckFail = "cli.check.fail"
 	MsgCheckLine = "cli.check.line"
 
+	// Timeline rendering.
+	MsgTimelineCheckout      = "cli.timeline.checkout"
+	MsgTimelineCurrent       = "cli.timeline.current"
+	MsgTimelineRemote        = "cli.timeline.remote"
+	MsgTimelineRemoteFailed  = "cli.timeline.remote-failed"
+	MsgTimelineGap           = "cli.timeline.gap"
+	MsgTimelineDirty         = "cli.timeline.dirty"
+	MsgTimelineDirtyUnknown  = "cli.timeline.dirty-unknown"
+	MsgTimelineElided        = "cli.timeline.elided"
+	MsgTimelineHistoryHeader = "cli.timeline.history-header"
+	MsgTimelineHistoryMore   = "cli.timeline.history-more"
+	MsgTimelineUnconfirmed   = "cli.timeline.unconfirmed"
+	MsgTimelineUpToDate      = "cli.timeline.up-to-date"
+	MsgTimelineSameAsLocal   = "cli.timeline.same-as-local"
+	MsgTimelineBehind        = "cli.timeline.behind"
+	MsgTimelineBehindNoTags  = "cli.timeline.behind-no-tags"
+	MsgTimelineBehindTags    = "cli.timeline.behind-tags"
+	MsgTimelineAhead         = "cli.timeline.ahead"
+	MsgTimelineDiverged      = "cli.timeline.diverged"
+	MsgTimelineMarkCurrent   = "cli.timeline.mark-current"
+	MsgTimelineMarkRemote    = "cli.timeline.mark-remote"
+	MsgTimelineDetached      = "cli.timeline.detached"
+	MsgTimelineHistoryLine   = "cli.timeline.history-line"
+	MsgTimelineGapLine       = "cli.timeline.gap-line"
 	// Command summaries, shown in the top-level help.
 	MsgStartSummary    = "cli.cmd.start.summary"
 	MsgStopSummary     = "cli.cmd.stop.summary"
@@ -64,11 +88,15 @@ const (
 	MsgVersionHelp  = "cli.cmd.version.help"
 
 	// Flag descriptions.
-	MsgFlagJSON      = "cli.flag.json"
-	MsgFlagFollow    = "cli.flag.follow"
-	MsgFlagLines     = "cli.flag.lines"
-	MsgFlagBuildOnly = "cli.flag.build-only"
-	MsgFlagSteps     = "cli.flag.steps"
+	MsgFlagJSON          = "cli.flag.json"
+	MsgFlagJSONDocument  = "cli.flag.json-document"
+	MsgNoPositionalArgs  = "cli.error.no-positional-args"
+	MsgOneVersionArg     = "cli.error.one-version-arg"
+	MsgInvalidVersionArg = "cli.error.invalid-version-arg"
+	MsgFlagFollow        = "cli.flag.follow"
+	MsgFlagLines         = "cli.flag.lines"
+	MsgFlagBuildOnly     = "cli.flag.build-only"
+	MsgFlagSteps         = "cli.flag.steps"
 
 	// Errors and framing.
 	MsgErrorPrefix      = "cli.error.prefix"
@@ -80,6 +108,11 @@ const (
 	MsgPortNotANumber   = "cli.error.port-not-a-number"
 	MsgUnknownGlobal    = "cli.error.unknown-global"
 	MsgUsageLine        = "cli.usage.command-line"
+	MsgCommandUsage     = "cli.usage.command-usage"
+	MsgUsageHeader      = "cli.usage.header"
+	MsgUsageExamples    = "cli.usage.examples"
+	MsgUsageTail        = "cli.usage.tail"
+	MsgExitCodes        = "cli.exit-codes"
 	MsgUsageGlobals     = "cli.usage.globals-first"
 	MsgStopIncomplete   = "cli.error.stop-incomplete"
 	MsgURLNotRunning    = "cli.error.url-not-running"
@@ -181,6 +214,276 @@ var Messages = i18n.Catalog{
 	MsgCheckLine: {
 		EN: "[%s] %s: %s",
 		ZH: "[%s] %s: %s",
+	},
+	MsgTimelineCheckout: {
+		EN: "checkout: %s\n",
+		ZH: "仓库: %s\n",
+	},
+	MsgTimelineCurrent: {
+		EN: "current: %s (%s)\n",
+		ZH: "当前: %s (%s)\n",
+	},
+	MsgTimelineRemote: {
+		EN: "remote: %s)\n",
+		ZH: "远程: %s)\n",
+	},
+	MsgTimelineRemoteFailed: {
+		EN: "remote: unavailable (%s)\n",
+		ZH: "远程: 无法获取（%s）\n",
+	},
+	MsgTimelineGap: {
+		EN: "gap: %s\n",
+		ZH: "差距: %s\n",
+	},
+	MsgTimelineDirty: {
+		EN: "worktree: uncommitted changes (update/rollback refuses; handle them first)",
+		ZH: "工作区: 有未提交修改（update/rollback 会拒绝，请先处理）",
+	},
+	MsgTimelineDirtyUnknown: {
+		EN: "worktree: cannot be checked (%s)\n",
+		ZH: "工作区: 无法确认（%s）\n",
+	},
+	MsgTimelineElided: {
+		EN: "  … %d commits elided …\n",
+		ZH: "  … 省略 %d 个提交 …\n",
+	},
+	MsgTimelineHistoryHeader: {
+		EN: "\ndeployment history:",
+		ZH: "\n更新历史:",
+	},
+	MsgTimelineHistoryMore: {
+		EN: "  … %d more (see --json)\n",
+		ZH: "  … 还有 %d 条（--json 查看）\n",
+	},
+	MsgTimelineUnconfirmed: {
+		EN: "(against the last known remote state; not confirmed)",
+		ZH: "（基于本地已知状态，远程未确认）",
+	},
+	MsgTimelineUpToDate: {
+		EN: "up to date (%s)",
+		ZH: "已是最新（%s）",
+	},
+	MsgTimelineSameAsLocal: {
+		EN: "the same as the last known %s",
+		ZH: "与本地已知的 %s 相同",
+	},
+	MsgTimelineBehind: {
+		EN: "%d commits behind",
+		ZH: "落后 %d 个提交",
+	},
+	MsgTimelineBehindNoTags: {
+		EN: " (no new tags in the gap)",
+		ZH: "（中间没有新 tag）",
+	},
+	MsgTimelineBehindTags: {
+		EN: " (%d tags in the gap)",
+		ZH: "（中间有 %d 个 tag）",
+	},
+	MsgTimelineAhead: {
+		EN: "%d local commits ahead (not pushed; update cannot fast-forward)",
+		ZH: "本地领先 %d 个提交（未推送，update 无法快进）",
+	},
+	MsgTimelineDiverged: {
+		EN: "diverged from %s: %d behind, %d ahead (update cannot fast-forward)",
+		ZH: "与 %s 分叉：落后 %d 个、本地领先 %d 个（update 无法快进）",
+	},
+	MsgTimelineMarkCurrent: {
+		EN: "   ← current",
+		ZH: "   ← 当前",
+	},
+	MsgTimelineMarkRemote: {
+		EN: "   ← remote tip",
+		ZH: "   ← 远程最新",
+	},
+	MsgTimelineDetached: {
+		EN: "detached",
+		ZH: "detached",
+	},
+	MsgTimelineHistoryLine: {
+		EN: "%s%s  %-16s  %s",
+		ZH: "%s%s  %-16s  %s",
+	},
+	MsgTimelineGapLine: {
+		EN: "gap: %s\n",
+		ZH: "差距: %s\n",
+	},
+	MsgUsageHeader: {
+		EN: `dshctl — manage the DeepSeek Harness Web server on this machine
+
+usage:
+  dshctl [global flags] <command> [command flags]
+  dshctl                        the same as dshctl start
+  dshctl help [command]         the full help of one command
+
+  global flags go before the command name.
+
+commands:
+`,
+		ZH: `dshctl — 管理本机运行的 DeepSeek Harness Web 服务
+
+用法:
+  dshctl [全局参数] <命令> [命令参数]
+  dshctl                        等价于 dshctl start
+  dshctl help [命令]            查看某个命令的完整帮助
+
+  全局参数必须写在命令名之前。
+
+命令:
+`,
+	},
+	MsgUsageExamples: {
+		EN: `
+common:
+  dshctl --repo ~/projects/deepseek-harness start   first run: name the checkout and start
+  dshctl status                                     see the running state
+  dshctl url                                        get the token-carrying address
+  dshctl logs -f                                    follow the log
+  dshctl timeline                                   how far behind, and which tags
+  dshctl update                                     update to the tip of origin/master
+  dshctl update dsh-v0.1.6-alpha.2                  update to a tag
+  dshctl rollback                                   return to the previous position
+
+flags:
+  --json           JSON output for scripts (status/timeline/doctor/version)
+  -n <N>           logs: print the last N lines (default 200; below 1 means the default)
+  -f, --follow     logs: keep following (across rotation)
+  --build          logs: only the last build/update/rollback record
+  -n <N>           rollback: how many positions to walk back (default 1)
+
+global flags:
+  --repo <path>    override the checkout (environment DSH_REPO_DIR)
+  --port <port>    name one port (environment DSH_PORT); without it, status/stop/
+                   restart/url act on every service this state directory manages
+  --node <version> Node release for this run only (environment DSH_NODE_VERSION)
+  --config <file>  override the settings document (environment DSHCTL_CONFIG)
+  -v, --verbose    print the resolved settings and where each came from
+  -h, --help       this help
+  -V, --version    the build metadata
+
+Node:     taken from PATH by default, written into the document after the first
+          successful start; below 24.12.0 is refused
+          precedence: --node > DSH_NODE_VERSION > nodeVersion in the document > PATH
+
+state dir: $DSHCTL_STATE_DIR or $DSH_HOME/dshctl or ~/.dsh/dshctl
+exit codes: %s
+
+one command's full help (flags, exit codes, notes): dshctl help <command>
+`,
+		ZH: `
+常用:
+  dshctl --repo ~/projects/deepseek-harness start   第一次：指定仓库并启动
+  dshctl status                                     看运行状态
+  dshctl url                                        拿带 token 的访问地址
+  dshctl logs -f                                    跟随日志
+  dshctl timeline                                   更新前先看落后多少、有哪些 tag
+  dshctl update                                     更新到 origin/master 最新
+  dshctl update dsh-v0.1.6-alpha.2                  更新到指定 tag
+  dshctl rollback                                   退回上一次 update/rollback 之前
+
+参数:
+  --json           以 JSON 输出，便于脚本消费(status/timeline/doctor/version)
+  -n <N>           logs: 打印最后 N 行(默认 200，小于 1 视为默认值)
+  -f, --follow     logs: 持续跟随输出(跨日志轮转继续跟随)
+  --build          logs: 只显示最近一次 build/update/rollback 记录
+  -n <N>           rollback: 回退几步(默认 1)
+
+全局参数:
+  --repo <路径>     覆盖仓库目录(环境变量 DSH_REPO_DIR)
+  --port <端口>     指定端口(环境变量 DSH_PORT); status/stop/restart/url 不带它
+                    时作用于本状态目录管理的全部服务
+  --node <版本>     指定 Node 版本, 仅本次生效(环境变量 DSH_NODE_VERSION)
+  --config <文件>   覆盖配置文件路径(环境变量 DSHCTL_CONFIG)
+  -v, --verbose     打印生效配置及其来源
+  -h, --help        显示帮助
+  -V, --version     打印版本
+
+Node:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12.0 一律拒绝
+          优先级: --node > DSH_NODE_VERSION > 配置文件 nodeVersion > PATH
+
+状态目录: $DSHCTL_STATE_DIR 或 $DSH_HOME/dshctl 或 ~/.dsh/dshctl
+退出码:   %s
+
+每个命令的完整说明(参数、退出码、注意事项): dshctl help <命令>
+`,
+	},
+	MsgExitCodes: {
+		EN: "0 success/running, 1 failure, 2 usage or settings error, 3 not running, 4 a precondition failed, 5 lock timeout",
+		ZH: "0 成功/运行中, 1 失败, 2 用法或配置错误, 3 未运行, 4 前置检查失败, 5 锁超时",
+	},
+	MsgUsageTail: {
+		EN: `
+common:
+  dshctl --repo ~/projects/deepseek-harness start   first run: name the checkout and start
+  dshctl status                                     see the running state
+  dshctl url                                        get the token-carrying address
+  dshctl logs -f                                    follow the log
+  dshctl timeline                                   how far behind, and which tags
+  dshctl update                                     update to the tip of origin/master
+  dshctl update dsh-v0.1.6-alpha.2                  update to a tag
+  dshctl rollback                                   return to the previous position
+
+flags:
+  --json           JSON output for scripts (status/timeline/doctor/version)
+  -n <N>           logs: print the last N lines (default 200; below 1 means the default)
+  -f, --follow     logs: keep following (across rotation)
+  --build          logs: only the last build/update/rollback record
+  -n <N>           rollback: how many positions to walk back (default 1)
+
+global flags:
+  --repo <path>    override the checkout (environment DSH_REPO_DIR)
+  --port <port>    name one port (environment DSH_PORT); without it, status/stop/
+                   restart/url act on every service this state directory manages
+  --node <version> Node release for this run only (environment DSH_NODE_VERSION)
+  --config <file>  override the settings document (environment DSHCTL_CONFIG)
+  -v, --verbose    print the resolved settings and where each came from
+  -h, --help       this help
+  -V, --version    the build metadata
+
+Node:     taken from PATH by default, written into the document after the first
+          successful start; below 24.12.0 is refused
+          precedence: --node > DSH_NODE_VERSION > nodeVersion in the document > PATH
+
+state dir: $DSHCTL_STATE_DIR or $DSH_HOME/dshctl or ~/.dsh/dshctl
+exit codes: %s
+
+one command's full help (flags, exit codes, notes): dshctl help <command>
+`,
+		ZH: `
+常用:
+  dshctl --repo ~/projects/deepseek-harness start   第一次：指定仓库并启动
+  dshctl status                                     看运行状态
+  dshctl url                                        拿带 token 的访问地址
+  dshctl logs -f                                    跟随日志
+  dshctl timeline                                   更新前先看落后多少、有哪些 tag
+  dshctl update                                     更新到 origin/master 最新
+  dshctl update dsh-v0.1.6-alpha.2                  更新到指定 tag
+  dshctl rollback                                   退回上一次 update/rollback 之前
+
+参数:
+  --json           以 JSON 输出，便于脚本消费(status/timeline/doctor/version)
+  -n <N>           logs: 打印最后 N 行(默认 200，小于 1 视为默认值)
+  -f, --follow     logs: 持续跟随输出(跨日志轮转继续跟随)
+  --build          logs: 只显示最近一次 build/update/rollback 记录
+  -n <N>           rollback: 回退几步(默认 1)
+
+全局参数:
+  --repo <路径>     覆盖仓库目录(环境变量 DSH_REPO_DIR)
+  --port <端口>     指定端口(环境变量 DSH_PORT); status/stop/restart/url 不带它
+                    时作用于本状态目录管理的全部服务
+  --node <版本>     指定 Node 版本, 仅本次生效(环境变量 DSH_NODE_VERSION)
+  --config <文件>   覆盖配置文件路径(环境变量 DSHCTL_CONFIG)
+  -v, --verbose     打印生效配置及其来源
+  -h, --help        显示帮助
+  -V, --version     打印版本
+
+Node:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12.0 一律拒绝
+          优先级: --node > DSH_NODE_VERSION > 配置文件 nodeVersion > PATH
+
+状态目录: $DSHCTL_STATE_DIR 或 $DSH_HOME/dshctl 或 ~/.dsh/dshctl
+退出码:   %s
+
+每个命令的完整说明(参数、退出码、注意事项): dshctl help <命令>
+`,
 	},
 	MsgStartSummary: {
 		EN: "start DSH Web in the background (no install/build)",
@@ -505,6 +808,22 @@ failed.`,
 		EN: "print JSON",
 		ZH: "以 JSON 输出",
 	},
+	MsgFlagJSONDocument: {
+		EN: "print the whole run as one JSON document",
+		ZH: "以 JSON 输出(把整次运行作为一份文档)",
+	},
+	MsgNoPositionalArgs: {
+		EN: "command %s takes no positional arguments: %s",
+		ZH: "命令 %s 不接受位置参数: %s",
+	},
+	MsgOneVersionArg: {
+		EN: "command %s takes one version argument: %s",
+		ZH: "命令 %s 只接受一个版本参数: %s",
+	},
+	MsgInvalidVersionArg: {
+		EN: "command %s's version argument is invalid: %q",
+		ZH: "命令 %s 的版本参数无效: %q",
+	},
 	MsgFlagFollow: {
 		EN: "keep following the output",
 		ZH: "持续跟随输出",
@@ -557,6 +876,10 @@ failed.`,
 	MsgUsageLine: {
 		EN: "usage: dshctl [global flags] %s [command flags]",
 		ZH: "用法: dshctl [全局参数] %s [命令参数]",
+	},
+	MsgCommandUsage: {
+		EN: "usage: dshctl [global flags] %s",
+		ZH: "用法: dshctl [全局参数] %s",
 	},
 	MsgUsageGlobals: {
 		EN: "global flags (--repo/--port/--node/--config/-v) go before the command name.",

@@ -15,7 +15,7 @@ import (
 // its own so the README check can require the document and the help to agree on
 // the same table: a code that exists in one and not the other is the kind of
 // drift an operator only discovers from a shell script that branched wrong.
-const helpExitCodes = "0 成功/运行中, 1 失败, 2 用法或配置错误, 3 未运行, 4 前置检查失败, 5 锁超时"
+const helpExitCodes = "0,1,2,3,4,5"
 
 // Commands returns the command registry. Adding a command means appending one
 // entry here and implementing its Run.
@@ -114,17 +114,7 @@ const usageColumn = 34
 // called, which arguments it takes, what it does, and the examples for the
 // first run. Details (exit codes, failure modes) stay in `dshctl help <命令>`.
 func Usage(w io.Writer) {
-	fmt.Fprint(w, `dshctl — 管理本机运行的 DeepSeek Harness Web 服务
-
-用法:
-  dshctl [全局参数] <命令> [命令参数]
-  dshctl                        等价于 dshctl start
-  dshctl help [命令]            查看某个命令的完整帮助
-
-  全局参数必须写在命令名之前。
-
-命令:
-`)
+	fmt.Fprint(w, i18nLine(MsgUsageHeader))
 	for _, command := range Commands() {
 		invocation := strings.TrimSpace("dshctl " + command.Name + " " + command.Usage)
 		if len(invocation) <= usageColumn {
@@ -133,42 +123,7 @@ func Usage(w io.Writer) {
 		}
 		fmt.Fprintf(w, "  %s\n  %-*s%s\n", invocation, usageColumn+2, "", command.Summary)
 	}
-	fmt.Fprint(w, `
-常用:
-  dshctl --repo ~/projects/deepseek-harness start   第一次：指定仓库并启动
-  dshctl status                                     看运行状态
-  dshctl url                                        拿带 token 的访问地址
-  dshctl logs -f                                    跟随日志
-  dshctl timeline                                   更新前先看落后多少、有哪些 tag
-  dshctl update                                     更新到 origin/master 最新
-  dshctl update dsh-v0.1.6-alpha.2                  更新到指定 tag
-  dshctl rollback                                   退回上一次 update/rollback 之前
-
-参数:
-  --json           以 JSON 输出，便于脚本消费(status/timeline/doctor/version)
-  -n <N>           logs: 打印最后 N 行(默认 200，小于 1 视为默认值)
-  -f, --follow     logs: 持续跟随输出(跨日志轮转继续跟随)
-  --build          logs: 只显示最近一次 build/update/rollback 记录
-  -n <N>           rollback: 回退几步(默认 1)
-
-全局参数:
-  --repo <路径>     覆盖仓库目录(环境变量 DSH_REPO_DIR)
-  --port <端口>     指定端口(环境变量 DSH_PORT); status/stop/restart/url 不带它
-                    时作用于本状态目录管理的全部服务
-  --node <版本>     指定 Node 版本, 仅本次生效(环境变量 DSH_NODE_VERSION)
-  --config <文件>   覆盖配置文件路径(环境变量 DSHCTL_CONFIG)
-  -v, --verbose     打印生效配置及其来源
-  -h, --help        显示帮助
-  -V, --version     打印版本
-
-Node:     默认按 PATH 解析, 首次成功启动后写入配置; 低于 24.12.0 一律拒绝
-          优先级: --node > DSH_NODE_VERSION > 配置文件 nodeVersion > PATH
-
-状态目录: $DSHCTL_STATE_DIR 或 $DSH_HOME/dshctl 或 ~/.dsh/dshctl
-退出码:   `+helpExitCodes+`
-
-每个命令的完整说明(参数、退出码、注意事项): dshctl help <命令>
-`)
+	fmt.Fprintf(w, i18nLine(MsgUsageTail), i18nLine(MsgExitCodes))
 }
 
 // runStart implements `dshctl start`.

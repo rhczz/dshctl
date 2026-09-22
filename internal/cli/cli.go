@@ -331,7 +331,7 @@ func parseFlags(flags *flag.FlagSet, args []string) (bool, error) {
 	}
 	if len(rest) > 0 {
 		return false, exitcode.Wrap(exitcode.Usage,
-			fmt.Errorf("命令 %s 不接受位置参数: %s", flags.Name(), strings.Join(rest, " ")))
+			fmt.Errorf("%s", i18nLine(MsgNoPositionalArgs, flags.Name(), strings.Join(rest, " "))))
 	}
 	return false, nil
 }
@@ -360,12 +360,12 @@ func versionSelector(args []string, command string) (string, error) {
 	}
 	if len(args) > 1 {
 		return "", exitcode.Wrap(exitcode.Usage,
-			fmt.Errorf("命令 %s 只接受一个版本参数: %s", command, strings.Join(args, " ")))
+			fmt.Errorf("%s", i18nLine(MsgOneVersionArg, command, strings.Join(args, " "))))
 	}
 	selector := strings.TrimSpace(args[0])
 	if selector == "" || strings.HasPrefix(selector, "-") {
 		return "", exitcode.Wrap(exitcode.Usage,
-			fmt.Errorf("命令 %s 的版本参数无效: %q", command, args[0]))
+			fmt.Errorf("%s", i18nLine(MsgInvalidVersionArg, command, args[0])))
 	}
 	return selector, nil
 }
@@ -386,7 +386,7 @@ func printJSON(w io.Writer, value any) error {
 // help lists, so "how do I call this" is answered before the details.
 func printCommandHelp(w io.Writer, command Command) {
 	fmt.Fprintf(w, "dshctl %s — %s\n\n", command.Name, command.Summary)
-	fmt.Fprintf(w, "用法: dshctl [全局参数] %s", command.Name)
+	fmt.Fprintf(w, i18nLine(MsgCommandUsage), command.Name)
 	if command.Usage != "" {
 		fmt.Fprintf(w, " %s", command.Usage)
 	}
