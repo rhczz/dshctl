@@ -44,3 +44,13 @@
   是机制部分，写在同包并由包文档标明；对外名字必须留在能被 README 与
   `readme-env` 检查看见的地方。
 - `config`：四层优先级的合并机制与产品 schema 同处一包；目标是机制可被另一份 schema 复用。
+
+## 未提取（已知，逐项独立提交）
+
+- `internal/service/print.go` 与 `timeline.go` 的 `Print*`：只读命令的表格渲染。
+  它们是 CLI 的参考渲染器，与 `ServeExitCode` 一起应当搬进 `internal/cli`；
+  搬动会触及 8-10 个 Go 文件与账本约 46 行，因此单独提交。
+- `internal/repo` 的 remote/branch（`origin`/`master`）与 prune 布局、
+  `internal/history` 的 `MaxRecords` 与 schema：按 reference 的资源清单它们是资源值；
+  目前仍写在包内，分类上把它们记为**资源包**（同 `config`/`paths`），
+  提取留到有第二个产品时再做。

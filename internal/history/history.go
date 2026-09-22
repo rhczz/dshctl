@@ -23,6 +23,7 @@ import (
 	"sort"
 
 	"github.com/rhczz/dshctl/internal/atomically"
+	"github.com/rhczz/dshctl/internal/state"
 )
 
 // MaxRecords bounds one checkout's stack. The oldest positions fall off: the
@@ -92,7 +93,7 @@ func (s Store) Load() (File, bool, error) {
 		return File{}, false, fmt.Errorf("%w: %s 过大 (%d 字节)", ErrCorrupt, s.Path, info.Size())
 	}
 
-	data, err := os.ReadFile(s.Path)
+	data, err := state.ReadDocument(s.Path)
 	if err != nil {
 		return File{}, false, fmt.Errorf("无法读取更新历史 %s: %w", s.Path, err)
 	}

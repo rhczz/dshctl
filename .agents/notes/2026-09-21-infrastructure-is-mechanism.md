@@ -41,7 +41,14 @@
 - 已提取：`logfile` 的标记形状（`Format{Prefix, Product, Layout}`，产品值在
   `internal/service/logformat.go`）；`logging` 只认识"写进日志文件"。
 - 已提取：`state` 的 `Store[T]`（机制）与服务层的 `recordStore`（产品值：上限、校验、时间戳）。
-- 待提取（清单见 reference，逐项独立提交）：`host` 的工具清单、`paths` 的机制/产品值标注。
+- 已提取：`host` 的工具清单与顺序（`host.Tools` + 服务层的 `hostTools`）。
+- 判定为资源包（不拆分）：`config`、`paths`，以及 `repo`/`history` 的产品值
+  （remote/branch、prune 布局、历史上限与 schema）——它们拥有各自契约，
+  提取留到出现第二个产品时再做。
+- 未提取：只读命令的 `Print*` 渲染器应搬进接入层（见 reference 的未提取一节）。
+- 一个例外被登记为边：`history → state`，只为了共用 `state.ReadDocument` 的
+  "替换中重读"容错——历史文件与运行记录在 Windows 上有同一种竞态，复制一份实现
+  就是等着其中一份丢掉修复。
 - 每项提取的验收方式相同：机制包的测试用一个**测试自有的**格式/类型跑通，
   产品值的测试留在资源层并配 `MUTATIONS` 锚点，金标证明对外字节不变。
 

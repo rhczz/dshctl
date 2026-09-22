@@ -702,6 +702,15 @@
     "note": ""
   },
   {
+    "test": "internal/cli/commands_test.go::TestMutatingJSONReportsACancellationAsInterrupted",
+    "file": "internal/cli/commands_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "取消在 JSON 渲染下同样答 130",
+    "note": ""
+  },
+  {
     "test": "internal/cli/documentation_test.go::TestTheReadmeDocumentsEverySetting",
     "file": "internal/cli/documentation_test.go",
     "package": "internal/cli",
@@ -1453,8 +1462,8 @@
     "file": "internal/conformance/scenarios_test.go",
     "package": "internal/conformance",
     "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
+    "disposition": "new-test",
+    "evidence": "黑盒金标比对（重写期仲裁）",
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
@@ -1462,8 +1471,8 @@
     "file": "internal/conformance/scenarios_test.go",
     "package": "internal/conformance",
     "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
+    "disposition": "new-test",
+    "evidence": "金标与场景表一一对应",
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
@@ -1471,8 +1480,8 @@
     "file": "internal/conformance/scenarios_test.go",
     "package": "internal/conformance",
     "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
+    "disposition": "new-test",
+    "evidence": "归一化只动易变字段",
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
@@ -5130,6 +5139,24 @@
     "note": "随包从 internal/service 迁移到 internal/service，行为未变"
   },
   {
+    "test": "internal/service/build_test.go::TestBuildRefusesWhenAnotherPortsRecordCannotBeRead",
+    "file": "internal/service/build_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "跨端口记录不可读拒绝 build",
+    "note": ""
+  },
+  {
+    "test": "internal/service/build_test.go::TestBuildRefusesWhenAnotherPortsProbeFails",
+    "file": "internal/service/build_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "跨端口探测失败拒绝 build",
+    "note": ""
+  },
+  {
     "test": "internal/service/contracts_test.go::TestTheBuildMarkerIsTheFileTheBuildWrites",
     "file": "internal/service/contracts_test.go",
     "package": "internal/service",
@@ -5908,8 +5935,8 @@
     "file": "internal/service/messages_test.go",
     "package": "internal/service",
     "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
+    "disposition": "new-test",
+    "evidence": "本层消息目录两种语言都非空",
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
@@ -5917,8 +5944,8 @@
     "file": "internal/service/messages_test.go",
     "package": "internal/service",
     "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
+    "disposition": "new-test",
+    "evidence": "本层目录可与前端目录合并",
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
@@ -5926,8 +5953,8 @@
     "file": "internal/service/messages_test.go",
     "package": "internal/service",
     "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
+    "disposition": "new-test",
+    "evidence": "目录里没有无人渲染的消息",
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
@@ -6586,6 +6613,42 @@
     "disposition": "kept",
     "evidence": "",
     "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/startidentity_test.go::TestStartRefusesToRecordARecycledListener",
+    "file": "internal/service/startidentity_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "listener 被回收时不写入记录",
+    "note": ""
+  },
+  {
+    "test": "internal/service/startidentity_test.go::TestStartRefusesWhenTheListenerEndsBeforeTheRecord",
+    "file": "internal/service/startidentity_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "listener 在写记录前退出则启动失败",
+    "note": ""
+  },
+  {
+    "test": "internal/service/startidentity_test.go::TestTheAdoptedSurvivorKeepsWorkingAfterTheIdentityCheck",
+    "file": "internal/service/startidentity_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "幸存者收养不受身份检查影响",
+    "note": ""
+  },
+  {
+    "test": "internal/service/startidentity_test.go::TestStartFailsWhenTheServerEndsDuringTheFinalObservation",
+    "file": "internal/service/startidentity_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "最终观测不再拥有端口时启动失败",
+    "note": ""
   },
   {
     "test": "internal/service/stop_test.go::TestStopClearsTheRecordOfARecycledPID",
@@ -7366,9 +7429,9 @@
     "file": "internal/i18n/i18n_test.go",
     "package": "internal/i18n",
     "behavior": "",
-    "disposition": "new-test",
-    "evidence": "目录里没有无人渲染的消息",
-    "note": ""
+    "disposition": "merged",
+    "evidence": "internal/service/messages_test.go::TestNoOrphanMessages",
+    "note": "目录归各层后，孤儿检查随目录搬到 internal/service"
   },
   {
     "test": "internal/output/output_test.go::TestResultWritesTheOperatorsResult",

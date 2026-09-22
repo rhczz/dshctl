@@ -63,6 +63,29 @@ func (s *Service) recordServes(ctx context.Context, record domain.Record) bool {
 	return false
 }
 
+// recordServesOrFails is recordServes with the failure kept.
+//
+// The guard that protects another port's artifacts needs the difference between
+// "that record describes nothing" and "that record could not be looked at": the
+// first is safe to build through, the second is not. The plain predicate answers
+// the reporting question, where "cannot look" may be read as "not serving"; this
+// one answers the refusal question, where it may not.
+func (s *Service) recordServesOrFails(ctx context.Context, record domain.Record) (bool, error) {
+	if record.PID > 0 && s.RecordMatches(ctx, record, record.PID) {
+		return true, nil
+	}
+	if record.SpawnedPID > 0 && record.Port > 0 {
+		result, err := s.Host.Listening(ctx, record.Port)
+		if err != nil {
+			return false, err
+		}
+		if result.Listening && result.PID > 0 {
+			return s.descendsFromSpawned(record.SpawnedPID, result.PID), nil
+		}
+	}
+	return false, nil
+}
+
 // runningPID reports the pid of the server this port's observation describes,
 // when one is running. It reads the same facts the state machine does, so a
 // caller cannot act on a server the reported state does not mention.

@@ -247,6 +247,27 @@ func (h *fakeHost) remove(pid int) {
 	}
 }
 
+// recycle replaces a pid's process with a stranger: one that is in no group of
+// ours and holds the port. It is the shape a pid recycled between two
+// observations leaves behind, and the fixture models it because the window is
+// real.
+func (h *fakeHost) recycle(pid int, command string, startedAt int64) {
+	h.remove(pid)
+	entry := h.add(pid, command, startedAt)
+	h.mu.Lock()
+	entry.group = 0
+	h.mu.Unlock()
+	h.listen(pid)
+}
+
+// hasProcess reports whether the table knows this pid at all.
+func (h *fakeHost) hasProcess(pid int) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	_, ok := h.processes[pid]
+	return ok
+}
+
 // alive reports whether the table holds a live pid.
 func (h *fakeHost) isAlive(pid int) bool {
 	h.mu.Lock()

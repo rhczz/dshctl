@@ -8,7 +8,7 @@
   },
   {
     "id": "log-level",
-    "surface": "--log-level / DSHCTL_LOG_LEVEL",
+    "surface": "--log-level / DSHCTL_LOG_LEVEL for the log file's level",
     "consumer": "operators diagnosing a failing start without reading the log file",
     "test": "internal/cli/commands_test.go::TestVerboseDescribesEverySetting",
     "readme": "README 全局参数表、配置项表与环境变量表"
@@ -18,7 +18,7 @@
     "surface": "step timing lines inside a log section",
     "consumer": "operators reading why an update took as long as it did",
     "test": "internal/conformance (update-local-branch) + internal/logging",
-    "readme": "待 S4 记账",
+    "readme": "README 状态目录一节（日志文件里的步骤行）",
     "scenarios": [
       "update-local-branch"
     ]

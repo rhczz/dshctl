@@ -121,7 +121,7 @@ LAYERS = {
         "internal/paths",
     },
     "internal/state": {"internal/atomically"},
-    "internal/history": {"internal/atomically"},
+    "internal/history": {"internal/atomically", "internal/state"},
     "internal/nodejs": {"internal/paths", "internal/run"},
     "internal/logging": {"internal/logfile"},
     "internal/repo": {"internal/run"},

@@ -113,6 +113,17 @@ func (s Store[T]) Load() (T, bool, error) {
 	return value, true, nil
 }
 
+// ReadDocument reads a small JSON document with the same tolerance the store
+// applies: a read that failed only because the platform was replacing the file
+// is retried briefly.
+//
+// It is exported because a package that keeps its own document — the deployment
+// history does — needs the same rule. Duplicating it is how one of the two
+// copies silently loses the fix for a Windows-only race.
+func ReadDocument(path string) ([]byte, error) {
+	return readDocumentFile(path)
+}
+
 // documentReadRetryWindow bounds how long a read keeps trying while the
 // operating system reports that the file is being replaced.
 const documentReadRetryWindow = 250 * time.Millisecond

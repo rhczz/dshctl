@@ -37,7 +37,7 @@
 
 ## 后果
 
-- `internal/service` 改名 `internal/service`；`internal/domain`、`internal/i18n` 成为新叶子；
+- `internal/app` 改名 `internal/service`；`internal/domain`、`internal/i18n` 成为新叶子；
   参考实现 `TextEmitter` 与事件类型同处内核（否则测试无法使用它，会绕开真实渲染）。
 - 并发模型不变而且更强：`*service.Service` 构造后不可变，多个前端可并发调用，
   互斥由状态目录上的内核锁保证。

@@ -28,7 +28,10 @@ import (
 // is the best evidence available and is taken, with the failure to confirm
 // accepted as the price of a host that has nothing else.
 func (h *Host) Listening(ctx context.Context, port int) (PortResult, error) {
-	var failures []string
+	// The failures are kept as errors, not as text: a cancellation or a
+	// permission refusal that happened inside a probe has to survive to the
+	// caller, or every classification above this point sees an anonymous string.
+	var failures []error
 	type probeFunc func(context.Context, int) (PortResult, bool, error)
 	known := map[string]probeFunc{
 		"lsof":    h.listenViaLsof,
@@ -46,7 +49,7 @@ func (h *Host) Listening(ctx context.Context, port int) (PortResult, error) {
 			// A configured tool this build cannot read is reported, not
 			// skipped: quietly ignoring it would turn a typo in the product's
 			// configuration into "the port is unused".
-			failures = append(failures, fmt.Sprintf("不认识的探测工具 %q", name))
+			failures = append(failures, fmt.Errorf("不认识的探测工具 %q", name))
 			unreadable = true
 			continue
 		}
@@ -58,7 +61,7 @@ func (h *Host) Listening(ctx context.Context, port int) (PortResult, error) {
 	for _, probe := range probes {
 		result, handled, err := probe.run(ctx, port)
 		if err != nil {
-			failures = append(failures, err.Error())
+			failures = append(failures, err)
 			continue
 		}
 		if !handled {
@@ -83,11 +86,14 @@ func (h *Host) Listening(ctx context.Context, port int) (PortResult, error) {
 		// A probe that exists but could not answer: the port state is unknown.
 		// An unreadable tool name is the same kind of answer as a tool that is
 		// not installed — there is no way to look — so it keeps the sentinel
-		// callers use to say so.
+		// callers use to say so. The failures are joined rather than flattened
+		// into a string, so a caller can still ask whether a cancellation or a
+		// permission refusal is what happened.
+		joined := errors.Join(failures...)
 		if unreadable {
-			return PortResult{}, fmt.Errorf("%w: %s", ErrUnsupported, strings.Join(failures, "; "))
+			return PortResult{}, fmt.Errorf("%w: %w", ErrUnsupported, joined)
 		}
-		return PortResult{}, fmt.Errorf("无法判断端口 %d 的占用情况: %s", port, strings.Join(failures, "; "))
+		return PortResult{}, fmt.Errorf("无法判断端口 %d 的占用情况: %w", port, joined)
 	}
 	// Nothing answered and nothing failed. That is either "the first tool that
 	// exists declined" or "no configured tool is installed" — and which tool

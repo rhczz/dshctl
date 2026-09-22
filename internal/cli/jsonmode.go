@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"io"
 
@@ -102,6 +104,12 @@ func runJSON(env *Env, name string, run func(*service.Service) (any, error), set
 		return printErr
 	}
 	if err != nil {
+		// A cancelled run answers 130 in both renderings. The text path checks
+		// this before it classifies the error, because a cancellation wrapped by
+		// whichever call was running is still a cancellation.
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return exitcode.SilentExit(exitcode.Interrupted)
+		}
 		return exitcode.SilentExit(exitcode.Of(err))
 	}
 	return nil

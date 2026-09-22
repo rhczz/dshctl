@@ -3,8 +3,8 @@
 //
 // Sections mirror the operations, and a step line carries what the step cost.
 // What the operator has to see right now is not here: standard output and
-// standard error belong to internal/output, and keeping the two apart is what
-// lets the file be complete without a warning being printed twice.
+// standard error belong to the front-end, and keeping the two apart is what lets
+// the file be complete without a warning being printed twice.
 //
 // The file format itself belongs to internal/logfile. This package only decides
 // what a line is called and whether the level asked for it, so the bytes an
@@ -85,9 +85,6 @@ type Logger struct {
 func New(file *logfile.Logger, level Level) *Logger {
 	return &Logger{Now: time.Now, file: file, level: level}
 }
-
-// Level reports the threshold this logger filters at.
-func (l *Logger) Level() Level { return l.level }
 
 // Section marks a new operation in the log file.
 func (l *Logger) Section(title string) error { return l.file.Section(title) }

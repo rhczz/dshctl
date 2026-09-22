@@ -225,10 +225,21 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	// also be the process holding the port — which is enough to make a wrong kill
 	// impossible, though it no longer detects pid reuse. That degradation is
 	// reported rather than left to be discovered.
-	startedAt := s.processStartTime(ctx, listenerPID, nil)
+	// The fingerprint is read while the child's exit is still watched: a listener
+	// that died between the readiness check and this read must not be recorded
+	// with whatever process holds its pid by then. Waiting on a dead child is
+	// what makes the window the readiness check closed stay closed.
+	startedAt := s.processStartTime(ctx, listenerPID, exited)
 	if startedAt == 0 {
 		s.warning(fmt.Sprintf("无法读取 DSH Web (pid=%d) 的进程启动时间，本次运行将只依据端口归属判断;"+
 			"若系统复用了该 pid，dshctl 可能拒绝结束它(检查是否有安全策略限制读取进程信息)", listenerPID))
+	}
+	if !s.listenerStillOurs(ctx, pid, listenerPID) {
+		// The server died before its fingerprint could be taken. Recording it
+		// now would name whatever process inherited the pid, and every later
+		// ownership check would confirm that stranger.
+		return StartResult{}, s.cleanupFailedStart(ctx, pid,
+			fmt.Errorf("服务进程 (pid=%d) 在记录其启动时间之前退出了", listenerPID))
 	}
 	record := domain.Record{
 		PID:         listenerPID,
@@ -250,11 +261,49 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		return StartResult{}, observeErr
 	}
 	status := final.status
+	if !status.Owning() {
+		// The final observation is the authority on what is running: a server
+		// that ended while it was being recorded is a failed start, not a
+		// success with a strange status.
+		return StartResult{}, s.cleanupFailedStart(ctx, pid,
+			fmt.Errorf("服务进程 (pid=%d) 在启动完成后没有继续运行", status.ListenerPID))
+	}
 	s.narrate(fmt.Sprintf("启动成功: %s (pid=%d)", status.URL, status.ListenerPID))
 	if record.URL != "" {
 		s.narrate(fmt.Sprintf("访问地址: %s", record.URL))
 	}
 	return StartResult{Status: status, SpawnedPID: pid}, nil
+}
+
+// listenerStillOurs reports whether the process that answered the readiness
+// check is still the one holding the port.
+//
+// It is the second half of the fingerprint read: the first half is the start
+// time, and a start time read from a recycled pid describes the stranger. Both
+// answers come from the same instant's facts, so a listener that ended cannot be
+// recorded as if it were still there.
+func (s *Service) listenerStillOurs(ctx context.Context, wrapper, listenerPID int) bool {
+	// The group is the identity here, not the pid: a pid that was recycled to a
+	// stranger is no longer a member of the group this start created, so a
+	// fingerprint read from it would describe the stranger while looking like
+	// ours.
+	if !s.descendsFromSpawned(wrapper, listenerPID) {
+		return false
+	}
+	facts := s.Host.Inspect(ctx, listenerPID)
+	if !facts.Alive {
+		return false
+	}
+	result, err := s.Host.Listening(ctx, s.boundPort())
+	if err != nil {
+		return false
+	}
+	if result.PID == 0 {
+		// The platform cannot name the owner. The group evidence above is what
+		// this check rests on then, and the port answered a moment ago.
+		return result.Listening
+	}
+	return result.PID == listenerPID
 }
 
 // recordRuntime writes the facts this start established into the settings

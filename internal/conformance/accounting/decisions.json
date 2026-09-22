@@ -591,6 +591,33 @@
     "status": "ported"
   },
   {
+    "name": "another port's unreadable record is read as no service at all",
+    "old_path": "internal/service/build.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": "internal/service/build.go",
+    "status": "ported"
+  },
+  {
+    "name": "a listener that ended before its fingerprint was read is recorded anyway",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": "internal/service/start.go",
+    "status": "ported"
+  },
+  {
+    "name": "a start that ends up not owning the port reports success",
+    "old_path": "internal/service/start.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": "internal/service/start.go",
+    "status": "ported"
+  },
+  {
     "name": "the product trusts netstat before the tools that name the owner",
     "old_path": "internal/service/hosttools.go",
     "packages": [

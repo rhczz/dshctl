@@ -14,7 +14,7 @@ import "io"
 // command line inside the core, and the core would have to be rewritten the day
 // a request arrives over the network instead of over a terminal.
 
-// EventKind separates the three things an operation produces.
+// EventKind separates the kinds of thing an operation produces.
 type EventKind int
 
 const (

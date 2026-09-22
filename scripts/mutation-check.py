@@ -483,6 +483,27 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         ["./internal/i18n/"],
     ),
     (
+        "another port's unreadable record is read as no service at all",
+        "internal/service/build.go",
+        "\t\tif err != nil {\n\t\t\t// A record nobody can read is not a port nobody serves",
+        "\t\tif false {\n\t\t\t// A record nobody can read is not a port nobody serves",
+        ["./internal/service/"],
+    ),
+    (
+        "a listener that ended before its fingerprint was read is recorded anyway",
+        "internal/service/start.go",
+        "\tif !s.listenerStillOurs(ctx, pid, listenerPID) {",
+        "\tif false {",
+        ["./internal/service/"],
+    ),
+    (
+        "a start that ends up not owning the port reports success",
+        "internal/service/start.go",
+        "\tif !status.Owning() {",
+        "\tif false {",
+        ["./internal/service/"],
+    ),
+    (
         "the product trusts netstat before the tools that name the owner",
         "internal/service/hosttools.go",
         '\tPort:    []string{"lsof", "ss", "netstat"},',

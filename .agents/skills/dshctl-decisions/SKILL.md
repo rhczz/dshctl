@@ -29,7 +29,7 @@ description: 在 dshctl 动手前定夺「这个值该固定还是该可配」�
 
 6. **校验只放在四处边界**：CLI 参数、配置文件、状态/日志文件、外部命令输出（`node -v`、`lsof`/`ss`/`netstat`/`ps`）。内部结构体之间是做类型保证的同一进程边界，不重复校验；反过来，从文件或子进程读回来的任何东西都必须当成不可信输入。
 
-7. **依赖方向不可逆**：`cmd/dshctl → internal/cli → internal/service → internal/domain 与基础设施`，跨层调用只经 `app`；领域层与 i18n 是零依赖叶子（见 `dshctl-architecture`）。系统调用只出现在 `host` 以及 `run`/`detach`/`logfile`/`atomically`/`lock`/`state`/`cmd/dshctl` 的平台文件里，上层不得出现 `if windows`。新增一条 import 边是设计决定，不是实现细节；`scripts/check-conventions.py` 会拦下未登记的边。
+7. **依赖方向不可逆**：`cmd/dshctl → internal/cli → internal/service → internal/domain 与基础设施`，跨层调用只经 `service`；领域层与 i18n 是零依赖叶子（见 `dshctl-architecture`）。系统调用只出现在 `host` 以及 `run`/`detach`/`logfile`/`atomically`/`lock`/`state`/`cmd/dshctl` 的平台文件里，上层不得出现 `if windows`。新增一条 import 边是设计决定，不是实现细节；`scripts/check-conventions.py` 会拦下未登记的边。
 
 8. **接口只为可测性或多前端替换存在。** 当前只有 `run.Executor`/`Capturer`/`Outputer`、`service.OsHost` 与 `service.Emitter`（前端端口：第二个壳实现它即可复用内核，见 `dshctl-architecture`）。新增接口时，文档必须写明它买到了什么测试能力或哪个已声明的前端；"将来可能换实现"不是理由。
 

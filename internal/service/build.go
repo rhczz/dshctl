@@ -141,13 +141,26 @@ func (s *Service) otherPortsServing(ctx context.Context) (servingPorts, error) {
 	for _, path := range matches {
 		stored := recordStore(path)
 		record, ok, err := stored.Load()
-		if err != nil || !ok || record.Port == s.Settings.Port {
+		if err != nil {
+			// A record nobody can read is not a port nobody serves: the guard
+			// exists to protect a running server's artifacts, and "cannot look"
+			// has to leave it as strict as it was. The build is refused instead
+			// of replacing artifacts under a server this build cannot see.
+			return nil, exitcode.Wrap(exitcode.Preflight, fmt.Errorf(
+				"无法读取 %s 的运行记录，无法确认它是否在使用 %s: %w", path, s.Settings.RepoDir, err))
+		}
+		if !ok || record.Port == s.Settings.Port {
 			continue
 		}
 		if record.RepoDir != "" && record.RepoDir != s.Settings.RepoDir {
 			continue
 		}
-		if s.recordServes(ctx, record) {
+		serves, err := s.recordServesOrFails(ctx, record)
+		if err != nil {
+			return nil, exitcode.Wrap(exitcode.Preflight, fmt.Errorf(
+				"无法确认端口 %d 上的服务是否在使用 %s: %w", record.Port, s.Settings.RepoDir, err))
+		}
+		if serves {
 			serving = append(serving, servingPort{port: record.Port, pid: record.PID})
 		}
 	}

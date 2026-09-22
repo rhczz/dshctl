@@ -154,7 +154,7 @@ jobs:
         # internal/conformance/accounting/ is what says what happened to every
         # test the tree contained. A test that disappears without a disposition
         # fails here instead of disappearing quietly.
-        run: python3 scripts/check-accounting.py
+        run: python3 scripts/check-accounting.py --strict
 
       - name: Run the suite once, in a throwaway HOME, with coverage
         # One execution, three properties: the script asserts that nothing was

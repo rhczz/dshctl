@@ -1,4 +1,4 @@
-// Package app implements the lifecycle of the DeepSeek Harness Web server:
+// Package service implements the lifecycle of the DeepSeek Harness Web server:
 // observing it, starting it, stopping it, restarting it, building and updating
 // the checkout, and the diagnostics the command line exposes.
 //

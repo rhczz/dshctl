@@ -373,7 +373,7 @@ func versionSelector(args []string, command string) (string, error) {
 // printCommandHelp writes one command's help.
 //
 // The usage line comes first and is built from the same Usage the top-level
-// printJSON writes a value as indented JSON.
+// help lists, so "how do I call this" is answered before the details.
 //
 // The shell owns this rendering: a use case returns a value, and whether the
 // operator asked for JSON or for the narrative decides which one is printed.

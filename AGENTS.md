@@ -55,10 +55,10 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 架构
 
-- 跨层调用只经 `app`；平台差异只出现在 build tag 文件里，上层不得有 `if windows`（两处已声明例外见 `dshctl-portability`）。
+- 跨层调用只经 `service`；平台差异只出现在 build tag 文件里，上层不得有 `if windows`（两处已声明例外见 `dshctl-portability`）。
 - 接口只为可测性存在（当前只有 `run.Executor`/`Capturer`/`Outputer` 与 `service.OsHost`），文档要写明它买到了什么。
 - 基础设施只提供机制，产品值定义在拥有契约的层：文件名、记录 schema、日志标记里的产品名、上限、工具清单、env 名不得写死在机制包里，要以参数或类型传入；判据是"把该包拿去给另一个产品用，需要改它的源码吗"。
-- 接口只为可测性或多前端替换存在：`run.Executor`/`Capturer`/`Outputer`、`app.OsHost`、`app.Emitter`，文档写明买到了什么。
+- 接口只为可测性或多前端替换存在：`run.Executor`/`Capturer`/`Outputer`、`service.OsHost`、`service.Emitter`，文档写明买到了什么。
 - 领域层零依赖、零 I/O、不放文案；新不变量同时写进包文档与一个测试；新包需"独立不变量 + 可独立测试 + 不引入反向依赖"三条同时成立。
 - 契约性决定连同被否决的方案与后果写进 `.agents/notes/`，与代码同一提交。
 

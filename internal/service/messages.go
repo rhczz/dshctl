@@ -8,7 +8,8 @@ import "github.com/rhczz/dshctl/internal/i18n"
 // It lives here rather than in internal/i18n on purpose. That package is the
 // capability — resolution, the catalog type, merge, audit — and this is the
 // resource: the words the lifecycle knows how to say. A front-end adds its own
-// catalog the same way (see internal/cli), and the shell merges them at startup.
+// catalog the same way (a front-end declares its own ids under its own
+// namespace), and the shell merges them at startup.
 
 // Message ids. The state.* namespace belongs to this file; a front-end uses its
 // own (cli.*, http.*) so a merge cannot collide.

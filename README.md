@@ -57,7 +57,7 @@ dshctl stop                   # 停止
 | `version` | 版本、提交、构建时间与目标平台；`--json` 另外带上编译用的 Go 工具链与 module |
 
 可变命令（`start`/`stop`/`restart`/`build`/`update`/`rollback`）的 `--json` 把整次运行输出成
-一份文档：`{"command": "...", "ok": true, "result": {...}, "events": [{"kind": "narrative", "text": "..."}]}`；
+一份文档（事件文本与文本渲染一致，因此 `start` 的 `访问地址` 行也包含 token，别把文档转发给不该看到它的人）：`{"command": "...", "ok": true, "result": {...}, "events": [{"kind": "narrative", "text": "..."}]}`；
 失败时 `ok` 为 false、`error` 带上原因，且不再往标准错误写散文（退出码仍然说明结果）。
 
 `dshctl -h` 在一屏里列出每个命令的用法、参数与示例；`dshctl help <命令>`（或
@@ -109,7 +109,7 @@ dshctl stop                   # 停止
 - 只有可变命令（`start`/`stop`/`restart`/`build`/`update`/`rollback`）会创建和写入它；`status`、`url`、`logs`、`doctor`、`version` 不写盘。
 - dshctl 只在自己确有必要时改这个文件：写入它实际用过的 `repoDir`（`start`/`build`/`update`/`rollback`）与 `nodeVersion`（`start`），而且只写这两个键、只在这个文件还没有写明它们的时候写；你在文件里写过的值永远不会被覆盖，其他字段逐字保留。
 - 首次执行可变命令时生成的配置里**不含** `repoDir`：默认值只是「按这台机器的主目录猜的路径」，把猜测写进配置就等于把猜错的结果永久固定下来。
-- `dshctl -v <命令>` 会把生效值和每一项的来源（`flag` / `env` / `file` / `default`）打印出来，排查配置时先看它。
+- `dshctl -v <命令>` 会把生效值和每一项的来源（`flag` / `env` / `file` / `default`）打印出来（`version` 不读配置，因此只打印版本）；排查配置时先看它。
 
 ## 环境变量
 
@@ -129,7 +129,7 @@ dshctl stop                   # 停止
 
 - 路径类变量必须是绝对路径或以 `~` 开头（不支持 `~user`）；相对路径会被拒绝，因为它会让状态目录和操作锁跟着当前目录漂移。
 - 只含空白的变量视为未设置。
-- 面向操作者的文案默认英文，机器语言是中文时用中文：`DSHCTL_LANG` 优先于 shell 导出的 locale 变量，认不出的语言按英文处理（不会出现半翻译的界面）；日志文件里 dshctl 自己写的行同样遵循这个规则。
+- 面向操作者的文案默认英文，机器语言是中文时用中文：`DSHCTL_LANG` 优先于 shell 导出的 locale 变量，认不出的语言按英文处理。**迁移进行中**：状态摘要、日志级别、构建信息等已进消息目录（英文/中文都有），命令帮助与部分错误文案仍是中文；新增文案必须进目录（见 `dshctl-style` 的规则 6）。
 - 优先级：命令行参数 > 环境变量 > 配置文件 > 默认值。所有配置项都按这个顺序，没有例外。两处补充：Node 版本的最后一层不是默认值，而是「没人指定就按 PATH 解析」（见「Node 版本」）；`repoDir` 在配置文件里的值与内置默认值完全相同时按默认值处理，不算你做过选择（见「仓库目录」）。
 - dshctl 另外读取操作系统自身的 `PATH`（解析 `node`、`pnpm`、`git`，以及 Unix 上的 `lsof`/`ss`/`netstat`/`ps`）和 `HOME`（Windows 上是 `USERPROFILE`）来确定主目录与默认路径；这两个不是 dshctl 的配置项，但会决定上面这些默认值。
 - 不可配置：Node 最低版本 `24.12.0` 是代码里的常量，任何配置项、参数或环境变量都改不动它；状态目录内的文件名（`dshctl.lock`、`dsh-web-<端口>.state.json`）也是固定的。

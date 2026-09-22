@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -904,5 +905,25 @@ func TestLogLevelFlagReachesTheSettings(t *testing.T) {
 	_, _, stderr, _ = execute(t, "-v", "status")
 	if !strings.Contains(stderr, "日志级别: ") || strings.Contains(stderr, "(flag)") {
 		t.Fatalf("verbose output reports a flag that was not given:\n%s", stderr)
+	}
+}
+
+// TestMutatingJSONReportsACancellationAsInterrupted pins the exit code a
+// cancelled run answers in the document rendering: 130, the same answer the text
+// rendering gives, rather than whichever classification the interrupted call
+// happened to carry.
+func TestMutatingJSONReportsACancellationAsInterrupted(t *testing.T) {
+	_, stateDir := freshEnvironment(t, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var out, errOut bytes.Buffer
+	code := Main(ctx, []string{"stop", "--json"}, &out, &errOut, os.Getenv)
+	stdout, stderr := out.String(), errOut.String()
+	_ = stateDir
+	if code != exitcode.Interrupted {
+		t.Fatalf("stop --json exit = %d, want %d (stdout = %s, stderr = %s)", code, exitcode.Interrupted, stdout, stderr)
+	}
+	if !strings.Contains(stdout, "\"ok\": false") {
+		t.Fatalf("stdout = %q, want the failure inside the document", stdout)
 	}
 }

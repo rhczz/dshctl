@@ -36,7 +36,7 @@
 ## 后果
 
 - `internal/i18n` 是零依赖叶子，任何层都可以渲染消息；`domain` 不再放文案
-  （`Status.Summary` 移到 `app` 并走目录）。
+  （`Status.Summary` 移到服务层 并走目录）。
 - 迁移是逐步的：新代码必须走目录，旧文件被改动时顺手迁移；`dshctl-style` 与
   `dshctl-review` 已把这条写成规则。
 - `DSHCTL_LANG` 成为对外契约（README、`documentation_test`、`readme-env` 检查同步）。

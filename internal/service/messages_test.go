@@ -71,7 +71,7 @@ func TestNoOrphanMessages(t *testing.T) {
 	}
 	for name := range messageConstants(t) {
 		if !used[name] {
-			t.Errorf("app.%s is never rendered", name)
+			t.Errorf("service.%s is never rendered", name)
 		}
 	}
 }

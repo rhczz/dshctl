@@ -40,7 +40,10 @@ cmd/dshctl            进程边界：信号、退出码
 
 ## 前端扩展契约（第二个壳怎么接）
 
-内核**不打印、不写 writer**。它做两件事：返回结构化的结果值（`StartResult`、
+内核在操作过程中**不打印、不写 writer**：过程走事件，结果走返回值。唯一的例外是
+只读命令的表格渲染（`internal/service/print.go` 与 `timeline.go` 的 `Print*`）——
+它们是给 CLI 的参考渲染器，仍在服务层里，第二个前端可以完全忽略它们；把它们搬进
+`internal/cli` 是已知的下一步（见 `references/mechanism-and-resource.md`）。它做两件事：返回结构化的结果值（`StartResult`、
 `Status`、`TimelineReport`、`[]Check`、`URLReport`…），把过程中发生的事发成事件。
 前端只实现一个端口：
 

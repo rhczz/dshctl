@@ -56,7 +56,7 @@ workflow-check:
 ## conventions: check the writing, structure, and dependency conventions
 conventions:
 	@python3 scripts/check-conventions.py
-	@python3 scripts/check-accounting.py
+	@python3 scripts/check-accounting.py --strict
 	@python3 scripts/check-orphans.py
 
 ## accounting: check the rewrite ledger (ARGS=--strict for the merge gate)

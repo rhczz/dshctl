@@ -114,9 +114,6 @@ func New(lang Lang, catalog Catalog) *Translator {
 	return &Translator{lang: lang, catalog: catalog}
 }
 
-// Lang reports the language this translator renders in.
-func (t *Translator) Lang() Lang { return t.lang }
-
 // T renders one message.
 //
 // An unknown id renders as the id itself. That is deliberate: it shows up in the
@@ -144,13 +141,16 @@ func (t *Translator) Has(id string) bool {
 // property of the invocation, not of a function's arguments, and threading it
 // through every call site would put a parameter in signatures that have nothing
 // else to do with language.
+//
+// A front-end that serves several languages at once — an HTTP server answering
+// requests in the language each caller asked for — must not use the global: it
+// builds its own Translator per request (New is cheap and the catalog is
+// shared) and renders through that. The global exists for the command line,
+// where one process answers one invocation in one language.
 var current = New(EN, Catalog{})
 
 // Use installs the translator every T call renders through.
 func Use(translator *Translator) { current = translator }
-
-// Current reports the installed translator.
-func Current() *Translator { return current }
 
 // T renders one message through the installed translator.
 func T(id string, args ...any) string { return current.T(id, args...) }
