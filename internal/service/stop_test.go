@@ -84,7 +84,7 @@ func TestStopReportsALiveRecordWithoutStartedAt(t *testing.T) {
 	if result.Status.RecordStale {
 		t.Fatalf("status = %+v, want a live record never reported as stale", result.Status)
 	}
-	if !strings.Contains(f.errOut.String(), "记录已保留") {
+	if !strings.Contains(f.errOut.String(), ") is still alive; the record is kept") {
 		t.Fatalf("stderr = %q, want the record-kept note", f.errOut.String())
 	}
 }
@@ -102,7 +102,7 @@ func TestRestartDoesNotStartASecondServerWhenTheStopFails(t *testing.T) {
 
 	_, err := f.Restart(context.Background())
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "强制结束后仍然存在")
+	wantContains(t, err, "still exists after a forced end")
 	f.wantNoSpawn(t)
 	f.wantSignals(t, []fakeSignal{{4321, host.Graceful}, {4321, host.Force}})
 	if !f.host.isAlive(4321) {
@@ -168,7 +168,7 @@ func TestStopWarnsWhenTheGracefulSignalFails(t *testing.T) {
 	if _, ok := f.stateRecord(t); ok {
 		t.Fatal("a completed stop must clear the record")
 	}
-	if !strings.Contains(f.out.String(), "已停止") {
+	if !strings.Contains(f.out.String(), "stopped") {
 		t.Fatalf("stdout = %q, want the stop reported as done", f.out.String())
 	}
 }
@@ -266,7 +266,7 @@ func TestStopTimesOutWhenTheTreeKeepsThePort(t *testing.T) {
 	elapsed := time.Since(started)
 
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "停止超时")
+	wantContains(t, err, "the stop timed out")
 	// A bound, not a stopwatch: the budget is short and the fixture's own
 	// pacing is shorter, so a generous ceiling separates "the deadline was
 	// honoured" from "the wait never ended".

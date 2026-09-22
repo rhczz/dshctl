@@ -152,7 +152,7 @@ setInterval(() => {}, 1000);
 		if status.code != 0 {
 			t.Fatalf("status on %d exit = %d, stdout=%s stderr=%s", port, status.code, status.stdout, status.stderr)
 		}
-		if !strings.Contains(status.stdout, "运行中") {
+		if !strings.Contains(status.stdout, "running") {
 			t.Fatalf("port %d is no longer recognized as running:\n%s", port, status.stdout)
 		}
 		if !strings.Contains(status.stdout, strconv.Itoa(port)) {
@@ -171,7 +171,7 @@ setInterval(() => {}, 1000);
 	if !listenerAlive(portB) {
 		t.Fatalf("stopping port %d also took down port %d", portA, portB)
 	}
-	if final := runPort(portB, "status"); !strings.Contains(final.stdout, "运行中") {
+	if final := runPort(portB, "status"); !strings.Contains(final.stdout, "running") {
 		t.Fatalf("port %d lost its server:\n%s", portB, final.stdout)
 	}
 	if stop := runPort(portB, "stop"); stop.code != 0 {

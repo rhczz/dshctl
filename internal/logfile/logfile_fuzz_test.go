@@ -24,7 +24,7 @@ func FuzzSectionMarkersRoundTrip(f *testing.F) {
 	for _, seed := range []string{
 		"start", "build", "update", "logs", "doctor",
 		"a=b", "=====", "=", "a b", "", " ", "\t", "line\nbreak",
-		"标题", "with-dash", "with_underscore", "1234",
+		"title", "with-dash", "with_underscore", "1234",
 	} {
 		f.Add(seed)
 	}

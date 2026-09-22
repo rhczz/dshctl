@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 
 	"github.com/rhczz/dshctl/internal/domain"
@@ -109,31 +110,26 @@ type TimelineReport struct {
 // silently showed last week's remote would be worse than no timeline at all.
 func (s *Service) Timeline(ctx context.Context) (TimelineReport, error) {
 	if !s.Repo.Exists() {
-		return TimelineReport{}, exitcode.New(exitcode.Preflight, i18nLine(MsgUpdateRepoMissing),
-			s.Settings.RepoDir, paths.EnvRepoDir)
+		return TimelineReport{}, exitcode.New(exitcode.Preflight, "the checkout does not exist: %s\nhint: name it with --repo or the %s environment variable", s.Settings.RepoDir, paths.EnvRepoDir)
 	}
 	if !s.Repo.IsGit() {
-		return TimelineReport{}, exitcode.New(exitcode.Preflight, i18nLine(MsgTimelineNotGit), s.Settings.RepoDir)
+		return TimelineReport{}, exitcode.New(exitcode.Preflight, "%s is not a git repository", s.Settings.RepoDir)
 	}
 	if !s.Repo.IsServerCheckout() {
-		return TimelineReport{}, exitcode.New(exitcode.Preflight,
-			i18nLine(MsgUpdateNotCheckout),
-			s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
+		return TimelineReport{}, exitcode.New(exitcode.Preflight, "%s does not look like a DeepSeek Harness checkout (no %s or %s)", s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
 	}
 	hasOrigin, err := s.Repo.HasOrigin(ctx)
 	if err != nil {
 		return TimelineReport{}, exitcode.Wrap(exitcode.Preflight, err)
 	}
 	if !hasOrigin {
-		return TimelineReport{}, exitcode.New(exitcode.Preflight,
-			i18nLine(MsgRepoNoOrigin),
-			s.Settings.RepoDir)
+		return TimelineReport{}, exitcode.New(exitcode.Preflight, "the checkout %s has no origin remote, so there is nothing to compare against\nhint: check that this is a clone and not a local directory", s.Settings.RepoDir)
 	}
 
 	report := TimelineReport{RepoDir: s.Settings.RepoDir}
 	if err := s.Repo.Fetch(ctx, nil, nil); err != nil {
 		report.FetchError = err.Error()
-		s.warning(i18nLine(MsgTimelineFetchFailed, err))
+		s.warning(fmt.Sprintf("the remote could not be fetched; the gap below is against the last known state: %v", err))
 	} else {
 		report.Fetched = true
 	}
@@ -204,7 +200,7 @@ func (s *Service) readTimelineHistory(report *TimelineReport) {
 	file, ok, err := store.Load()
 	if err != nil {
 		report.HistoryError = err.Error()
-		s.warning(i18nLine(MsgTimelineHistoryRead, store.Path, err))
+		s.warning(fmt.Sprintf("the deployment history %s could not be read: %v", store.Path, err))
 		return
 	}
 	if !ok {

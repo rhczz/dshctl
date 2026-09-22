@@ -73,26 +73,26 @@ func TestInfoRecordsALineInsideTheCurrentSection(t *testing.T) {
 	if err := logger.Section("start"); err != nil {
 		t.Fatalf("section: %v", err)
 	}
-	logger.Info("启动中")
+	logger.Info("starting")
 	content := read(t, path)
 	if !strings.Contains(content, "dshctl start") {
 		t.Errorf("the section marker is missing: %q", content)
 	}
-	if !strings.Contains(content, "启动中") {
+	if !strings.Contains(content, "starting") {
 		t.Errorf("the line is missing from the log: %q", content)
 	}
 }
 
 func TestDebugIsSilentUntilTheLevelAsksForIt(t *testing.T) {
 	quiet, _, quietPath := newLogger(t, LevelInfo)
-	quiet.Debug("探测端口 3080")
-	if content := read(t, quietPath); strings.Contains(content, "探测端口") {
+	quiet.Debug("probe port 3080")
+	if content := read(t, quietPath); strings.Contains(content, "probe port") {
 		t.Errorf("a debug line was recorded at info level: %q", content)
 	}
 
 	loud, _, loudPath := newLogger(t, LevelDebug)
-	loud.Debug("探测端口 3080")
-	if content := read(t, loudPath); !strings.Contains(content, "探测端口") {
+	loud.Debug("probe port 3080")
+	if content := read(t, loudPath); !strings.Contains(content, "probe port") {
 		t.Errorf("a debug line was dropped at debug level: %q", content)
 	}
 }
@@ -111,24 +111,24 @@ func TestStepRecordsWhatItCost(t *testing.T) {
 		}
 		return value
 	}
-	if err := logger.Step("切换版本", func() error { return nil }); err != nil {
+	if err := logger.Step("switch version", func() error { return nil }); err != nil {
 		t.Fatalf("step: %v", err)
 	}
 	content := read(t, path)
-	if !strings.Contains(content, "步骤 切换版本: 耗时 12ms") {
+	if !strings.Contains(content, "step switch version: took 12ms") {
 		t.Errorf("the step line is wrong: %q", content)
 	}
 }
 
 func TestStepKeepsTheOperationError(t *testing.T) {
 	logger, _, path := newLogger(t, LevelInfo)
-	failure := fmt.Errorf("切换失败")
-	err := logger.Step("切换版本", func() error { return failure })
+	failure := fmt.Errorf("switch failed")
+	err := logger.Step("switch version", func() error { return failure })
 	if err != failure {
 		t.Fatalf("step returned %v, want the operation's error", err)
 	}
 	content := read(t, path)
-	if !strings.Contains(content, "步骤 切换版本: 失败（切换失败）") {
+	if !strings.Contains(content, "step switch version: failed (switch failed)") {
 		t.Errorf("the failed step line is wrong: %q", content)
 	}
 }
@@ -136,9 +136,9 @@ func TestStepKeepsTheOperationError(t *testing.T) {
 func TestLogFailureDoesNotMaskTheOperation(t *testing.T) {
 	dir := t.TempDir()
 	logger := New(logfile.New(dir, 0, logfile.Format{Prefix: "=====", Product: "dshctl", Layout: "2006-01-02 15:04:05"}), LevelInfo)
-	failure := fmt.Errorf("切换失败")
-	if err := logger.Step("切换版本", func() error { return failure }); err != failure {
+	failure := fmt.Errorf("switch failed")
+	if err := logger.Step("switch version", func() error { return failure }); err != failure {
 		t.Fatalf("step returned %v, want the operation's error", err)
 	}
-	logger.Info("这一行写不进去")
+	logger.Info("this line cannot be written")
 }

@@ -14,7 +14,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 包地图与依赖方向
 
-垂直分层（越靠内越纯，边只许自上而下）：`cmd/dshctl → internal/cli`（接入）`→ internal/service`（内核：引擎与操作）`→ internal/domain`（模型）与基础设施。`internal/domain`（状态、记录、归属、指纹、版本位置）与 `internal/i18n`（消息目录）是零内部依赖的叶子；基础设施叶子：`atomically`、`buildinfo`、`config`、`detach`、`exitcode`、`history`、`host`（唯一直接和操作系统对话的包）、`lock`、`logfile`、`logging`、`nodejs`、`paths`、`repo`、`run`、`state`、`version`；`conformance` 是测试专用包（金标与账本）。
+垂直分层（越靠内越纯，边只许自上而下）：`cmd/dshctl → internal/cli`（接入）`→ internal/service`（内核：引擎与操作）`→ internal/domain`（模型）与基础设施。`internal/domain`（状态、记录、归属、指纹、版本位置）是零内部依赖的叶子；基础设施叶子：`atomically`、`buildinfo`、`config`、`detach`、`exitcode`、`history`、`host`（唯一直接和操作系统对话的包）、`lock`、`logfile`、`logging`、`nodejs`、`paths`、`repo`、`run`、`state`、`version`；`conformance` 是测试专用包（金标与账本）。
 
 ## 固定 vs 配置
 
@@ -36,7 +36,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 - 校验只在四处边界：CLI 参数、配置文件、状态与日志文件、外部命令输出；`"探测不了"绝不当作"没有"`。
 - 状态文件 0600、状态目录 0700、写入原子替换；细节见 `dshctl-state-safety`。
 - README 是唯一对外契约，`internal/cli/documentation_test.go` 强制环境变量、配置键、命令表、退出码与默认值都被记录。
-- 面向操作者的每一句话都在各包的 `messages.go` 目录里（英文默认，机器语言为中文时中文），`make conventions` 的 `i18n-literals` 规则拒绝代码里的中文文案；测试失败信息、标识符与注释英文。
+- 面向操作者的每一句话都是英文，并写在产生它的调用点上（没有消息目录、没有语言层）；测试失败信息、标识符与注释同样是英文，代码里不得出现中文文案。
 
 ## TDD
 

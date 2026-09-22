@@ -190,7 +190,7 @@ func TestACheckoutNamedForOneRunIsTheCheckoutEveryLaterCommandUses(t *testing.T)
 	if start.code != 0 {
 		t.Fatalf("start exit = %d\nstdout=%s\nstderr=%s", start.code, start.stdout, start.stderr)
 	}
-	if !strings.Contains(start.stdout, "已将仓库目录 "+w.checkout+" 写入配置") {
+	if !strings.Contains(start.stdout, "the checkout "+w.checkout+" was written into the settings document") {
 		t.Fatalf("start did not report the recorded checkout:\n%s", start.stdout)
 	}
 	if got := w.settingsDocument()["repoDir"]; got != w.checkout {
@@ -203,7 +203,7 @@ func TestACheckoutNamedForOneRunIsTheCheckoutEveryLaterCommandUses(t *testing.T)
 	if status.code != 0 {
 		t.Fatalf("status exit = %d\nstdout=%s\nstderr=%s", status.code, status.stdout, status.stderr)
 	}
-	if !strings.Contains(status.stdout, "仓库: "+w.checkout) {
+	if !strings.Contains(status.stdout, "checkout: "+w.checkout) {
 		t.Fatalf("status does not name the checkout that serves:\n%s", status.stdout)
 	}
 	if strings.Contains(status.stdout, w.guess()) {
@@ -217,7 +217,7 @@ func TestACheckoutNamedForOneRunIsTheCheckoutEveryLaterCommandUses(t *testing.T)
 	// A healthy checkout is reported by its revision, and the rows that name a
 	// path always name the checkout this run resolved.
 	for _, want := range []string{
-		filepath.Join(w.checkout, "node_modules") + " 已安装",
+		filepath.Join(w.checkout, "node_modules") + " installed",
 		filepath.Join(w.checkout, ".dsh-build", "client-build-environment.json"),
 	} {
 		if !strings.Contains(doctor.stdout, want) {
@@ -230,7 +230,7 @@ func TestACheckoutNamedForOneRunIsTheCheckoutEveryLaterCommandUses(t *testing.T)
 
 	// And the verbose echo names the layer the value came from.
 	verbose := w.run("-v", "doctor")
-	if !strings.Contains(verbose.stderr, "仓库目录: "+w.checkout+" (file)") {
+	if !strings.Contains(verbose.stderr, "checkout: "+w.checkout+" (file)") {
 		t.Fatalf("verbose output does not name the file as the source:\n%s", verbose.stderr)
 	}
 }
@@ -247,8 +247,8 @@ func TestADecidedCheckoutSurvivesAOneOffOverride(t *testing.T) {
 	if start.code != 0 {
 		t.Fatalf("start exit = %d\nstdout=%s\nstderr=%s", start.code, start.stdout, start.stderr)
 	}
-	if !strings.Contains(start.stdout, "本次使用仓库 "+w.checkout) ||
-		!strings.Contains(start.stdout, "配置中为 "+decided) {
+	if !strings.Contains(start.stdout, "using the checkout "+w.checkout) ||
+		!strings.Contains(start.stdout, "(configured as "+decided) {
 		t.Fatalf("start did not report which checkout it used:\n%s", start.stdout)
 	}
 	if got := w.settingsDocument()["repoDir"]; got != decided {
@@ -257,7 +257,7 @@ func TestADecidedCheckoutSurvivesAOneOffOverride(t *testing.T) {
 
 	// The next command, with no overrides, follows the operator's document.
 	verbose := w.run("-v", "doctor")
-	if !strings.Contains(verbose.stderr, "仓库目录: "+decided+" (file)") {
+	if !strings.Contains(verbose.stderr, "checkout: "+decided+" (file)") {
 		t.Fatalf("verbose output does not follow the document:\n%s", verbose.stderr)
 	}
 }
@@ -270,18 +270,18 @@ func TestTheRepeatedGuessIsNotADecision(t *testing.T) {
 	w.document(map[string]any{"repoDir": w.guess()})
 
 	plain := w.run("-v", "doctor")
-	if !strings.Contains(plain.stderr, "仓库目录: "+w.guess()+" ("+config.SourceRepoDirRepeatsDefault+")") {
+	if !strings.Contains(plain.stderr, "checkout: "+w.guess()+" ("+config.SourceRepoDirRepeatsDefault+")") {
 		t.Fatalf("verbose output does not explain the repeated guess:\n%s", plain.stderr)
 	}
 
 	w.variables["DSH_REPO_DIR"] = w.checkout
 	fromEnv := w.run("-v", "doctor")
-	if !strings.Contains(fromEnv.stderr, "仓库目录: "+w.checkout+" (env)") {
+	if !strings.Contains(fromEnv.stderr, "checkout: "+w.checkout+" (env)") {
 		t.Fatalf("the environment did not win over the repeated guess:\n%s", fromEnv.stderr)
 	}
 
 	flag := w.run("-v", "--repo", w.checkout, "doctor")
-	if !strings.Contains(flag.stderr, "仓库目录: "+w.checkout+" (flag)") {
+	if !strings.Contains(flag.stderr, "checkout: "+w.checkout+" (flag)") {
 		t.Fatalf("the flag did not win over the repeated guess:\n%s", flag.stderr)
 	}
 }

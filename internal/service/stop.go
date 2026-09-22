@@ -47,11 +47,10 @@ func (s *Service) stopLocked(ctx context.Context) (StopResult, error) {
 		return StopResult{}, err
 	}
 	if verdict == adoptFailed {
-		return StopResult{}, exitcode.New(exitcode.Preflight, i18nLine(MsgStopAdoptFailed),
-			observed.status.ListenerPID)
+		return StopResult{}, exitcode.New(exitcode.Preflight, "a service left over from an interrupted start was found (pid=%d), but its runtime record could not be rebuilt; end it by hand and retry", observed.status.ListenerPID)
 	}
 	if verdict == adoptDone {
-		s.narrate(i18nLine(MsgStopAdopted))
+		s.narrate("a survivor of an interrupted start was found and is managed again")
 	}
 
 	// Whatever the port looks like, the command's job is to end the server this
@@ -77,16 +76,16 @@ func (s *Service) reportNothingToStop(ctx context.Context, observed observed) (S
 	unverifiable := false
 	switch observed.status.State {
 	case domain.StateForeign:
-		s.failure(i18nLine(MsgStopForeignSkipped, s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand))
+		s.failure(fmt.Sprintf("note: port %d is held by a non-DSH process (pid=%d: %s); it was skipped, not killed by mistake", s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand))
 		unverifiable = true
 	case domain.StateOrphan:
 		// Something serves the port that dshctl cannot call its own. Stopping it
 		// would mean guessing, and guessing here means killing a stranger.
-		s.failure(i18nLine(MsgStopUnclaimedSkipped, s.boundPort(), observed.status.ListenerPID))
-		s.failure(i18nLine(MsgStopUnclaimedTip))
+		s.failure(fmt.Sprintf("note: the process on port %d (pid=%d) cannot be confirmed as one dshctl started; it was skipped", s.boundPort(), observed.status.ListenerPID))
+		s.failure("hint: confirm it is safe to stop and end it by hand; dshctl never ends a process whose ownership it cannot establish")
 		unverifiable = true
 	default:
-		s.narrate(i18nLine(MsgStopNotRunning))
+		s.narrate("DSH Web is not running")
 	}
 
 	s.clearStaleRecord(ctx, observed)
@@ -103,7 +102,7 @@ func (s *Service) reportNothingToStop(ctx context.Context, observed observed) (S
 // The pid is passed in because the server that runs is not always the pid the
 // record names (a survivor is adopted before this call, so the two agree here).
 func (s *Service) shutdown(ctx context.Context, observed observed, pid int) (StopResult, error) {
-	s.narrate(i18nLine(MsgStopStopping, s.boundPort(), pid))
+	s.narrate(fmt.Sprintf("stopping DSH Web on port %d (pid=%d) ...", s.boundPort(), pid))
 
 	// terminate is the single verified-signal path: it re-reads the record and
 	// the process start time before every signal, so a pid recycled during the
@@ -116,7 +115,7 @@ func (s *Service) shutdown(ctx context.Context, observed observed, pid int) (Sto
 		// only a failed stop when the holder is part of the tree the record
 		// describes; a stranger that took the port is a note, not a failure.
 		if stranger, ok := s.strangerOnPort(ctx, observed.record); ok {
-			s.warning(i18nLine(MsgStopStrangerOnPort, s.boundPort(), stranger))
+			s.warning(fmt.Sprintf("port %d is now held by another process (pid=%d); it is not a service dshctl started", s.boundPort(), stranger))
 		} else {
 			return StopResult{}, err
 		}
@@ -136,7 +135,7 @@ func (s *Service) shutdown(ctx context.Context, observed observed, pid int) (Sto
 	if err != nil {
 		return StopResult{}, err
 	}
-	s.narrate(i18nLine(MsgStopStopped))
+	s.narrate("stopped")
 	return StopResult{Status: final.status}, nil
 }
 
@@ -155,7 +154,7 @@ func (s *Service) terminate(ctx context.Context, pid int) error {
 		return nil
 	}
 	if hasRecord && record.PID == pid && !domain.Matches(record.StartedAt, facts.StartedAt, fingerprintTolerance) {
-		return fmt.Errorf("%s", i18nLine(MsgStopRecycled, pid))
+		return fmt.Errorf("pid %d has been reused by another process; no signal was sent", pid)
 	}
 	if err := s.Host.Signal(pid, hostGraceful); err != nil {
 		s.warning(fmt.Sprintf("%v", err))
@@ -171,13 +170,13 @@ func (s *Service) terminate(ctx context.Context, pid int) error {
 		return nil
 	}
 	if hasRecord && record.PID == pid && !domain.Matches(record.StartedAt, facts.StartedAt, fingerprintTolerance) {
-		return fmt.Errorf("%s", i18nLine(MsgStopRecycledForce, pid))
+		return fmt.Errorf("pid %d was reused by another process while waiting; no forced end was sent", pid)
 	}
 	if err := s.Host.Signal(pid, hostForce); err != nil {
 		return err
 	}
 	if !s.waitForExit(ctx, pid, s.grace) {
-		return fmt.Errorf("%s", i18nLine(MsgStopSurvivedForce, pid))
+		return fmt.Errorf("pid %d still exists after a forced end", pid)
 	}
 	return nil
 }
@@ -223,7 +222,7 @@ func (s *Service) clearStaleRecord(ctx context.Context, observed observed) {
 	if observed.hasRecord {
 		record := observed.record
 		if s.Host.Alive(ctx, record.PID) && s.RecordMatches(ctx, record, record.PID) {
-			s.failure(i18nLine(MsgStopRecordKept, record.PID))
+			s.failure(fmt.Sprintf("note: the service in the runtime record (pid=%d) is still alive; the record is kept", record.PID))
 			return
 		}
 	} else if !observed.corrupt {
@@ -248,9 +247,7 @@ func (s *Service) Restart(ctx context.Context) (StartResult, error) {
 			return StartResult{}, err
 		}
 		if observed.occupant() {
-			return StartResult{}, exitcode.New(exitcode.Preflight,
-				i18nLine(MsgRestartOccupant),
-				s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
+			return StartResult{}, exitcode.New(exitcode.Preflight, "port %d is held by a process dshctl cannot claim (pid=%d): %s\nhint: confirm and handle it first, then restart", s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
 		}
 		if _, err := s.stopLocked(ctx); err != nil {
 			return StartResult{}, err

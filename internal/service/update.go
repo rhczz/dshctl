@@ -16,12 +16,9 @@ import (
 )
 
 // shutdownMessage explains a service left stopped after a failed deployment.
-// shutdownMessage explains a service left stopped after a failed deployment.
-//
-// It is a function, not a variable: a package-level i18nLine would run at init
-// time, before the shell installs the language, and every message would render
-// as its own id.
-func shutdownMessage() string { return i18nLine(MsgShutdownMessage) }
+func shutdownMessage() string {
+	return "the service stays stopped\nhint: fix the problem and run dshctl build && dshctl start"
+}
 
 // deployRequest is one version move: what to move to, and how to name it.
 type deployRequest struct {
@@ -58,7 +55,7 @@ func (s *Service) RunUpdate(ctx context.Context, target string) error {
 	}
 	return s.withLock(ctx, func() error {
 		return s.deployLocked(ctx, deployRequest{
-			verb: i18nLine(MsgUpdateVerb), section: sectionUpdate, target: target, fetch: true,
+			verb: "update", section: sectionUpdate, target: target, fetch: true,
 		})
 	})
 }
@@ -72,7 +69,7 @@ func (s *Service) RunUpdate(ctx context.Context, target string) error {
 func (s *Service) RunRollback(ctx context.Context, target string, steps int) error {
 	return s.withLock(ctx, func() error {
 		return s.deployLocked(ctx, deployRequest{
-			verb: i18nLine(MsgRollbackVerb), section: sectionRollback, target: target, steps: steps,
+			verb: "roll back", section: sectionRollback, target: target, steps: steps,
 		})
 	})
 }
@@ -94,15 +91,13 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		return err
 	}
 	if verdict == adoptFailed {
-		return exitcode.New(exitcode.Preflight, i18nLine(MsgUpdateAdoptFailed),
-			observed.status.ListenerPID)
+		return exitcode.New(exitcode.Preflight, "a service left over from an interrupted start was found (pid=%d), but its runtime record could not be rebuilt; run dshctl stop first or handle it by hand", observed.status.ListenerPID)
 	}
 	if verdict == adoptDone {
-		s.narrate(i18nLine(MsgUpdateAdopted))
+		s.narrate("a survivor of an interrupted start was found and is managed again")
 	}
 	if observed.occupant() {
-		return exitcode.New(exitcode.Preflight, i18nLine(MsgUpdateOccupant),
-			s.Settings.Port, observed.status.ListenerPID, observed.status.ListenerCommand, request.verb)
+		return exitcode.New(exitcode.Preflight, "port %d is held by a process dshctl cannot claim (pid=%d): %s\nhint: confirm and stop it first, then %s", s.Settings.Port, observed.status.ListenerPID, observed.status.ListenerCommand, request.verb)
 	}
 
 	// The checkout is shared. This port's server is stopped by the move itself
@@ -122,23 +117,17 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		elsewhere = append(elsewhere, entry)
 	}
 	if len(elsewhere) > 0 {
-		return exitcode.New(exitcode.Preflight,
-			i18nLine(MsgRepoUsedByOtherPorts),
-			s.Settings.RepoDir, elsewhere.ports(), elsewhere.pids(), request.verb, request.verb)
+		return exitcode.New(exitcode.Preflight, "the checkout %s is also used by the service on port %v (pid %v); %s would replace build artifacts it is using\nhint: stop that service first (dshctl stop --port <port>), then %s", s.Settings.RepoDir, elsewhere.ports(), elsewhere.pids(), request.verb, request.verb)
 	}
 
 	if !s.Repo.Exists() {
-		return exitcode.New(exitcode.Preflight,
-			i18nLine(MsgUpdateRepoMissing),
-			s.Settings.RepoDir, paths.EnvRepoDir)
+		return exitcode.New(exitcode.Preflight, "the checkout does not exist: %s\nhint: name it with --repo or the %s environment variable", s.Settings.RepoDir, paths.EnvRepoDir)
 	}
 	if !s.Repo.IsGit() {
-		return exitcode.New(exitcode.Preflight, i18nLine(MsgUpdateNotGit), s.Settings.RepoDir)
+		return exitcode.New(exitcode.Preflight, "%s is not a git repository", s.Settings.RepoDir)
 	}
 	if !s.Repo.IsServerCheckout() {
-		return exitcode.New(exitcode.Preflight,
-			i18nLine(MsgUpdateNotCheckout),
-			s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
+		return exitcode.New(exitcode.Preflight, "%s does not look like a DeepSeek Harness checkout (no %s or %s)", s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
 	}
 	pnpm, err := s.pnpmPath()
 	if err != nil {
@@ -152,7 +141,7 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 	env := run.WithPathPrefix(installation.BinDir)
 
 	var target domain.Target
-	if err := s.Log.Step(i18nLine(MsgUpdateResolveTarget), func() error {
+	if err := s.Log.Step("resolve target", func() error {
 		resolved, err := s.resolveDeployTarget(ctx, request)
 		target = resolved
 		return err
@@ -168,13 +157,12 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		// state could not be determined could discard the operator's work.
 		return exitcode.Wrap(exitcode.Preflight, err)
 	} else if dirty {
-		return exitcode.New(exitcode.Preflight, i18nLine(MsgRepoTrackedChanges),
-			s.Settings.RepoDir, s.Settings.RepoDir)
+		return exitcode.New(exitcode.Preflight, "the checkout %s has uncommitted changes to tracked files, so it cannot switch versions\nhint: run git -C %s status and handle them (untracked files are not affected)", s.Settings.RepoDir, s.Settings.RepoDir)
 	}
 	s.Log.Debug(fmt.Sprintf("%s: %s -> %s (selector=%q fetch=%v)",
 		request.verb, domain.ShortCommit(current), domain.ShortCommit(target.Commit), request.target, request.fetch))
 	if target.Commit == current {
-		s.narrate(i18nLine(MsgUpdateNoOp, target.Label(), request.verb))
+		s.narrate(fmt.Sprintf("already at %s; nothing to %s", target.Label(), request.verb))
 		// A no-op is still a successful run against this checkout, and the
 		// document records the checkout a successful run used.
 		s.writeBack(s.Settings.RepoDir, "")
@@ -187,11 +175,11 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		// only allowed once the identity is verified: it must not rewrite the
 		// checkout underneath a process it cannot safely end.
 		if _, ok := s.stopTarget(ctx, observed); !ok {
-			return exitcode.New(exitcode.Preflight,
-				i18nLine(MsgUpdateUnverifiable)+"\n"+i18nLine(MsgUpdateUnverifiableTip),
-				observed.status.RecordedPID)
+			return exitcode.New(exitcode.Preflight, "%s\n%s",
+				fmt.Sprintf("the service in the runtime record (pid=%d) cannot be verified as this run's own (the platform cannot read its start time), so it cannot be ended safely", observed.status.RecordedPID),
+				"hint: confirm the process may be stopped and end it by hand, or use another port with --port")
 		}
-		s.narrate(i18nLine(MsgUpdateStopping))
+		s.narrate("DSH Web is running; stopping it first ...")
 		if _, err := s.stopLocked(ctx); err != nil {
 			return err
 		}
@@ -202,7 +190,7 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	} else if rotated {
-		s.narrate(i18nLine(MsgBuildLogRotated, s.LogFile.BackupPath()))
+		s.narrate(fmt.Sprintf("the log was rotated: %s", s.LogFile.BackupPath()))
 	}
 	if err := s.LogFile.Section(request.section); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
@@ -218,14 +206,14 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 				s.warning(fmt.Sprintf("%v", recordErr))
 			}
 		}
-		s.failure(i18nLine(MsgUpdateSwitchFailed, request.verb, err))
+		s.failure(fmt.Sprintf("error: %s failed: %v", request.verb, err))
 		if wasRunning {
-			s.narrate(i18nLine(MsgUpdateRestore))
+			s.narrate("the old build is intact; starting the old version again ...")
 			if _, startErr := s.startLocked(ctx); startErr != nil {
-				s.failure(i18nLine(MsgUpdateRestoreFailed, startErr))
+				s.failure(fmt.Sprintf("restoring the service failed: %v", startErr))
 			}
 		}
-		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("%s", i18nLine(MsgUpdateFailed, request.verb, err)))
+		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("%s failed: %w", request.verb, err))
 	}
 
 	// The move is a fact on disk the moment the switch returns: record it
@@ -247,11 +235,11 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		})
 	})
 	if installErr != nil {
-		s.note(i18nLine(MsgInstallFailedNote))
+		s.note("pnpm install failed")
 		return exitcode.Wrap(exitcode.Failure,
-			fmt.Errorf("%s: %w\n%s", i18nLine(MsgInstallFailedNote), installErr, shutdownMessage()))
+			fmt.Errorf("pnpm install failed: %w\n%s", installErr, shutdownMessage()))
 	}
-	s.note(i18nLine(MsgInstallSucceeded))
+	s.note("pnpm install succeeded")
 
 	s.narrate("--- pnpm run build ---")
 	buildErr := s.Log.Step("pnpm build", func() error {
@@ -263,15 +251,15 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		})
 	})
 	if buildErr != nil {
-		s.note(i18nLine(MsgBuildFailedNote))
+		s.note("pnpm run build failed")
 		return exitcode.Wrap(exitcode.Failure,
-			fmt.Errorf("%s: %w\n%s", i18nLine(MsgBuildFailedNote), buildErr, shutdownMessage()))
+			fmt.Errorf("pnpm run build failed: %w\n%s", buildErr, shutdownMessage()))
 	}
-	s.note(i18nLine(MsgBuildSucceededNote))
+	s.note("pnpm run build succeeded")
 
-	s.narrate(i18nLine(MsgMoveDone, request.verb))
+	s.narrate(fmt.Sprintf("%s finished", request.verb))
 	if wasRunning {
-		s.narrate(i18nLine(MsgUpdateRestarting))
+		s.narrate("starting DSH Web again ...")
 		if _, err := s.startLocked(ctx); err != nil {
 			return err
 		}
@@ -296,9 +284,7 @@ func (s *Service) resolveDeployTarget(ctx context.Context, request deployRequest
 			return domain.Target{}, exitcode.Wrap(exitcode.Preflight, err)
 		}
 		if !hasOrigin {
-			return domain.Target{}, exitcode.New(exitcode.Preflight,
-				i18nLine(MsgUpdateNoOriginLatest),
-				s.Settings.RepoDir)
+			return domain.Target{}, exitcode.New(exitcode.Preflight, "the checkout %s has no origin remote, so latest cannot be resolved\nhint: name a local version with dshctl update <tag|commit>", s.Settings.RepoDir)
 		}
 		if err := s.Repo.Fetch(ctx, nil, nil); err != nil {
 			// latest cannot be resolved from local state: the whole point is
@@ -317,7 +303,7 @@ func (s *Service) resolveDeployTarget(ctx context.Context, request deployRequest
 		// A named version is useful offline when it is already known locally:
 		// a failed fetch is a warning, not a refusal.
 		if err := s.Repo.Fetch(ctx, nil, nil); err != nil {
-			s.warning(fmt.Sprintf("%s: %v", i18nLine(MsgUpdateFetchFailed, request.target), err))
+			s.warning(fmt.Sprintf("the remote could not be fetched; resolving %q from what is known locally: %v", request.target, err))
 		}
 	}
 	commit, err := s.Repo.ResolveRevision(ctx, request.target)
@@ -348,21 +334,18 @@ func (s *Service) rollbackTarget(ctx context.Context, steps int) (domain.Target,
 	store := history.Store{Path: filepath.Join(s.Settings.StateDir, historyFileName)}
 	file, ok, err := store.Load()
 	if err != nil {
-		return domain.Target{}, exitcode.New(exitcode.Preflight,
-			i18nLine(MsgHistoryUnreadable), err, store.Path)
+		return domain.Target{}, exitcode.New(exitcode.Preflight, "the deployment history cannot be read: %v\nhint: delete %s and switch to a named version with dshctl update <version>", err, store.Path)
 	}
 	if !ok {
-		return domain.Target{}, exitcode.New(exitcode.Preflight, "%s",
-			i18nLine(MsgNoHistory)+"\n"+i18nLine(MsgNoHistoryTip))
+		return domain.Target{}, exitcode.New(exitcode.Preflight, "%s\n%s", "nothing to roll back to: dshctl has not recorded a position for this checkout yet", "hint: dshctl timeline shows the versions; dshctl update <version> moves to one")
 	}
 	records := file.Records(s.Settings.RepoDir)
 	now := history.Record{Commit: current, At: time.Now().Unix()}
 	position, ok := history.Step(records, now, steps)
 	if !ok {
-		return domain.Target{}, exitcode.New(exitcode.Preflight,
-			i18nLine(MsgNoHistorySteps), len(history.Visit(records, now, history.MaxRecords()))-1)
+		return domain.Target{}, exitcode.New(exitcode.Preflight, "nothing to roll back to: the history has at most %d steps left", len(history.Visit(records, now, history.MaxRecords()))-1)
 	}
-	name := i18nLine(MsgRecordedPosition)
+	name := "recorded position"
 	if tags, err := s.Repo.Tags(ctx); err == nil {
 		if tag := firstTag(tags[position.Commit]); tag != "" {
 			name = tag
@@ -407,7 +390,7 @@ func (s *Service) warnWhenOutsideOrigin(ctx context.Context, target domain.Targe
 	if err != nil || ok {
 		return
 	}
-	s.warning(i18nLine(MsgTargetOutsideOrigin, domain.ShortCommit(target.Commit), s.Repo.RemoteTipName()))
+	s.warning(fmt.Sprintf("target %s is not in the history of %s (it may come from an unmerged branch or a local commit)", domain.ShortCommit(target.Commit), s.Repo.RemoteTipName()))
 }
 
 // recordDeploy writes the move into the deployment history: where the tree was
@@ -417,7 +400,7 @@ func (s *Service) recordDeploy(ctx context.Context, before string, target domain
 	store := history.Store{Path: filepath.Join(s.Settings.StateDir, historyFileName)}
 	file, _, err := store.Load()
 	if err != nil {
-		s.warning(i18nLine(MsgHistoryRebuild, err))
+		s.warning(fmt.Sprintf("the deployment history cannot be read (%v); rebuilding from the current version", err))
 		file = history.File{}
 	}
 	records := file.Records(s.Settings.RepoDir)
@@ -431,7 +414,7 @@ func (s *Service) recordDeploy(ctx context.Context, before string, target domain
 		Commit: target.Commit, Selector: target.Selector, At: now,
 	}, history.MaxRecords())
 	if err := store.Save(file.With(s.Settings.RepoDir, records)); err != nil {
-		return fmt.Errorf("%s: %w", i18nLine(MsgHistoryWriteFailed), err)
+		return fmt.Errorf("the deployment history could not be written: %w", err)
 	}
 	return nil
 }

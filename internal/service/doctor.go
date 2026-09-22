@@ -44,47 +44,47 @@ func (s *Service) Doctor(ctx context.Context) []Check {
 	}
 
 	if paths.IsDir(s.Settings.StateDir) {
-		add(i18nLine(MsgRowStateDir), CheckOK, s.Settings.StateDir)
+		add("state directory", CheckOK, s.Settings.StateDir)
 	} else {
-		add(i18nLine(MsgRowStateDir), CheckWarn, s.Settings.StateDir+i18nLine(MsgDirNotCreated))
+		add("state directory", CheckWarn, s.Settings.StateDir+" not created yet; the first run creates it")
 	}
 	if paths.Exists(s.Settings.ConfigPath) {
-		add(i18nLine(MsgRowConfig), CheckOK, s.Settings.ConfigPath)
+		add("settings document", CheckOK, s.Settings.ConfigPath)
 	} else {
-		add(i18nLine(MsgRowConfig), CheckWarn, s.Settings.ConfigPath+i18nLine(MsgConfigNotCreated))
+		add("settings document", CheckWarn, s.Settings.ConfigPath+" not created yet; the defaults will be written")
 	}
 
 	switch {
 	case !s.Repo.Exists():
-		add(i18nLine(MsgRowRepo), CheckFail,
-			i18nLine(MsgRepoMissingDetail, s.Settings.RepoDir, paths.EnvRepoDir, s.Settings.ConfigPath))
+		add("checkout", CheckFail,
+			fmt.Sprintf("%s does not exist; name it once with --repo or %s and a successful run writes it into %s", s.Settings.RepoDir, paths.EnvRepoDir, s.Settings.ConfigPath))
 	case !s.Repo.IsGit():
-		add(i18nLine(MsgRowRepo), CheckFail, i18nLine(MsgRepoNotGitDetail, s.Settings.RepoDir))
+		add("checkout", CheckFail, fmt.Sprintf("%s is not a git repository", s.Settings.RepoDir))
 	case !s.Repo.IsServerCheckout():
-		add(i18nLine(MsgRowRepo), CheckFail,
-			i18nLine(MsgRepoNotCheckoutDetail, s.Settings.RepoDir, config.ServerManifestRel, config.WorkspaceManifestRel))
+		add("checkout", CheckFail,
+			fmt.Sprintf("%s has no %s or %s; it does not look like a DeepSeek Harness checkout", s.Settings.RepoDir, config.ServerManifestRel, config.WorkspaceManifestRel))
 	default:
 		sha, branch, err := s.Repo.Head(ctx)
 		if err != nil {
-			add(i18nLine(MsgRowRepoVersion), CheckWarn, err.Error())
+			add("checkout revision", CheckWarn, err.Error())
 			break
 		}
 		detail := branch + "@" + sha
 		if dirty, err := s.Repo.Dirty(ctx); err == nil && dirty {
-			detail += i18nLine(MsgRepoDirty)
+			detail += " (tracked changes present)"
 		}
-		add(i18nLine(MsgRowRepoVersion), CheckOK, detail)
+		add("checkout revision", CheckOK, detail)
 	}
 
 	if s.Repo.NodeModulesPresent() {
-		add(i18nLine(MsgRowDeps), CheckOK, filepath.Join(s.Settings.RepoDir, "node_modules")+i18nLine(MsgDepsInstalled))
+		add("dependencies", CheckOK, filepath.Join(s.Settings.RepoDir, "node_modules")+" installed")
 	} else {
-		add(i18nLine(MsgRowDeps), CheckFail, filepath.Join(s.Settings.RepoDir, "node_modules")+i18nLine(MsgDepsMissing))
+		add("dependencies", CheckFail, filepath.Join(s.Settings.RepoDir, "node_modules")+" does not exist; run pnpm install first")
 	}
 	if s.Repo.BuildReady() {
-		add(i18nLine(MsgRowArtifacts), CheckOK, s.Repo.BuildRecordPath())
+		add("build artifacts", CheckOK, s.Repo.BuildRecordPath())
 	} else {
-		add(i18nLine(MsgRowArtifacts), CheckFail, i18nLine(MsgArtifactsMissing, s.Repo.BuildRecordPath()))
+		add("build artifacts", CheckFail, fmt.Sprintf("missing %s; run dshctl build", s.Repo.BuildRecordPath()))
 	}
 
 	s.doctorNode(ctx, add)
@@ -93,13 +93,13 @@ func (s *Service) Doctor(ctx context.Context) []Check {
 	s.doctorLock(add)
 
 	if size, err := s.LogFile.Size(); err != nil {
-		add(i18nLine(MsgRowLog), CheckWarn, err.Error())
+		add("log", CheckWarn, err.Error())
 	} else {
-		add(i18nLine(MsgRowLog), CheckOK, fmt.Sprintf("%s (%s)", s.Settings.LogPath, HumanBytes(size)))
+		add("log", CheckOK, fmt.Sprintf("%s (%s)", s.Settings.LogPath, HumanBytes(size)))
 	}
-	add(i18nLine(MsgRowDetach), CheckOK, detach.Describe())
+	add("detach method", CheckOK, detach.Describe())
 	if s.BuildInfo.GoVersion != "" {
-		add(i18nLine(MsgRowBuildInfo), CheckOK, s.BuildInfo.GoVersion+" · "+s.BuildInfo.Module)
+		add("build info", CheckOK, s.BuildInfo.GoVersion+" · "+s.BuildInfo.Module)
 	}
 	return checks
 }
@@ -117,7 +117,7 @@ func (s *Service) doctorNode(ctx context.Context, add func(string, string, strin
 	}
 	detail := fmt.Sprintf("%s (%s, %s)", installation.NodePath, installation.Version, installation.Source)
 	if installation.ViaShim {
-		detail += i18nLine(MsgNodeViaShim)
+		detail += ", resolved through a shim"
 	}
 	// A release the gate refuses never reaches this point: resolveNode reports it
 	// as the failure above. Everything else is usable, so the row separates
@@ -126,7 +126,7 @@ func (s *Service) doctorNode(ctx context.Context, add func(string, string, strin
 	case nodejs.Supported:
 		add("Node", CheckOK, detail)
 	default:
-		add("Node", CheckWarn, detail+"；"+verdict.Reason)
+		add("Node", CheckWarn, detail+"; "+verdict.Reason)
 	}
 }
 
@@ -134,12 +134,12 @@ func (s *Service) doctorNode(ctx context.Context, add func(string, string, strin
 func (s *Service) doctorPnpm(ctx context.Context, add func(string, string, string)) {
 	path, err := s.pnpmPath()
 	if err != nil {
-		add(i18nLine(MsgRowPnpm), CheckFail, i18nLine(MsgPnpmMissing))
+		add("pnpm", CheckFail, "pnpm was not found; install it and make sure it is on PATH")
 		return
 	}
 	version, err := run.Collector(s.Exec).Output(ctx, run.Command{Name: path, Args: []string{"--version"}})
 	if err != nil {
-		add(i18nLine(MsgRowPnpm), CheckWarn, i18nLine(MsgPnpmNotRunnable, path))
+		add("pnpm", CheckWarn, fmt.Sprintf("%s exists but cannot be executed", path))
 		return
 	}
 	add("pnpm", CheckOK, strings.TrimSpace(path+" "+version))
@@ -155,43 +155,43 @@ func (s *Service) doctorPnpm(ctx context.Context, add func(string, string, strin
 func (s *Service) doctorService(ctx context.Context, add func(string, string, string)) {
 	observed, err := s.observe(ctx)
 	if err != nil {
-		add(i18nLine(MsgRowPort), CheckFail, err.Error())
-		add(i18nLine(MsgRowRecord), CheckWarn, i18nLine(MsgStatusUnobservableDoctor))
+		add("port", CheckFail, err.Error())
+		add("runtime record", CheckWarn, "the service state cannot be observed; see the row above")
 		return
 	}
 	status := observed.status
 
 	switch status.State {
 	case domain.StateRunning:
-		add(i18nLine(MsgRowPort), CheckOK, i18nLine(MsgPortOwnedRunning, s.Settings.Port, status.ListenerPID))
+		add("port", CheckOK, fmt.Sprintf("%d is held by a service dshctl started (pid=%d)", s.Settings.Port, status.ListenerPID))
 	case domain.StateStarting:
-		add(i18nLine(MsgRowPort), CheckWarn, i18nLine(MsgPortOwnedStarting, s.Settings.Port, status.ListenerPID))
+		add("port", CheckWarn, fmt.Sprintf("%d is held by a service dshctl started (pid=%d), but the port is not ready yet", s.Settings.Port, status.ListenerPID))
 	case domain.StateForeign:
-		add(i18nLine(MsgRowPort), CheckWarn,
-			i18nLine(MsgPortForeignDoctor, s.Settings.Port, status.ListenerPID, status.ListenerCommand))
+		add("port", CheckWarn,
+			fmt.Sprintf("%d is held by another process (pid=%d: %s)", s.Settings.Port, status.ListenerPID, status.ListenerCommand))
 	case domain.StateOrphan:
 		if status.Survivor {
-			add(i18nLine(MsgRowPort), CheckWarn,
-				i18nLine(MsgPortSurvivorDoctor, s.Settings.Port, status.ListenerPID))
+			add("port", CheckWarn,
+				fmt.Sprintf("%d is served by a survivor of an interrupted start (pid=%d); dshctl start or dshctl stop manages it again", s.Settings.Port, status.ListenerPID))
 		} else {
-			add(i18nLine(MsgRowPort), CheckWarn,
-				i18nLine(MsgPortUnclaimedDoctor, s.Settings.Port, status.ListenerPID, status.ListenerCommand))
+			add("port", CheckWarn,
+				fmt.Sprintf("%d is held by a process dshctl cannot claim (pid=%d: %s)", s.Settings.Port, status.ListenerPID, status.ListenerCommand))
 		}
 	default:
-		add(i18nLine(MsgRowPort), CheckOK, i18nLine(MsgPortFree, s.Settings.Port))
+		add("port", CheckOK, fmt.Sprintf("%d is free", s.Settings.Port))
 	}
 
 	switch {
 	case status.RecordStale && status.StaleRecord == nil:
-		add(i18nLine(MsgRowRecord), CheckWarn, i18nLine(MsgRecordCorrupt, s.Record.Path))
+		add("runtime record", CheckWarn, fmt.Sprintf("%s cannot be parsed; the next start or stop rebuilds it", s.Record.Path))
 	case status.RecordStale:
-		add(i18nLine(MsgRowRecord), CheckWarn, i18nLine(MsgRecordStaleDoctor, status.StaleRecord.PID))
+		add("runtime record", CheckWarn, fmt.Sprintf("the record names pid=%d, which is gone or has been reused (a stale record; the next start or stop clears it)", status.StaleRecord.PID))
 	case status.RecordLive:
-		add(i18nLine(MsgRowRecord), CheckOK, observed.record.Describe())
+		add("runtime record", CheckOK, observed.record.Describe())
 	case status.RecordedPID != 0:
-		add(i18nLine(MsgRowRecord), CheckWarn, observed.record.Describe())
+		add("runtime record", CheckWarn, observed.record.Describe())
 	default:
-		add(i18nLine(MsgRowRecord), CheckOK, i18nLine(MsgRecordMissing))
+		add("runtime record", CheckOK, "none (the service has never been started)")
 	}
 
 	// The running instance and the configuration can name different checkouts:
@@ -199,8 +199,8 @@ func (s *Service) doctorService(ctx context.Context, add func(string, string, st
 	// keeps running. Saying so is what keeps a set of failures about the
 	// configured directory from looking like a broken service.
 	if running := status.RecordedRepoDir; running != "" && running != s.Settings.RepoDir {
-		add(i18nLine(MsgRowServiceRepo), CheckWarn,
-			i18nLine(MsgServiceOtherRepo, status.ListenerPID, running, s.Settings.RepoDir, running))
+		add("service checkout", CheckWarn,
+			fmt.Sprintf("the running service (pid=%d) comes from %s while the configuration says %s; stop it with its port and start again with --repo %s to switch", status.ListenerPID, running, s.Settings.RepoDir, running))
 	}
 }
 
@@ -209,13 +209,13 @@ func (s *Service) doctorLock(add func(string, string, string)) {
 	holder, held, err := lock.Held(s.Settings.LockFile())
 	switch {
 	case err != nil:
-		add(i18nLine(MsgRowLock), CheckWarn, err.Error())
+		add("operation lock", CheckWarn, err.Error())
 	case !held:
-		add(i18nLine(MsgRowLock), CheckOK, i18nLine(MsgLockFree))
+		add("operation lock", CheckOK, "free")
 	case holder != 0:
-		add(i18nLine(MsgRowLock), CheckWarn, i18nLine(MsgLockHeldBy, holder))
+		add("operation lock", CheckWarn, fmt.Sprintf("held by pid=%d; another dshctl operation is running", holder))
 	default:
-		add(i18nLine(MsgRowLock), CheckWarn, i18nLine(MsgLockUnreadable))
+		add("operation lock", CheckWarn, "held, but the lock file carries no readable pid")
 	}
 }
 

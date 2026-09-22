@@ -40,7 +40,7 @@ func TestAnUnreadableConfigFileIsReportedAsAFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("an unreadable config file must be reported")
 	}
-	if !strings.Contains(err.Error(), "无法读取配置文件") {
+	if !strings.Contains(err.Error(), "could not be read") {
 		t.Fatalf("error = %q, want it to identify the read failure", err)
 	}
 	// readFile's own comment: a file that cannot be read at all is "reported as

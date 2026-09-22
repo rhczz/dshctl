@@ -124,5 +124,5 @@ func jsonExitCode(err error) int {
 
 // jsonFlag registers the flag every mutating command accepts.
 func jsonFlag(flags *flag.FlagSet) *bool {
-	return flags.Bool("json", false, i18nLine(MsgFlagJSONDocument))
+	return flags.Bool("json", false, "print the whole run as one JSON document")
 }

@@ -343,7 +343,7 @@ func TestStopReportsEveryPortItEnded(t *testing.T) {
 			t.Fatalf("the stop report never names port %d:\n%s", port, f.out.String())
 		}
 	}
-	if got := strings.Count(f.out.String(), "已停止"); got != 2 {
+	if got := strings.Count(f.out.String(), "stopped"); got != 2 {
 		t.Fatalf("the stop report announces %d stops, want 2:\n%s", got, f.out.String())
 	}
 }

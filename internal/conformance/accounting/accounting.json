@@ -2862,69 +2862,6 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
-    "test": "internal/i18n/i18n_test.go::TestResolveReadsTheLanguageFromTheEnvironment",
-    "file": "internal/i18n/i18n_test.go",
-    "package": "internal/i18n",
-    "behavior": "",
-    "disposition": "new-test",
-    "evidence": "语言解析顺序与英文回退",
-    "note": ""
-  },
-  {
-    "test": "internal/i18n/i18n_test.go::TestMessageRendersInEveryLanguage",
-    "file": "internal/i18n/i18n_test.go",
-    "package": "internal/i18n",
-    "behavior": "",
-    "disposition": "new-test",
-    "evidence": "两种语言都能渲染",
-    "note": ""
-  },
-  {
-    "test": "internal/i18n/i18n_test.go::TestMessageFallsBackToEnglish",
-    "file": "internal/i18n/i18n_test.go",
-    "package": "internal/i18n",
-    "behavior": "",
-    "disposition": "new-test",
-    "evidence": "缺译文回退英文",
-    "note": ""
-  },
-  {
-    "test": "internal/i18n/i18n_test.go::TestUnknownIDRendersAsItself",
-    "file": "internal/i18n/i18n_test.go",
-    "package": "internal/i18n",
-    "behavior": "",
-    "disposition": "new-test",
-    "evidence": "未知消息 id 渲染为 id 本身",
-    "note": ""
-  },
-  {
-    "test": "internal/i18n/i18n_test.go::TestTranslatorUsesTheRequestedLanguage",
-    "file": "internal/i18n/i18n_test.go",
-    "package": "internal/i18n",
-    "behavior": "",
-    "disposition": "new-test",
-    "evidence": "翻译器按请求语言渲染",
-    "note": ""
-  },
-  {
-    "test": "internal/i18n/i18n_test.go::TestMergeRefusesADuplicateID",
-    "file": "internal/i18n/i18n_test.go",
-    "package": "internal/i18n",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "重写后仍在树中，钉住同一行为"
-  },
-  {
-    "test": "internal/i18n/i18n_test.go::TestAuditFindsAnIncompleteMessage",
-    "file": "internal/i18n/i18n_test.go",
-    "package": "internal/i18n",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "重写后仍在树中，钉住同一行为"
-  },
-  {
     "test": "internal/lock/lock_edges_test.go::TestAcquireReportsAnErrorWhenTheParentIsARegularFile",
     "file": "internal/lock/lock_edges_test.go",
     "package": "internal/lock",
@@ -5994,33 +5931,6 @@
     "note": "随包从 internal/service 迁移到 internal/service，行为未变"
   },
   {
-    "test": "internal/service/messages_test.go::TestMessagesAreComplete",
-    "file": "internal/service/messages_test.go",
-    "package": "internal/service",
-    "behavior": "",
-    "disposition": "new-test",
-    "evidence": "本层消息目录两种语言都非空",
-    "note": "重写后仍在树中，钉住同一行为"
-  },
-  {
-    "test": "internal/service/messages_test.go::TestMessagesMergeWithAnotherLayer",
-    "file": "internal/service/messages_test.go",
-    "package": "internal/service",
-    "behavior": "",
-    "disposition": "new-test",
-    "evidence": "本层目录可与前端目录合并",
-    "note": "重写后仍在树中，钉住同一行为"
-  },
-  {
-    "test": "internal/service/messages_test.go::TestNoOrphanMessages",
-    "file": "internal/service/messages_test.go",
-    "package": "internal/service",
-    "behavior": "",
-    "disposition": "new-test",
-    "evidence": "目录里没有无人渲染的消息",
-    "note": "重写后仍在树中，钉住同一行为"
-  },
-  {
     "test": "internal/service/multi_test.go::TestMovingTheFixturePortMovesItsRecordStore",
     "file": "internal/service/multi_test.go",
     "package": "internal/service",
@@ -7407,6 +7317,33 @@
     "note": ""
   },
   {
+    "test": "internal/service/messages_test.go::TestMessagesAreComplete",
+    "file": "internal/service/messages_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "本层消息目录两种语言都非空",
+    "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/service/messages_test.go::TestMessagesMergeWithAnotherLayer",
+    "file": "internal/service/messages_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "本层目录可与前端目录合并",
+    "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/service/messages_test.go::TestNoOrphanMessages",
+    "file": "internal/service/messages_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "目录里没有无人渲染的消息",
+    "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
     "test": "internal/cli/render_test.go::TestDescribeFacts",
     "file": "internal/cli/render_test.go",
     "package": "internal/cli",
@@ -7432,24 +7369,6 @@
     "disposition": "merged",
     "evidence": "internal/domain/record_test.go::TestDescribe",
     "note": "模型渲染的测试随 Record 搬到 domain"
-  },
-  {
-    "test": "internal/i18n/i18n_test.go::TestCatalogIsComplete",
-    "file": "internal/i18n/i18n_test.go",
-    "package": "internal/i18n",
-    "behavior": "",
-    "disposition": "new-test",
-    "evidence": "目录内每条消息两种语言都非空",
-    "note": ""
-  },
-  {
-    "test": "internal/i18n/i18n_test.go::TestNoOrphanMessages",
-    "file": "internal/i18n/i18n_test.go",
-    "package": "internal/i18n",
-    "behavior": "",
-    "disposition": "merged",
-    "evidence": "internal/service/messages_test.go::TestNoOrphanMessages",
-    "note": "目录归各层后，孤儿检查随目录搬到 internal/service"
   },
   {
     "test": "internal/output/output_test.go::TestResultWritesTheOperatorsResult",

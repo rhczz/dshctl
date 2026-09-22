@@ -98,7 +98,7 @@ func (r Repo) BuildReady() bool {
 func (r Repo) Head(ctx context.Context) (string, string, error) {
 	sha, err := r.output().Output(ctx, run.Command{Name: "git", Args: []string{"-C", r.Dir, "rev-parse", "--short", "HEAD"}})
 	if err != nil {
-		return "", "", fmt.Errorf("%s: %w", i18nLine(MsgHeadFailed), err)
+		return "", "", fmt.Errorf("the checkout revision could not be read: %w", err)
 	}
 	branch, err := r.output().Output(ctx, run.Command{Name: "git", Args: []string{"-C", r.Dir, "rev-parse", "--abbrev-ref", "HEAD"}})
 	if err != nil {
@@ -111,7 +111,7 @@ func (r Repo) Head(ctx context.Context) (string, string, error) {
 func (r Repo) Dirty(ctx context.Context) (bool, error) {
 	out, err := r.output().Output(ctx, run.Command{Name: "git", Args: []string{"-C", r.Dir, "status", "--porcelain"}})
 	if err != nil {
-		return false, fmt.Errorf("%s: %w", i18nLine(MsgStatusFailed), err)
+		return false, fmt.Errorf("the checkout's state could not be read: %w", err)
 	}
 	return len(out) > 0, nil
 }

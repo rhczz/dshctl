@@ -16,10 +16,10 @@ import (
 
 // PrintTimeline writes the human-readable report.
 func printTimeline(w io.Writer, report service.TimelineReport) error {
-	if _, err := fmt.Fprintf(w, i18nLine(MsgTimelineCheckout), report.RepoDir); err != nil {
+	if _, err := fmt.Fprintf(w, "checkout: %s\n", report.RepoDir); err != nil {
 		return err
 	}
-	if _, err := fmt.Fprintf(w, i18nLine(MsgTimelineCurrent), report.Current.Short, currentName(report.Current)); err != nil {
+	if _, err := fmt.Fprintf(w, "current: %s (%s)\n", report.Current.Short, currentName(report.Current)); err != nil {
 		return err
 	}
 	if report.Fetched {
@@ -27,24 +27,24 @@ func printTimeline(w io.Writer, report service.TimelineReport) error {
 		if report.Remote.Tag != "" {
 			remote += ", tag " + report.Remote.Tag
 		}
-		if _, err := fmt.Fprintf(w, i18nLine(MsgTimelineRemote), remote); err != nil {
+		if _, err := fmt.Fprintf(w, "remote: %s)\n", remote); err != nil {
 			return err
 		}
 	} else {
-		if _, err := fmt.Fprintf(w, i18nLine(MsgTimelineRemoteFailed), report.FetchError); err != nil {
+		if _, err := fmt.Fprintf(w, "remote: unavailable (%s)\n", report.FetchError); err != nil {
 			return err
 		}
 	}
-	if _, err := fmt.Fprintf(w, i18nLine(MsgTimelineGap), timelineGap(report)); err != nil {
+	if _, err := fmt.Fprintf(w, "gap: %s\n", timelineGap(report)); err != nil {
 		return err
 	}
 	switch {
 	case report.Dirty:
-		if _, err := fmt.Fprintln(w, i18nLine(MsgTimelineDirty)); err != nil {
+		if _, err := fmt.Fprintln(w, "worktree: uncommitted changes (update/rollback refuses; handle them first)"); err != nil {
 			return err
 		}
 	case report.DirtyError != "":
-		if _, err := fmt.Fprintf(w, i18nLine(MsgTimelineDirtyUnknown), report.DirtyError); err != nil {
+		if _, err := fmt.Fprintf(w, "worktree: cannot be checked (%s)\n", report.DirtyError); err != nil {
 			return err
 		}
 	}
@@ -54,7 +54,7 @@ func printTimeline(w io.Writer, report service.TimelineReport) error {
 		}
 		for _, commit := range report.Commits {
 			if commit.Skipped > 0 {
-				if _, err := fmt.Fprintf(w, i18nLine(MsgTimelineElided), commit.Skipped); err != nil {
+				if _, err := fmt.Fprintf(w, "  … %d commits elided …\n", commit.Skipped); err != nil {
 					return err
 				}
 			}
@@ -64,7 +64,7 @@ func printTimeline(w io.Writer, report service.TimelineReport) error {
 		}
 	}
 	if len(report.History) > 0 {
-		if _, err := fmt.Fprintln(w, i18nLine(MsgTimelineHistoryHeader)); err != nil {
+		if _, err := fmt.Fprintln(w, "\ndeployment history:"); err != nil {
 			return err
 		}
 		for _, record := range report.History {
@@ -73,8 +73,7 @@ func printTimeline(w io.Writer, report service.TimelineReport) error {
 			}
 		}
 		if report.HistoryTotal > len(report.History) {
-			if _, err := fmt.Fprintf(w, i18nLine(MsgTimelineHistoryMore),
-				report.HistoryTotal-len(report.History)); err != nil {
+			if _, err := fmt.Fprintf(w, "  … %d more (see --json)\n", report.HistoryTotal-len(report.History)); err != nil {
 				return err
 			}
 		}
@@ -90,7 +89,7 @@ func currentName(current service.TimelineCurrent) string {
 	case current.Branch != "":
 		return current.Branch
 	default:
-		return i18nLine(MsgTimelineDetached)
+		return "detached"
 	}
 }
 
@@ -99,13 +98,13 @@ func currentName(current service.TimelineCurrent) string {
 // A failed fetch must never produce the up-to-date message: the gap may be zero
 // only against the last known remote state, and the line says so.
 func timelineGap(report service.TimelineReport) string {
-	unconfirmed := i18nLine(MsgTimelineUnconfirmed)
+	unconfirmed := "(against the last known remote state; not confirmed)"
 	switch {
 	case report.Behind == 0 && report.Ahead == 0:
 		if report.Fetched {
-			return i18nLine(MsgTimelineUpToDate, report.Remote.Name)
+			return fmt.Sprintf("up to date (%s)", report.Remote.Name)
 		}
-		return i18nLine(MsgTimelineSameAsLocal, report.Remote.Name) + unconfirmed
+		return fmt.Sprintf("the same as the last known %s", report.Remote.Name) + unconfirmed
 	case report.Behind > 0 && report.Ahead == 0:
 		tagged := 0
 		for _, commit := range report.Commits {
@@ -113,18 +112,18 @@ func timelineGap(report service.TimelineReport) string {
 				tagged++
 			}
 		}
-		line := i18nLine(MsgTimelineBehind, report.Behind)
+		line := fmt.Sprintf("%d commits behind", report.Behind)
 		if tagged == 0 {
-			line += i18nLine(MsgTimelineBehindNoTags)
+			line += " (no new tags in the gap)"
 		} else {
-			line += i18nLine(MsgTimelineBehindTags, tagged)
+			line += fmt.Sprintf(" (%d tags in the gap)", tagged)
 		}
 		return line + unconfirmedIf(report, unconfirmed)
 	case report.Behind == 0:
-		return i18nLine(MsgTimelineAhead, report.Ahead) +
+		return fmt.Sprintf("%d local commits ahead (not pushed; update cannot fast-forward)", report.Ahead) +
 			unconfirmedIf(report, unconfirmed)
 	default:
-		return i18nLine(MsgTimelineDiverged, report.Remote.Name, report.Behind, report.Ahead) + unconfirmedIf(report, unconfirmed)
+		return fmt.Sprintf("diverged from %s: %d behind, %d ahead (update cannot fast-forward)", report.Remote.Name, report.Behind, report.Ahead) + unconfirmedIf(report, unconfirmed)
 	}
 }
 
@@ -152,9 +151,9 @@ func timelineCommitLine(commit service.TimelineCommit) string {
 	line += commit.Subject
 	switch {
 	case commit.Current:
-		line += i18nLine(MsgTimelineMarkCurrent)
+		line += "   ← current"
 	case commit.Remote:
-		line += i18nLine(MsgTimelineMarkRemote)
+		line += "   ← remote tip"
 	}
 	return line
 }
@@ -169,6 +168,5 @@ func timelineHistoryLine(record history.Record, current string) string {
 	if selector == "" {
 		selector = "-"
 	}
-	return fmt.Sprintf(i18nLine(MsgTimelineHistoryLine), marker, domain.ShortCommit(record.Commit), selector,
-		time.Unix(record.At, 0).Format("2006-01-02 15:04"))
+	return fmt.Sprintf("%s%s  %-16s  %s", marker, domain.ShortCommit(record.Commit), selector, time.Unix(record.At, 0).Format("2006-01-02 15:04"))
 }

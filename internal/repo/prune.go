@@ -59,7 +59,7 @@ func (r Repo) PruneCandidates(ctx context.Context) ([]Candidate, error) {
 	// detectable at all.
 	root, err := resolveExistingPrefix(r.Dir)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", i18nLine(MsgResolvePathFailed, r.Dir), err)
+		return nil, fmt.Errorf("the checkout path %s could not be resolved: %w", r.Dir, err)
 	}
 	rootFS := os.DirFS(root)
 
@@ -73,7 +73,7 @@ func (r Repo) PruneCandidates(ctx context.Context) ([]Candidate, error) {
 		pattern := area.Name + strings.Repeat("/*", area.Depth)
 		matches, err := fs.Glob(rootFS, pattern)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", i18nLine(MsgGlobFailed, pattern), err)
+			return nil, fmt.Errorf("%s could not be expanded: %w", pattern, err)
 		}
 		for _, relative := range matches {
 			candidate, ok := r.classify(root, rootFS, relative, tracked)
@@ -106,7 +106,7 @@ func (r Repo) trackedDirectories(ctx context.Context) (map[string]struct{}, erro
 	}
 	output, err := r.output().Output(ctx, run.Command{Name: "git", Args: args})
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", i18nLine(MsgLsFilesFailed), err)
+		return nil, fmt.Errorf("git ls-files failed: %w", err)
 	}
 	directories := make(map[string]struct{})
 	for _, file := range strings.Split(output, "\x00") {
@@ -248,12 +248,12 @@ func (r Repo) Prune(ctx context.Context, report func(string)) (PruneReport, erro
 	var result PruneReport
 	for _, candidate := range candidates {
 		if report != nil {
-			report(i18nLine(MsgPruneRemoving, candidate.Path, strings.Join(candidate.Entries, ", ")))
+			report(fmt.Sprintf("removing residue: %s (only %s)", candidate.Path, strings.Join(candidate.Entries, ", ")))
 		}
 		if err := os.RemoveAll(candidate.Path); err != nil {
 			result.Failed = append(result.Failed, candidate.Path)
 			if report != nil {
-				report(i18nLine(MsgPruneFailed, candidate.Path))
+				report(fmt.Sprintf("warning: %s could not be removed; the build continues, run pnpm run clean by hand later", candidate.Path))
 			}
 			continue
 		}

@@ -107,7 +107,7 @@ type mibTCP6Table struct {
 func (h *Host) Listening(_ context.Context, port int) (PortResult, error) {
 	rows, err := listenTable()
 	if err != nil {
-		return PortResult{}, fmt.Errorf("%s: %w", i18nLine(MsgPortIndeterminate, port), err)
+		return PortResult{}, fmt.Errorf("the state of port %d cannot be decided: %w", port, err)
 	}
 	for _, row := range rows {
 		if portOf(row.localPort) == port {
@@ -150,7 +150,7 @@ func listenTableForFamily(family uint32) ([]tcpRow, error) {
 		0, // reserved
 	)
 	if status != errorInsufficientBuffer && status != 0 {
-		return nil, fmt.Errorf("%s", i18nLine(MsgTcpTableFailed, status))
+		return nil, fmt.Errorf("GetExtendedTcpTable failed: %d", status)
 	}
 	if size == 0 {
 		return nil, nil
@@ -165,7 +165,7 @@ func listenTableForFamily(family uint32) ([]tcpRow, error) {
 		0,
 	)
 	if status != 0 {
-		return nil, fmt.Errorf("%s", i18nLine(MsgTcpTableFailed, status))
+		return nil, fmt.Errorf("GetExtendedTcpTable failed: %d", status)
 	}
 	rows := make([]tcpRow, 0, 8)
 	if family == addressFamilyINET6 {
@@ -210,7 +210,7 @@ func (h *Host) Inspect(_ context.Context, pid int) Facts {
 	handle, err := openProcess(pid)
 	if err != nil {
 		facts.Alive = processAccessDenied(err)
-		facts.Source = i18nLine(MsgOpenProcessDenied)
+		facts.Source = "OpenProcess(access denied)"
 		return facts
 	}
 	defer procCloseHandle.Call(handle)
@@ -278,15 +278,15 @@ func processAccessDenied(err error) bool {
 // dshctl only ever calls this on a process whose identity it verified.
 func (h *Host) Signal(pid int, _ Request) error {
 	if pid <= 0 {
-		return fmt.Errorf("%s", i18nLine(MsgRefuseSignal, pid))
+		return fmt.Errorf("refusing to signal pid %d", pid)
 	}
 	handle, err := openProcessAccess(pid, processTerminate)
 	if err != nil {
-		return fmt.Errorf("%s: %w", i18nLine(MsgPIDNotFound, pid), err)
+		return fmt.Errorf("pid %d was not found: %w", pid, err)
 	}
 	defer procCloseHandle.Call(handle)
 	if err := syscall.TerminateProcess(syscall.Handle(handle), 1); err != nil {
-		return fmt.Errorf("%s: %w", i18nLine(MsgSignalFailed, pid, "kill"), err)
+		return fmt.Errorf("pid %d could not be sent %v: %w", pid, "kill", err)
 	}
 	return nil
 }
@@ -307,7 +307,7 @@ func openProcessAccess(pid int, access uint32) (uintptr, error) {
 	)
 	if handle == 0 {
 		if callErr == nil {
-			callErr = errors.New(i18nLine(MsgOpenProcessEmpty))
+			callErr = errors.New("OpenProcess returned an empty handle")
 		}
 		return 0, callErr
 	}

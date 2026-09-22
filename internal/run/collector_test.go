@@ -122,7 +122,7 @@ func TestIsExitClassifiesOnlyRealExitStatuses(t *testing.T) {
 	if !IsExit(&ExitError{Command: "git", Code: 2}, 2) {
 		t.Fatal("a matching exit status was not recognized")
 	}
-	wrapped := fmt.Errorf("git ls-files 失败: %w", &ExitError{Command: "git", Code: 3})
+	wrapped := fmt.Errorf("git ls-files failed: %w", &ExitError{Command: "git", Code: 3})
 	if !IsExit(wrapped, 3) {
 		t.Fatal("a wrapped exit status was not recognized")
 	}

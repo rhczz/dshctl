@@ -57,24 +57,24 @@ func TestGateMatrixIsComplete(t *testing.T) {
 func assertRows(t *testing.T, prefix string, frozen []string, cases map[string]func(*testing.T)) {
 	t.Helper()
 	if len(frozen) != len(cases) {
-		t.Fatalf("%s 行数 = %d(冻结列表)%d(用例), want the same", prefix, len(frozen), len(cases))
+		t.Fatalf("%s rows = %d (frozen list) %d (cases), want the same", prefix, len(frozen), len(cases))
 	}
 	seen := map[string]bool{}
 	for _, id := range frozen {
 		if seen[id] {
-			t.Fatalf("冻结列表里 %s 重复出现", id)
+			t.Fatalf("frozen list repeats %s", id)
 		}
 		seen[id] = true
 		fn, ok := cases[id]
 		if !ok {
-			t.Errorf("决策表第 %s 行没有对应用例", id)
+			t.Errorf("decision table row %s has no case", id)
 			continue
 		}
 		if fn == nil {
-			t.Errorf("决策表第 %s 行的用例是空的", id)
+			t.Errorf("decision table row %s has an empty case", id)
 		}
 		if !strings.HasPrefix(id, prefix) {
-			t.Errorf("冻结列表里的 %q 前缀不是 %q", id, prefix)
+			t.Errorf("the frozen list's %q prefix is not %q", id, prefix)
 		}
 	}
 	extra := make([]string, 0, len(cases))
@@ -85,6 +85,6 @@ func assertRows(t *testing.T, prefix string, frozen []string, cases map[string]f
 	}
 	if len(extra) > 0 {
 		sort.Strings(extra)
-		t.Errorf("用例 %v 没有登记在冻结的决策表里", extra)
+		t.Errorf("case %v is not registered in the frozen decision table", extra)
 	}
 }

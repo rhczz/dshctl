@@ -44,21 +44,21 @@ func TestTimelineRendersTheExactFormat(t *testing.T) {
 	if err := printTimeline(&out, report); err != nil {
 		t.Fatalf("printTimeline: %v", err)
 	}
-	want := "仓库: /checkouts/harness\n" +
-		"当前: " + fakeSHA(1000)[:7] + " (detached)\n" +
-		"远程: " + fakeSHA(2000)[:7] + " (origin/master)\n" +
-		"差距: 落后 2 个提交（中间有 1 个 tag）\n" +
-		"工作区: 有未提交修改（update/rollback 会拒绝，请先处理）\n" +
+	want := "checkout: /checkouts/harness\n" +
+		"current: " + fakeSHA(1000)[:7] + " (detached)\n" +
+		"remote: " + fakeSHA(2000)[:7] + " (origin/master)\n" +
+		"gap: 2 commits behind (1 tags in the gap)\n" +
+		"worktree: uncommitted changes (update/rollback refuses; handle them first)\n" +
 		"\n" +
-		"○ " + fakeSHA(2000)[:7] + "  the newest   ← 远程最新\n" +
-		"  … 省略 1 个提交 …\n" +
+		"○ " + fakeSHA(2000)[:7] + "  the newest   ← remote tip\n" +
+		"  … 1 commits elided …\n" +
 		"  " + fakeSHA(1999)[:7] + "  dsh-v0.1.1  a middle commit\n" +
-		"● " + fakeSHA(1000)[:7] + "  where we are   ← 当前\n" +
+		"● " + fakeSHA(1000)[:7] + "  where we are   ← current\n" +
 		"\n" +
-		"更新历史:\n" +
+		"deployment history:\n" +
 		"● " + fakeSHA(1000)[:7] + "  -n 1              " + stamp + "\n" +
 		"  " + fakeSHA(999)[:7] + "  -                 " + older + "\n" +
-		"  … 还有 1 条（--json 查看）\n"
+		"  … 1 more (see --json)\n"
 	if out.String() != want {
 		t.Fatalf("output:\n%q\nwant:\n%q", out.String(), want)
 	}

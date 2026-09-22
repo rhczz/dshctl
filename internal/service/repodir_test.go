@@ -47,7 +47,7 @@ func TestASuccessfulStartMakesTheNextCommandUseTheSameCheckout(t *testing.T) {
 	f.startSucceeds(t)
 
 	f.wantRecordedCheckout(t, f.repo)
-	if out := f.out.String(); !strings.Contains(out, "已将仓库目录 "+f.repo+" 写入配置") {
+	if out := f.out.String(); !strings.Contains(out, "the checkout "+f.repo+" was written into the settings document") {
 		t.Fatalf("start did not report the recorded checkout:\n%s", out)
 	}
 
@@ -120,8 +120,8 @@ func TestADecidedCheckoutIsNeverRewrittenAndTheMismatchIsSaidOutLoud(t *testing.
 	f.startSucceeds(t)
 
 	f.wantRecordedCheckout(t, decided)
-	if out := f.out.String(); !strings.Contains(out, "本次使用仓库 "+f.repo) ||
-		!strings.Contains(out, "配置中为 "+decided) {
+	if out := f.out.String(); !strings.Contains(out, "using the checkout "+f.repo) ||
+		!strings.Contains(out, "(configured as "+decided) {
 		t.Fatalf("start did not report which checkout it used:\n%s", out)
 	}
 	if next := f.run(t, config.Overrides{}); next.RepoDir != decided {
@@ -193,7 +193,7 @@ func TestAnAlreadyRunningServiceTeachesTheDocumentItsCheckout(t *testing.T) {
 		t.Fatalf("the second start launched a process: %v", f.host.spawnCalls())
 	}
 	f.wantRecordedCheckout(t, f.repo)
-	if out := f.out.String(); !strings.Contains(out, "已将仓库目录 "+f.repo+" 写入配置") {
+	if out := f.out.String(); !strings.Contains(out, "the checkout "+f.repo+" was written into the settings document") {
 		t.Fatalf("start did not report the recorded checkout:\n%s", out)
 	}
 }
@@ -288,7 +288,7 @@ func TestAnAlreadyRunningServiceKeepsADecidedCheckoutAndWarns(t *testing.T) {
 		t.Fatalf("a second server was launched: %v", f.host.spawnCalls())
 	}
 	f.wantRecordedCheckout(t, decided)
-	if errOut := f.errOut.String(); !strings.Contains(errOut, "运行中的服务") ||
+	if errOut := f.errOut.String(); !strings.Contains(errOut, "the running service (pid=") ||
 		!strings.Contains(errOut, f.repo) {
 		t.Fatalf("the mismatch was not reported:\n%s", errOut)
 	}
@@ -461,7 +461,7 @@ func TestDoctorNamesAServiceRunningFromAnotherCheckout(t *testing.T) {
 	wantNoFailingCheckoutRow(t, checks)
 	var found *Check
 	for index := range checks {
-		if checks[index].Name == "服务仓库" {
+		if checks[index].Name == "service checkout" {
 			found = &checks[index]
 		}
 	}
@@ -545,7 +545,7 @@ func TestASiblingOnTheSameCheckoutStillBlocksABuild(t *testing.T) {
 
 			err := f.RunBuild(context.Background())
 			wantCode(t, err, exitcode.Preflight)
-			wantContains(t, err, "正被 dshctl 管理的服务使用")
+			wantContains(t, err, "is in use by services dshctl manages (ports")
 		})
 	}
 }

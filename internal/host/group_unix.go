@@ -46,10 +46,10 @@ func (h *Host) GroupExists(pid int) bool {
 // unrelated tree.
 func (h *Host) KillGroup(pid int) error {
 	if pid <= 0 {
-		return fmt.Errorf("%s", i18nLine(MsgRefuseSignalGroup, pid))
+		return fmt.Errorf("refusing to signal the process group of pid %d", pid)
 	}
 	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
-		return fmt.Errorf("%s: %w", i18nLine(MsgGroupEndFailed, pid), err)
+		return fmt.Errorf("the process group %d could not be ended: %w", pid, err)
 	}
 	return nil
 }
@@ -57,7 +57,7 @@ func (h *Host) KillGroup(pid int) error {
 // SignalGroup asks every process in a group to exit.
 func (h *Host) SignalGroup(pid int, request Request) error {
 	if pid <= 0 {
-		return fmt.Errorf("%s", i18nLine(MsgRefuseSignalGroup, pid))
+		return fmt.Errorf("refusing to signal the process group of pid %d", pid)
 	}
 	signal := syscall.SIGTERM
 	if request == Force {
@@ -65,7 +65,7 @@ func (h *Host) SignalGroup(pid int, request Request) error {
 	}
 	err := syscall.Kill(-pid, signal)
 	if err != nil && !errors.Is(err, syscall.ESRCH) {
-		return fmt.Errorf("%s: %w", i18nLine(MsgGroupSignalFailed, pid, signal), err)
+		return fmt.Errorf("the process group %d could not be sent %v: %w", pid, signal, err)
 	}
 	return nil
 }

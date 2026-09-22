@@ -168,7 +168,7 @@ func TestGoldensAreComplete(t *testing.T) {
 // TestNormalizeLeavesRealContentAlone is the guard on the normalizer: it may
 // replace what changes between runs and nothing else.
 func TestNormalizeLeavesRealContentAlone(t *testing.T) {
-	text := "错误: 缺少 pnpm，请先安装\n检查通过\n"
+	text := "error: pnpm was not found; install it and make sure it is on PATH\ncheck passed\n"
 	if got := normalize("/tmp/whatever", text); got != text {
 		t.Fatalf("normalizer changed real content:\n%s", got)
 	}
@@ -180,8 +180,8 @@ func TestNormalizeLeavesRealContentAlone(t *testing.T) {
 	if got != `{"pid":<PID>,"version":"<V>"}` {
 		t.Fatalf("volatile fields survive normalization: %s", got)
 	}
-	step := normalize("/tmp/whatever", "步骤 解析目标: 耗时 12ms")
-	if step != "步骤 解析目标: 耗时 <DUR>" {
+	step := normalize("/tmp/whatever", "step resolve target: took 12ms")
+	if step != "step resolve target: took <DUR>" {
 		t.Fatalf("a step duration survives normalization: %s", step)
 	}
 }

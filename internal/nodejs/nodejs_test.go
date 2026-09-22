@@ -132,7 +132,7 @@ func (m *machine) Output(_ context.Context, cmd run.Command) (string, error) {
 	m.probed = append(m.probed, key)
 	answer, ok := m.answers[key]
 	if !ok {
-		return "", fmt.Errorf("意外的探针: %s %s", cmd.Name, key)
+		return "", fmt.Errorf("unexpected probe: %s %s", cmd.Name, key)
 	}
 	return answer.stdout, answer.err
 }
@@ -145,11 +145,11 @@ func (m *machine) wantProbes(t *testing.T, want ...string) {
 	t.Helper()
 	got := m.probedKeys()
 	if len(got) != len(want) {
-		t.Fatalf("探针 = %v, want %v", got, want)
+		t.Fatalf("probe = %v, want %v", got, want)
 	}
 	for index := range want {
 		if got[index] != want[index] {
-			t.Fatalf("探针 = %v, want %v", got, want)
+			t.Fatalf("probe = %v, want %v", got, want)
 		}
 	}
 }

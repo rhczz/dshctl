@@ -47,7 +47,7 @@ func TestStartWithoutAFingerprintStillWorksAndSaysSo(t *testing.T) {
 	if record.StartedAt != 0 {
 		t.Fatalf("StartedAt = %d, want 0 with no readable start time", record.StartedAt)
 	}
-	if !strings.Contains(f.errOut.String(), "无法读取") {
+	if !strings.Contains(f.errOut.String(), "could not be read") {
 		t.Fatalf("stderr = %q, want the degradation reported", f.errOut.String())
 	}
 

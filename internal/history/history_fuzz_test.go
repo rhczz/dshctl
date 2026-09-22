@@ -177,7 +177,7 @@ func FuzzSaveLoadRoundTrips(f *testing.F) {
 			// Save may refuse a document its reader would reject — too large,
 			// or carrying a position without a commit or a time. Any other
 			// error is a bug.
-			if !strings.Contains(err.Error(), "过大") && !strings.Contains(err.Error(), "拒绝写入") {
+			if !strings.Contains(err.Error(), "is too large (") && !strings.Contains(err.Error(), "refusing to write an invalid deployment history") {
 				t.Fatalf("Save: %v", err)
 			}
 			return

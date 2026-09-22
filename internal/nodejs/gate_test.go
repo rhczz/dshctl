@@ -185,7 +185,7 @@ func TestRemediesNamesEveryWayToInstall(t *testing.T) {
 		"https://nodejs.org/en/download",
 		"--node",
 		"DSH_NODE_VERSION",
-		"写入配置",
+		"or name it once: --node <version> or DSH_NODE_VERSION=<version>",
 	}
 	for _, want := range wants {
 		if !strings.Contains(got, want) {
@@ -201,17 +201,17 @@ func TestDescribeExplainsARequestedRelease(t *testing.T) {
 	failure := &Failure{
 		Requested: "24.99.0",
 		Observations: []Observation{
-			{Source: SourceManagers, Detail: "最新的是 24.19.0"},
+			{Source: SourceManagers, Detail: "the newest is 24.19.0"},
 			{Source: SourcePath, Path: "/usr/bin/node", Version: "22.14.0"},
 		},
 	}
 	got := Describe(failure, gateMinimum, gateTested)
 	for _, want := range []string{
-		"找不到 Node 24.99.0",
-		"nvm/fnm 的安装目录",
+		"Node 24.99.0 was not found",
+		"was not found (looked in the nvm/fnm install roots and on PATH)",
 		"PATH",
-		"最新的是 24.19.0",
-		"/usr/bin/node 是 22.14.0",
+		"the newest is 24.19.0",
+		"/usr/bin/node is 22.14.0",
 		"nvm install 24",
 	} {
 		if !strings.Contains(got, want) {
@@ -224,8 +224,8 @@ func TestDescribeExplainsARequestedRelease(t *testing.T) {
 // for, so the failure is about the environment, and a broken binary is named
 // with the reason it could not be used.
 func TestDescribeExplainsADiscoveryFailure(t *testing.T) {
-	missing := Describe(&Failure{Observations: []Observation{{Source: SourcePath, Detail: "没有 node"}}}, gateMinimum, gateTested)
-	if !strings.Contains(missing, "找不到可用的 node") || !strings.Contains(missing, "PATH: 没有 node") {
+	missing := Describe(&Failure{Observations: []Observation{{Source: SourcePath, Detail: "no node"}}}, gateMinimum, gateTested)
+	if !strings.Contains(missing, "no usable node") || !strings.Contains(missing, "PATH: no node") {
 		t.Fatalf("Describe() =\n%s\nwant the PATH to be named as empty", missing)
 	}
 	if !strings.Contains(missing, "brew install node@24") {
@@ -233,10 +233,10 @@ func TestDescribeExplainsADiscoveryFailure(t *testing.T) {
 	}
 
 	broken := Describe(&Failure{
-		Observations: []Observation{{Source: SourcePath, Path: "/usr/bin/node", Detail: "无法执行: exit status 1"}},
+		Observations: []Observation{{Source: SourcePath, Path: "/usr/bin/node", Detail: "could not be executed: exit status 1"}},
 		Err:          errFailedProbe,
 	}, gateMinimum, gateTested)
-	for _, want := range []string{"/usr/bin/node", "无法执行", "exit status 1"} {
+	for _, want := range []string{"/usr/bin/node", "could not be executed", "exit status 1"} {
 		if !strings.Contains(broken, want) {
 			t.Errorf("Describe() =\n%s\nwant it to contain %q", broken, want)
 		}

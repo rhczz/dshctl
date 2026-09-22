@@ -64,7 +64,7 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				f.host.mu.Unlock()
 			},
 			change: func(_ *fixture, checks *[]Check) {
-				replaceCheck(*checks, "仓库版本", CheckOK, "main@abc1234 (有未提交改动)")
+				replaceCheck(*checks, "checkout revision", CheckOK, "main@abc1234 (tracked changes present)")
 			},
 		},
 		{
@@ -77,7 +77,7 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 			change: func(f *fixture, checks *[]Check) {
 				// The same slot holds either the version or the reason the
 				// repository could not be read; it is never both.
-				replaceRow(*checks, "仓库版本", Check{Name: "仓库目录", Status: CheckFail, Detail: f.repo + " 不是 git 仓库"})
+				replaceRow(*checks, "checkout revision", Check{Name: "checkout", Status: CheckFail, Detail: f.repo + " is not a git repository"})
 			},
 		},
 		{
@@ -88,8 +88,8 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				}
 			},
 			change: func(f *fixture, checks *[]Check) {
-				replaceRow(*checks, "仓库版本", Check{Name: "仓库目录", Status: CheckFail, Detail: f.repo +
-					" 缺少 package.json 或 pnpm-workspace.yaml，不像是 DeepSeek Harness checkout"})
+				replaceRow(*checks, "checkout revision", Check{Name: "checkout", Status: CheckFail, Detail: f.repo +
+					" has no package.json or pnpm-workspace.yaml; it does not look like a DeepSeek Harness checkout"})
 			},
 		},
 		{
@@ -101,8 +101,8 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 			},
 			change: func(f *fixture, checks *[]Check) {
 				dependencies := filepath.Join(f.repo, "node_modules")
-				replaceCheck(*checks, "依赖", CheckFail, dependencies+" 不存在，请先执行 pnpm install")
-				replaceCheck(*checks, "构建产物", CheckFail, "缺少 "+f.Repo.BuildRecordPath()+"，请运行 dshctl build")
+				replaceCheck(*checks, "dependencies", CheckFail, dependencies+" does not exist; run pnpm install first")
+				replaceCheck(*checks, "build artifacts", CheckFail, "missing "+f.Repo.BuildRecordPath()+"; run dshctl build")
 			},
 		},
 		{
@@ -111,8 +111,8 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				f.startServer(t, 4321, "")
 			},
 			change: func(f *fixture, checks *[]Check) {
-				replaceCheck(*checks, "端口", CheckOK, fmt.Sprint(f.Settings.Port)+" 由 dshctl 启动的服务占用 (pid=4321)")
-				replaceCheck(*checks, "运行记录", CheckOK, recordLive(f, 4321).Describe())
+				replaceCheck(*checks, "port", CheckOK, fmt.Sprint(f.Settings.Port)+" is held by a service dshctl started (pid=4321)")
+				replaceCheck(*checks, "runtime record", CheckOK, recordLive(f, 4321).Describe())
 			},
 		},
 		{
@@ -129,8 +129,8 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				}
 			},
 			change: func(f *fixture, checks *[]Check) {
-				replaceCheck(*checks, "端口", CheckWarn, fmt.Sprint(f.Settings.Port)+" 由 dshctl 的服务占用 (pid=4321)，端口尚未就绪")
-				replaceCheck(*checks, "运行记录", CheckOK, recordLive(f, 4321).Describe())
+				replaceCheck(*checks, "port", CheckWarn, fmt.Sprint(f.Settings.Port)+" is held by a service dshctl started (pid=4321), but the port is not ready yet")
+				replaceCheck(*checks, "runtime record", CheckOK, recordLive(f, 4321).Describe())
 			},
 		},
 		{
@@ -139,8 +139,8 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				f.host.serving(4242, "node /opt/other/deepseek-harness/apps/cli/lib/bin.js web --port 3080")
 			},
 			change: func(f *fixture, checks *[]Check) {
-				replaceCheck(*checks, "端口", CheckWarn, fmt.Sprint(f.Settings.Port)+
-					" 被其他进程占用 (pid=4242: node /opt/other/deepseek-harness/apps/cli/lib/bin.js web --port 3080)")
+				replaceCheck(*checks, "port", CheckWarn, fmt.Sprint(f.Settings.Port)+
+					" is held by another process (pid=4242: node /opt/other/deepseek-harness/apps/cli/lib/bin.js web --port 3080)")
 			},
 		},
 		{
@@ -149,8 +149,8 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				f.host.serving(7777, "python3 -m http.server 3080")
 			},
 			change: func(f *fixture, checks *[]Check) {
-				replaceCheck(*checks, "端口", CheckWarn, fmt.Sprint(f.Settings.Port)+
-					" 被一个 dshctl 无法确认归属的进程占用 (pid=7777: python3 -m http.server 3080)")
+				replaceCheck(*checks, "port", CheckWarn, fmt.Sprint(f.Settings.Port)+
+					" is held by a process dshctl cannot claim (pid=7777: python3 -m http.server 3080)")
 			},
 		},
 		{
@@ -162,8 +162,8 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				}
 			},
 			change: func(f *fixture, checks *[]Check) {
-				replaceCheck(*checks, "端口", CheckOK, fmt.Sprint(f.Settings.Port)+" 空闲")
-				replaceCheck(*checks, "运行记录", CheckOK, recordLive(f, 4242).Describe())
+				replaceCheck(*checks, "port", CheckOK, fmt.Sprint(f.Settings.Port)+" is free")
+				replaceCheck(*checks, "runtime record", CheckOK, recordLive(f, 4242).Describe())
 			},
 		},
 		{
@@ -172,9 +172,9 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				seedInterruptedStart(t, f, 8000, 8001, false)
 			},
 			change: func(f *fixture, checks *[]Check) {
-				replaceCheck(*checks, "端口", CheckWarn, fmt.Sprint(f.Settings.Port)+
-					" 上是上次启动被中断后仍存活的服务 (pid=8001);运行 dshctl start 或 dshctl stop 可恢复管理")
-				replaceCheck(*checks, "运行记录", CheckWarn, statepkg.Record{
+				replaceCheck(*checks, "port", CheckWarn, fmt.Sprint(f.Settings.Port)+
+					" is served by a survivor of an interrupted start (pid=8001); dshctl start or dshctl stop manages it again")
+				replaceCheck(*checks, "runtime record", CheckWarn, statepkg.Record{
 					PID: 8000, SpawnedPID: 8000, StartedAt: fixtureStartTime,
 					Port: f.Settings.Port, Phase: statepkg.PhaseRunning,
 				}.Describe())
@@ -190,8 +190,8 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				}
 			},
 			change: func(_ *fixture, checks *[]Check) {
-				replaceCheck(*checks, "运行记录", CheckWarn,
-					"记录 pid=999999 已不存在或已被复用(陈旧记录，下次 start/stop 会清理)")
+				replaceCheck(*checks, "runtime record", CheckWarn,
+					"the record names pid=999999, which is gone or has been reused (a stale record; the next start or stop clears it)")
 			},
 		},
 		{
@@ -200,7 +200,7 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				f.seedCorruptRecord(t, corruptRecordContent)
 			},
 			change: func(f *fixture, checks *[]Check) {
-				replaceCheck(*checks, "运行记录", CheckWarn, f.Record.Path+" 无法解析，下次 start/stop 会重建它")
+				replaceCheck(*checks, "runtime record", CheckWarn, f.Record.Path+" cannot be parsed; the next start or stop rebuilds it")
 			},
 		},
 		{
@@ -248,7 +248,7 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				f.LookPath = func(string) (string, error) { return "", os.ErrNotExist }
 			},
 			change: func(_ *fixture, checks *[]Check) {
-				replaceCheck(*checks, "pnpm", CheckFail, "找不到 pnpm，请先安装并确保它在 PATH 中")
+				replaceCheck(*checks, "pnpm", CheckFail, "pnpm was not found; install it and make sure it is on PATH")
 			},
 		},
 		{
@@ -262,7 +262,7 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				}
 			},
 			change: func(_ *fixture, checks *[]Check) {
-				replaceCheck(*checks, "pnpm", CheckWarn, "/fake/bin/pnpm 存在但无法执行")
+				replaceCheck(*checks, "pnpm", CheckWarn, "/fake/bin/pnpm exists but cannot be executed")
 			},
 		},
 		{
@@ -273,7 +273,7 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				}
 			},
 			change: func(f *fixture, checks *[]Check) {
-				replaceCheck(*checks, "操作锁", CheckWarn, "锁路径 "+f.Settings.LockFile()+" 不是普通文件，无法检查")
+				replaceCheck(*checks, "operation lock", CheckWarn, "the lock path "+f.Settings.LockFile()+" is not a regular file, so it cannot be checked")
 			},
 		},
 	}
@@ -306,7 +306,7 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 
 // nodeNotInstalledDetail is the first line of the resolver's refusal. The rest
 // of the message lists the ways out, which the Node package's own tests pin.
-const nodeNotInstalledDetail = "找不到 Node " + config.TestedNodeVersion + "(已查找 nvm/fnm 的安装目录与 PATH)"
+const nodeNotInstalledDetail = "Node " + config.TestedNodeVersion + " was not found (looked in the nvm/fnm install roots and on PATH)"
 
 // nodeBelowMinimumDetail is the whole refusal an operator sees when the machine
 // serves a release under the floor: the release, the floor, where it came from,
@@ -319,12 +319,12 @@ const nodeNotInstalledDetail = "找不到 Node " + config.TestedNodeVersion + "(
 func nodeBelowMinimumDetail(t *testing.T, f *fixture, version string) string {
 	t.Helper()
 	resolved := f.resolvedNode(t)
-	return "Node " + version + " 低于最低要求 " + config.MinNodeVersion +
-		"(" + resolved.NodePath + "，来源 PATH)\n" + nodeRemedyBlock
+	return "Node " + version + " is below the minimum " + config.MinNodeVersion +
+		" (" + resolved.NodePath + ", from PATH)\n" + nodeRemedyBlock
 }
 
 // nodeRemedyBlock is the fix block a refusal carries, as an operator reads it.
-const nodeRemedyBlock = `修复(任选一种):
+const nodeRemedyBlock = `fix it with any one of these:
   nvm:      nvm install 24 && nvm alias default 24
   fnm:      fnm install 24 && fnm default 24
   Homebrew: brew install node@24
@@ -333,17 +333,18 @@ const nodeRemedyBlock = `修复(任选一种):
   asdf:     asdf install nodejs ` + config.TestedNodeVersion + ` && asdf global nodejs ` + config.TestedNodeVersion + `
   mise:     mise use -g node@24
   nodenv:   nodenv install ` + config.TestedNodeVersion + ` && nodenv global ` + config.TestedNodeVersion + `
-  官方安装包: https://nodejs.org/en/download
-也可以只指定一次: --node <版本> 或 DSH_NODE_VERSION=<版本>(成功后写入配置)`
+  official installer: https://nodejs.org/en/download
+or name it once: --node <version> or DSH_NODE_VERSION=<version> (written into the document on success)`
 
 // nodeUntestedDetail is the warning for a release dshctl has not been verified
 // against: used, and said out loud.
 func nodeUntestedDetail(t *testing.T, f *fixture, version string) string {
 	t.Helper()
 	resolved := f.resolvedNode(t)
-	return resolved.NodePath + " (" + version + ", path)；Node " + version +
-		" 不在 dshctl 的验证范围内(已验证 " + config.TestedNodeVersion + "；" +
-		resolved.NodePath + "，来源 PATH)；若 Web 端出现 \"Failed to load plugins\" 请改用 Node 24.x"
+	return resolved.NodePath + " (" + version + ", path); Node " + version +
+		" is outside what dshctl has verified (verified " + config.TestedNodeVersion + "; " +
+		resolved.NodePath + ", from PATH); if the Web side reports " + strconv.Quote("Failed to load plugins") +
+		", switch to Node 24.x"
 }
 
 // TestDoctorReportsEveryRowOfAFreshStateDirectory pins the two warnings that
@@ -357,7 +358,7 @@ func TestDoctorReportsEveryRowOfAFreshStateDirectory(t *testing.T) {
 		t.Fatalf("create state: %v", err)
 	}
 	want := baselineChecks(t, f)
-	replaceCheck(want, "配置文件", CheckWarn, f.Settings.ConfigPath+" 尚未创建，将写入默认值")
+	replaceCheck(want, "settings document", CheckWarn, f.Settings.ConfigPath+" not created yet; the defaults will be written")
 	// The baseline provisions the document; this fixture is one whose settings
 	// have never been written.
 	if err := os.Remove(f.Settings.ConfigPath); err != nil {
@@ -372,8 +373,8 @@ func TestDoctorReportsEveryRowOfAFreshStateDirectory(t *testing.T) {
 func TestDoctorWarnsAboutAStateDirectoryThatWasNeverCreated(t *testing.T) {
 	f := newFixture(t)
 	want := baselineChecks(t, f)
-	replaceCheck(want, "状态目录", CheckWarn, f.state+" 尚未创建，首次运行会自动创建")
-	replaceCheck(want, "配置文件", CheckWarn, f.Settings.ConfigPath+" 尚未创建，将写入默认值")
+	replaceCheck(want, "state directory", CheckWarn, f.state+" not created yet; the first run creates it")
+	replaceCheck(want, "settings document", CheckWarn, f.Settings.ConfigPath+" not created yet; the defaults will be written")
 	// The baseline provisions the machine; this fixture is one dshctl has never
 	// run against, so both are removed again before the diagnosis.
 	if err := os.RemoveAll(f.state); err != nil {
@@ -397,11 +398,11 @@ func TestDoctorReportsAMissingRepository(t *testing.T) {
 	}
 	// The version row and the repository failure share one slot: a missing
 	// checkout is reported in its place, not beside it.
-	replaceRow(want, "仓库版本", Check{Name: "仓库目录", Status: CheckFail,
-		Detail: f.repo + " 不存在；用 --repo 或环境变量 " + paths.EnvRepoDir +
-			" 指定一次，成功运行后会写入 " + f.Settings.ConfigPath})
-	replaceCheck(want, "依赖", CheckFail, filepath.Join(f.repo, "node_modules")+" 不存在，请先执行 pnpm install")
-	replaceCheck(want, "构建产物", CheckFail, "缺少 "+f.Repo.BuildRecordPath()+"，请运行 dshctl build")
+	replaceRow(want, "checkout revision", Check{Name: "checkout", Status: CheckFail,
+		Detail: f.repo + " does not exist; name it once with --repo or " + paths.EnvRepoDir +
+			" and a successful run writes it into " + f.Settings.ConfigPath})
+	replaceCheck(want, "dependencies", CheckFail, filepath.Join(f.repo, "node_modules")+" does not exist; run pnpm install first")
+	replaceCheck(want, "build artifacts", CheckFail, "missing "+f.Repo.BuildRecordPath()+"; run dshctl build")
 
 	checks := f.Doctor(context.Background())
 	wantChecks(t, checks, want)
@@ -430,11 +431,11 @@ func TestDoctorReportsALockHeldByALiveProcess(t *testing.T) {
 	defer held.Release()
 
 	want := baselineChecks(t, f)
-	detail := "被 pid=" + strconv.Itoa(os.Getpid()) + " 持有，另一个 dshctl 操作正在进行"
+	detail := "held by pid=" + strconv.Itoa(os.Getpid()) + "; another dshctl operation is running"
 	if runtime.GOOS == "windows" {
-		detail = "已被持有，但锁文件里没有可读的 pid 记录"
+		detail = "held, but the lock file carries no readable pid"
 	}
-	replaceCheck(want, "操作锁", CheckWarn, detail)
+	replaceCheck(want, "operation lock", CheckWarn, detail)
 	wantChecks(t, f.Doctor(context.Background()), want)
 }
 
@@ -451,23 +452,23 @@ func baselineChecks(t *testing.T, f *fixture) []Check {
 	}
 	node := f.servedNodePath(t)
 	return []Check{
-		{Name: "状态目录", Status: CheckOK, Detail: f.state},
-		{Name: "配置文件", Status: CheckOK, Detail: f.Settings.ConfigPath},
+		{Name: "state directory", Status: CheckOK, Detail: f.state},
+		{Name: "settings document", Status: CheckOK, Detail: f.Settings.ConfigPath},
 		// One slot holds either the checked-out revision or the reason the
 		// repository could not be read, never both.
-		{Name: "仓库版本", Status: CheckOK, Detail: "main@abc1234"},
-		{Name: "依赖", Status: CheckOK, Detail: filepath.Join(f.repo, "node_modules") + " 已安装"},
-		{Name: "构建产物", Status: CheckOK, Detail: f.Repo.BuildRecordPath()},
+		{Name: "checkout revision", Status: CheckOK, Detail: "main@abc1234"},
+		{Name: "dependencies", Status: CheckOK, Detail: filepath.Join(f.repo, "node_modules") + " installed"},
+		{Name: "build artifacts", Status: CheckOK, Detail: f.Repo.BuildRecordPath()},
 		{Name: "Node", Status: CheckOK, Detail: node + " (" + config.TestedNodeVersion + ", path)"},
 		{Name: "pnpm", Status: CheckOK, Detail: "/fake/bin/pnpm 11.0.0"},
-		{Name: "端口", Status: CheckOK, Detail: strconv.Itoa(f.Settings.Port) + " 空闲"},
-		{Name: "运行记录", Status: CheckOK, Detail: "不存在(尚未启动过服务)"},
-		{Name: "操作锁", Status: CheckOK, Detail: "空闲"},
+		{Name: "port", Status: CheckOK, Detail: strconv.Itoa(f.Settings.Port) + " is free"},
+		{Name: "runtime record", Status: CheckOK, Detail: "none (the service has never been started)"},
+		{Name: "operation lock", Status: CheckOK, Detail: "free"},
 		// The log has not been written yet, which the size lookup reports as
 		// zero rather than as an error.
-		{Name: "日志", Status: CheckOK, Detail: f.Settings.LogPath + " (0 B)"},
-		{Name: "进程分离方式", Status: CheckOK, Detail: detach.Describe()},
-		{Name: "构建信息", Status: CheckOK, Detail: "go1.test · github.com/rhczz/dshctl"},
+		{Name: "log", Status: CheckOK, Detail: f.Settings.LogPath + " (0 B)"},
+		{Name: "detach method", Status: CheckOK, Detail: detach.Describe()},
+		{Name: "build info", Status: CheckOK, Detail: "go1.test · github.com/rhczz/dshctl"},
 	}
 }
 
@@ -530,7 +531,7 @@ func wantChecks(t *testing.T, got, want []Check) {
 // prefix by the case that cares.
 func unpredictableDetail(check Check) bool {
 	switch check.Name {
-	case "进程分离方式", "日志", "Node":
+	case "detach method", "log", "Node":
 		return true
 	}
 	return false
@@ -566,9 +567,9 @@ func findCheck(checks []Check, name string) (Check, bool) {
 func TestDoctorCarriesTheBuildFacts(t *testing.T) {
 	f := newFixture(t)
 	checks := f.Doctor(context.Background())
-	row, ok := findCheck(checks, "构建信息")
+	row, ok := findCheck(checks, "build info")
 	if !ok {
-		t.Fatalf("doctor has no 构建信息 row: %+v", checks)
+		t.Fatalf("doctor has no build info row: %+v", checks)
 	}
 	if row.Status != CheckOK || !strings.Contains(row.Detail, "go") {
 		t.Fatalf("row = %+v, want the toolchain and module", row)

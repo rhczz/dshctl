@@ -118,7 +118,7 @@ type runAdapter struct{ ex Executor }
 // Output implements Outputer.
 func (a runAdapter) Output(ctx context.Context, cmd Command) (string, error) {
 	if a.ex == nil {
-		return "", errors.New(i18nLine(MsgNoExecutor))
+		return "", errors.New("there is no command executor, so output cannot be collected")
 	}
 	return "", a.ex.Run(ctx, cmd)
 }

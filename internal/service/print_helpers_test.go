@@ -20,7 +20,7 @@ func TestDescribeFacts(t *testing.T) {
 	if got := describeFacts(hostFacts("", "signal")); !strings.Contains(got, "signal") {
 		t.Fatalf("describeFacts = %q, want the source named", got)
 	}
-	if got := describeFacts(hostFacts("", "")); got != "未知进程" {
+	if got := describeFacts(hostFacts("", "")); got != "unknown process" {
 		t.Fatalf("describeFacts = %q", got)
 	}
 }

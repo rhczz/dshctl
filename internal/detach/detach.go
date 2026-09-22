@@ -51,7 +51,7 @@ type Process struct {
 // built on them is wrong.
 func Start(cmd *exec.Cmd) (*Process, error) {
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("%s: %w", i18nLine(MsgStartFailed, cmd.Path), err)
+		return nil, fmt.Errorf("%s could not be started: %w", cmd.Path, err)
 	}
 	process := &Process{
 		PID:     cmd.Process.Pid,

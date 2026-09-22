@@ -1,6 +1,6 @@
 ---
 name: dshctl-architecture
-description: dshctl 的垂直分层与内核契约：领域/内核/命令/接入四层各自拥有什么、Emmitter 端口怎么让第二个前端复用内核、i18n 消息目录怎么扩展、以及重写期间的金标与账本怎么保证强度。用于新增前端（HTTP/gRPC）、新增消息、判断代码该放哪一层、或改动 app/domain/i18n/层边界时。
+description: dshctl 的垂直分层与内核契约：领域/内核/命令/接入四层各自拥有什么、Emitter 端口怎么让第二个前端复用内核、文案该写在哪里、以及重写期间的金标与账本怎么保证强度。用于新增前端（HTTP/gRPC）、新增消息、判断代码该放哪一层、或改动 app/domain/层边界时。
 ---
 
 # dshctl 的垂直分层与内核
@@ -17,14 +17,13 @@ cmd/dshctl            进程边界：信号、退出码
     internal/service   内核：引擎与操作（start/stop/update/… + 锁范围、多实例选择、写回）
       internal/domain 领域层：模型与不变量（状态、记录、归属、指纹、版本位置）
       基础设施         host/run/detach/lock/logfile/state/repo/nodejs/config/paths/
-                       exitcode/version/atomically/logging + i18n（能力）
+                       exitcode/version/atomically/logging
 ```
 
 **没有单独的"应用层"包**，这是刻意的：这一层的内容（命令名、flag、帮助文案、退出码、
 `--json` 的形状）本来就是某个前端的词汇。CLI 的处理器就住在 `internal/cli`，未来 HTTP
 前端的处理器住在 `internal/httpapi`；它们共享的是内核（同一个 `*service.Service`）与
-消息目录的**能力**（`internal/i18n` 提供解析、目录类型、合并与审计，各层带自己的目录）。
-把它再抽成一个共享包只会得到一层转发。
+事件端口。把它再抽成一个共享包只会得到一层转发。
 
 - **领域层 `internal/domain` 零内部依赖**：状态词表、`Status`、运行记录模型、
   指纹比对（`Matches`）、版本位置（`Target`/`Label`/`ShortCommit`）、占用判定
@@ -74,24 +73,18 @@ type Emitter interface {
 `internal/service`/`internal/domain`（拥有契约的层）以常量、参数或类型传入。
 
 机制/资源的完整清单与迁移工作清单见 `references/mechanism-and-resource.md`。
-## i18n：消息是一条目录项
+## 文案：一句话只有一个家
 
-- **能力与资源分开**：`internal/i18n` 只有能力（`Lang`、`Message`、语言解析、`Catalog`
-  类型、`Merge`、`Audit`）；消息本身是各层自己的目录（`internal/service/messages.go`
-  的 `MsgState*`，未来的 `internal/cli`/`internal/httpapi` 各自命名空间），由 shell 在
-  启动时 `i18n.Merge` 合并——重复 id 会报错，而不是让一层的文案悄悄消失。
-  调用点用**常量 id**（`i18n.T(MsgStateRunning)`）：拼错 id 是编译错误。
-- **完整性是类型**：`Message{EN, ZH}` 一条消息一个字段语言；新增语言 = 加一个字段，
-  编译器会把所有漏填的消息指出来。`TestCatalogIsComplete` 再钉住两种语言都非空。
-- **默认英文**，机器语言是中文时用中文。语言解析顺序：
-  `DSHCTL_LANG` > `LC_ALL` > `LC_MESSAGES` > `LANG`，认不出的语言按英文处理
-  （不出现半翻译界面）。解析只在 `cli.Main` 一处发生，通过 `i18n.Use` 安装。
-- 缺译文的单条消息回退英文；未知 id 渲染成 id 本身（在输出与金标里一眼可见）。
-- **新增消息的清单**：加常量 + 在 `Messages` 里写两种语言 + 在调用点用常量 +
-  在 README 需要时补一句 + 跑 `make conventions`（`TestNoOrphanMessages` 会拒绝
-  没人渲染的目录项）。
-- 语言是调用时的属性，不是函数的参数：把 `Translator` 穿进每个签名会把语言塞进
-  与该问题无关的层。需要隔离的测试显式 `i18n.Use(i18n.New(i18n.EN, i18n.Messages))`。
+- **面向操作者的每一句话都是英文，并且写在产生它的调用点上**：错误用 `fmt.Errorf`
+  包一层说清"哪里错了"，诊断用 `%s`/`%d` 直接拼，不经过任何目录或翻译层。
+- 这里没有语言层，也没有消息目录：一个消息只有一个家，就是它被打印的地方。
+  改文案不需要同时改目录，也不会出现"目录里有、代码里没人渲染"的孤儿。
+- **领域层仍然不放文案**：`internal/domain` 只用 `fmt` 拼出标识符与状态词，
+  说给操作者听的话由拥有该契约的层（`service`、`cli` 或基础设施包）说。
+- 日志里的行与终端上的行用同一套措辞：出问题时读日志的人与看终端的人看到的是
+  同一句话。
+- 哨兵错误（`ErrCorrupt`、`ErrUnsupported`、`ErrNotAbsolute`）是普通的
+  `errors.New` 值：文案固定，`errors.Is` 只比身份，不需要在读取时再渲染。
 
 ## 重写期的强度机器（不要删，不要绕）
 
@@ -106,6 +99,5 @@ v0.3 分支用三件工具保证"功能不变、强度只增"：金标 conforman
 - `../../../AGENTS.md`：所有会话都生效的规则（包地图、接口政策、语言规则）。
 - `../../../scripts/check-conventions.py`：`LAYERS` 与包图检查。
 - `../../../internal/service/emit.go`：前端端口与事件定义。
-- `../../../internal/i18n/i18n.go`、`../../../internal/i18n/catalog.go`：语言解析与目录。
 - `../dshctl-decisions/SKILL.md`：新增包/新增边/新增接口的准入判定。
 - `../dshctl-surface-change/SKILL.md`：改表面（帮助、退出码、`--json`、文件格式）的清单。

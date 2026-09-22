@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
@@ -41,7 +42,7 @@ func (s *Service) Logs(ctx context.Context, options LogsOptions) error {
 		return s.printBuildSection(lines)
 	}
 	if !s.LogFile.Exists() {
-		return exitcode.New(exitcode.Failure, i18nLine(MsgLogFileMissing), s.Settings.LogPath)
+		return exitcode.New(exitcode.Failure, "the log file does not exist: %s", s.Settings.LogPath)
 	}
 	if options.Follow {
 		return s.tailThenFollow(ctx, lines)
@@ -90,12 +91,10 @@ func (s *Service) printBuildSection(lines int) error {
 	}
 	switch outcome {
 	case logfile.NotFound:
-		s.failure(i18nLine(MsgLogNoBuildSection, s.Settings.LogPath))
+		s.failure(fmt.Sprintf("the log has no build/update/rollback record: %s", s.Settings.LogPath))
 		return nil
 	case logfile.Truncated:
-		return exitcode.New(exitcode.Failure,
-			i18nLine(MsgLogTooLargeForBuild),
-			s.Settings.LogPath)
+		return exitcode.New(exitcode.Failure, "the log is too large to locate the last build/update/rollback record: %s\nhint: use dshctl logs -n <lines> to read the tail directly", s.Settings.LogPath)
 	}
 	if len(body) > lines {
 		body = body[len(body)-lines:]
@@ -144,31 +143,25 @@ func (s *Service) observedAddress(status domain.Status) (string, error) {
 			return address, nil
 		}
 		if truncated {
-			return "", exitcode.New(exitcode.Failure,
-				i18nLine(MsgLogTooLargeForURL),
-				logScanMiB, s.boundPort())
+			return "", exitcode.New(exitcode.Failure, "the log is already over %d MiB, so the address of port %d could not be located\nhint: dshctl logs -n 50 shows the tail", logScanMiB, s.boundPort())
 		}
 		if status.State == domain.StateStarting {
-			return "", exitcode.New(exitcode.Failure,
-				i18nLine(MsgAddressStarting), s.boundPort())
+			return "", exitcode.New(exitcode.Failure, "the service is starting and has not announced the address of port %d yet; retry shortly or check dshctl logs", s.boundPort())
 		}
-		return "", exitcode.New(exitcode.Failure,
-			i18nLine(MsgAddressNotInRecord), s.boundPort(), s.Settings.LogPath)
+		return "", exitcode.New(exitcode.Failure, "the runtime record carries no address for port %d, and the log does not either: %s", s.boundPort(), s.Settings.LogPath)
 
 	case status.Survivor:
 		// A server of ours is serving, left behind by an interrupted start.
 		// Its address is in the log; managing it again is one command away.
 		address, _ := announcedURL(s.Settings.LogPath, s.boundPort())
 		if address != "" {
-			s.failure(i18nLine(MsgAddressSurvivor))
+			s.failure("hint: this is a survivor of an interrupted start; dshctl start or dshctl stop manages it again")
 			return address, nil
 		}
-		return "", exitcode.New(exitcode.Failure,
-			i18nLine(MsgAddressSurvivorLog), s.boundPort())
+		return "", exitcode.New(exitcode.Failure, "the service on port %d is left over from an earlier start, and the log has no address for it; run dshctl start to manage it again and retry", s.boundPort())
 
 	default:
-		return "", exitcode.New(exitcode.NotRunning,
-			i18nLine(MsgURLNotRunning), StatusSummary(status))
+		return "", exitcode.New(exitcode.NotRunning, "DSH Web is not running (%s), so there is no address", StatusSummary(status))
 	}
 }
 

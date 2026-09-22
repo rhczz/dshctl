@@ -32,7 +32,7 @@ func runCapture(ctx context.Context, name string, args ...string) (string, int, 
 		if ok := asExitError(err, &exit); ok {
 			status = exit.ExitCode()
 		} else {
-			return out.String(), -1, fmt.Errorf("%s: %w", i18nLine(MsgExecFailed, name), err)
+			return out.String(), -1, fmt.Errorf("%s could not be executed: %w", name, err)
 		}
 	}
 	return out.String(), status, nil

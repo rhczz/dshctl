@@ -68,7 +68,7 @@ func ParseLevel(text string) (Level, error) {
 	case "error":
 		return LevelError, nil
 	}
-	return LevelInfo, fmt.Errorf("%s", i18nLine(MsgUnknownLevel, text))
+	return LevelInfo, fmt.Errorf("unknown log level %q: the values are debug, info, warn, error", text)
 }
 
 // Logger records to the log file at one level.
@@ -116,9 +116,9 @@ func (l *Logger) Step(name string, run func() error) error {
 	err := run()
 	elapsed := l.Now().Sub(start).Round(time.Millisecond)
 	if err != nil {
-		l.Info(i18nLine(MsgStepFailed, name, err, elapsed))
+		l.Info(fmt.Sprintf("step %s: failed (%v), took %s", name, err, elapsed))
 		return err
 	}
-	l.Info(i18nLine(MsgStepDone, name, elapsed))
+	l.Info(fmt.Sprintf("step %s: took %s", name, elapsed))
 	return nil
 }

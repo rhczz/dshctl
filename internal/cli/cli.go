@@ -15,22 +15,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rhczz/dshctl/internal/atomically"
 	"github.com/rhczz/dshctl/internal/config"
-	"github.com/rhczz/dshctl/internal/detach"
 	"github.com/rhczz/dshctl/internal/exitcode"
-	"github.com/rhczz/dshctl/internal/history"
-	"github.com/rhczz/dshctl/internal/host"
-	"github.com/rhczz/dshctl/internal/i18n"
-	"github.com/rhczz/dshctl/internal/lock"
-	"github.com/rhczz/dshctl/internal/logfile"
-	"github.com/rhczz/dshctl/internal/logging"
-	"github.com/rhczz/dshctl/internal/nodejs"
-	"github.com/rhczz/dshctl/internal/paths"
-	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
 	"github.com/rhczz/dshctl/internal/service"
-	"github.com/rhczz/dshctl/internal/state"
 	"github.com/rhczz/dshctl/internal/version"
 )
 
@@ -98,18 +86,6 @@ type globals struct {
 // Returns:
 //   - the process exit code.
 func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv func(string) string) int {
-	// The language is a property of the invocation, and the catalog is the merge
-	// of every layer's words: the kernel's, this shell's, and any front-end that
-	// joins later. Both are resolved once, before any command can print.
-	catalog, err := i18n.Merge(service.Messages, Messages,
-		config.Messages, detach.Messages, history.Messages, host.Messages, lock.Messages,
-		logfile.Messages, logging.Messages, nodejs.Messages, paths.Messages, repo.Messages,
-		state.Messages, run.Messages, atomically.Messages)
-	if err != nil {
-		fmt.Fprintf(stderr, i18nLine(MsgErrorPrefix)+"\n", err)
-		return exitcode.Failure
-	}
-	i18n.Use(i18n.New(i18n.Resolve(getenv), catalog))
 	env := &Env{
 		Stdout:   stdout,
 		Stderr:   stderr,
@@ -121,7 +97,7 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv f
 
 	parsed, rest, err := parseGlobals(args)
 	if err != nil {
-		fmt.Fprintf(stderr, i18nLine(MsgErrorPrefixBlank), err)
+		fmt.Fprintf(stderr, "error: %v\n\n", err)
 		Usage(stderr)
 		return exitcode.Usage
 	}
@@ -141,7 +117,7 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv f
 	}
 	command := findCommand(commands, name)
 	if command == nil {
-		fmt.Fprintf(stderr, i18nLine(MsgUnknownCommand), name)
+		fmt.Fprintf(stderr, "error: unknown command %q\n\n", name)
 		Usage(stderr)
 		return exitcode.Usage
 	}
@@ -164,7 +140,7 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv f
 	if command.Name != "version" {
 		settings, err := loadSettings(parsed, getenv)
 		if err != nil {
-			fmt.Fprintf(stderr, i18nLine(MsgErrorPrefix)+"\n", err)
+			fmt.Fprintf(stderr, "error: %v\n", err)
 			return exitcode.Of(err)
 		}
 		env.Settings = settings
@@ -183,7 +159,7 @@ func Main(ctx context.Context, args []string, stdout, stderr io.Writer, getenv f
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return exitcode.Interrupted
 		}
-		fmt.Fprintf(stderr, i18nLine(MsgErrorPrefix)+"\n", err)
+		fmt.Fprintf(stderr, "error: %v\n", err)
 		return exitcode.Of(err)
 	}
 	return exitcode.OK
@@ -197,7 +173,7 @@ func runHelp(stdout, stderr io.Writer, commands []Command, rest []string) int {
 	}
 	command := findCommand(commands, rest[1])
 	if command == nil {
-		fmt.Fprintf(stderr, i18nLine(MsgUnknownHelpTopic), rest[1])
+		fmt.Fprintf(stderr, "error: unknown command %q\n", rest[1])
 		return exitcode.Usage
 	}
 	printCommandHelp(stdout, *command)
@@ -231,13 +207,13 @@ func parseGlobals(args []string) (globals, []string, error) {
 		case "--config", "--repo", "--node", "--port", "--log-level":
 			if !hasValue {
 				if index+1 >= len(args) {
-					return parsed, nil, fmt.Errorf("%s", i18nLine(MsgGlobalNeedsValue, name))
+					return parsed, nil, fmt.Errorf("flag %s needs a value", name)
 				}
 				index++
 				value = args[index]
 			}
 			if strings.TrimSpace(value) == "" {
-				return parsed, nil, fmt.Errorf("%s", i18nLine(MsgGlobalEmptyValue, name))
+				return parsed, nil, fmt.Errorf("flag %s cannot be empty", name)
 			}
 			switch name {
 			case "--config":
@@ -252,7 +228,7 @@ func parseGlobals(args []string) (globals, []string, error) {
 			case "--port":
 				port, err := strconv.Atoi(value)
 				if err != nil {
-					return parsed, nil, fmt.Errorf("%s", i18nLine(MsgPortNotANumber, value))
+					return parsed, nil, fmt.Errorf("flag --port is not a number: %q", value)
 				}
 				parsed.port = &port
 			case "--log-level":
@@ -260,7 +236,7 @@ func parseGlobals(args []string) (globals, []string, error) {
 				parsed.logLevelSet = true
 			}
 		default:
-			return parsed, nil, fmt.Errorf("%s", i18nLine(MsgUnknownGlobal, arg))
+			return parsed, nil, fmt.Errorf("unknown global flag: %s", arg)
 		}
 	}
 	return parsed, nil, nil
@@ -322,8 +298,8 @@ func newFlagSet(env *Env, name string) *flag.FlagSet {
 	flags := flag.NewFlagSet(name, flag.ContinueOnError)
 	flags.SetOutput(env.Stderr)
 	flags.Usage = func() {
-		fmt.Fprintf(env.Stderr, i18nLine(MsgUsageLine)+"\n", name)
-		fmt.Fprintln(env.Stderr, i18nLine(MsgUsageGlobals))
+		fmt.Fprintf(env.Stderr, "usage: dshctl [global flags] %s [command flags]\n", name)
+		fmt.Fprintln(env.Stderr, "global flags (--repo/--port/--node/--config/-v) go before the command name.")
 		flags.PrintDefaults()
 	}
 	return flags
@@ -345,7 +321,7 @@ func parseFlags(flags *flag.FlagSet, args []string) (bool, error) {
 	}
 	if len(rest) > 0 {
 		return false, exitcode.Wrap(exitcode.Usage,
-			fmt.Errorf("%s", i18nLine(MsgNoPositionalArgs, flags.Name(), strings.Join(rest, " "))))
+			fmt.Errorf("command %s takes no positional arguments: %s", flags.Name(), strings.Join(rest, " ")))
 	}
 	return false, nil
 }
@@ -374,12 +350,12 @@ func versionSelector(args []string, command string) (string, error) {
 	}
 	if len(args) > 1 {
 		return "", exitcode.Wrap(exitcode.Usage,
-			fmt.Errorf("%s", i18nLine(MsgOneVersionArg, command, strings.Join(args, " "))))
+			fmt.Errorf("command %s takes one version argument: %s", command, strings.Join(args, " ")))
 	}
 	selector := strings.TrimSpace(args[0])
 	if selector == "" || strings.HasPrefix(selector, "-") {
 		return "", exitcode.Wrap(exitcode.Usage,
-			fmt.Errorf("%s", i18nLine(MsgInvalidVersionArg, command, args[0])))
+			fmt.Errorf("command %s's version argument is invalid: %q", command, args[0]))
 	}
 	return selector, nil
 }
@@ -400,7 +376,7 @@ func printJSON(w io.Writer, value any) error {
 // help lists, so "how do I call this" is answered before the details.
 func printCommandHelp(w io.Writer, command Command) {
 	fmt.Fprintf(w, "dshctl %s — %s\n\n", command.Name, command.Summary)
-	fmt.Fprintf(w, i18nLine(MsgCommandUsage), command.Name)
+	fmt.Fprintf(w, "usage: dshctl [global flags] %s", command.Name)
 	if command.Usage != "" {
 		fmt.Fprintf(w, " %s", command.Usage)
 	}

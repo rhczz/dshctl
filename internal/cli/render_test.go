@@ -61,27 +61,27 @@ func TestPrintStatusNamesTheState(t *testing.T) {
 		{
 			name:   "running",
 			status: domain.Status{State: domain.StateRunning, URL: "http://127.0.0.1:3080", ListenerPID: 42, URLFromRecord: "http://127.0.0.1:3080/?token=x", RepoDir: "/repo", LogPath: "/log"},
-			want:   []string{"运行中", "http://127.0.0.1:3080", "42", "token=x", "/repo", "/log"},
+			want:   []string{"running", "http://127.0.0.1:3080", "42", "token=x", "/repo", "/log"},
 		},
 		{
 			name:   "starting",
 			status: domain.Status{State: domain.StateStarting, RecordedPID: 42, LogPath: "/log"},
-			want:   []string{"启动中", "42", "/log"},
+			want:   []string{"starting", "42", "/log"},
 		},
 		{
 			name:   "foreign",
 			status: domain.Status{State: domain.StateForeign, URL: "http://127.0.0.1:3080", ListenerCommand: "nginx", LogPath: "/log"},
-			want:   []string{"端口被占用", "nginx", "/log"},
+			want:   []string{"state: the port is held by a process dshctl did not start", "nginx", "/log"},
 		},
 		{
 			name:   "unmanaged",
 			status: domain.Status{State: domain.StateOrphan, URL: "http://127.0.0.1:3080", ListenerCommand: "python3", Port: 3080, ListenerPID: 9},
-			want:   []string{"无法确认归属", "python3", "手动处理"},
+			want:   []string{"state: the port is held by a process dshctl cannot claim", "python3", "hint: dshctl will not end it; confirm it is safe to stop and handle it yourself"},
 		},
 		{
 			name:   "stopped",
 			status: domain.Status{State: domain.StateStopped, LogPath: "/log"},
-			want:   []string{"未运行", "/log"},
+			want:   []string{"not running", "/log"},
 		},
 	}
 	for _, testCase := range cases {
@@ -128,14 +128,14 @@ func TestServeExitCode(t *testing.T) {
 func TestPrintChecksLabelsEveryStatus(t *testing.T) {
 	var buffer bytes.Buffer
 	err := printChecks(&buffer, []service.Check{
-		{Name: "端口", Status: service.CheckOK, Detail: "3080 空闲"},
-		{Name: "Node", Status: service.CheckWarn, Detail: "版本偏低"},
-		{Name: "依赖", Status: service.CheckFail, Detail: "node_modules 不存在"},
+		{Name: "port", Status: service.CheckOK, Detail: "3080 is free"},
+		{Name: "Node", Status: service.CheckWarn, Detail: "version too low"},
+		{Name: "dependencies", Status: service.CheckFail, Detail: "/node_modules does not exist; run pnpm install in the checkout first"},
 	})
 	if err != nil {
 		t.Fatalf("PrintChecks: %v", err)
 	}
-	for _, want := range []string{"[OK  ] 端口", "[警告] Node", "[失败] 依赖"} {
+	for _, want := range []string{"[OK  ] port", "[warn] Node", "[fail] dependencies"} {
 		if !strings.Contains(buffer.String(), want) {
 			t.Fatalf("output missing %q:\n%s", want, buffer.String())
 		}

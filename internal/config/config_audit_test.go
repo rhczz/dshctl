@@ -54,10 +54,10 @@ func TestLoadRejectsWrongJSONTypes(t *testing.T) {
 		{"repoDir as a number", `{"repoDir": 123}`, "repoDir"},
 		{"logRotateBytes as a size string", `{"logRotateBytes": "1MB"}`, "logRotateBytes"},
 		{"startTimeoutSeconds as a string", `{"startTimeoutSeconds": "30"}`, "startTimeoutSeconds"},
-		{"a top-level array", `[1,2]`, "解析失败"},
-		{"a top-level number", `5`, "解析失败"},
-		{"a top-level string", `"x"`, "解析失败"},
-		{"a byte order mark", "\xef\xbb\xbf" + `{"port": 3080}`, "解析失败"},
+		{"a top-level array", `[1,2]`, "could not be parsed"},
+		{"a top-level number", `5`, "could not be parsed"},
+		{"a top-level string", `"x"`, "could not be parsed"},
+		{"a byte order mark", "\xef\xbb\xbf" + `{"port": 3080}`, "could not be parsed"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -131,20 +131,20 @@ func TestValidateNamesEveryFieldItRejects(t *testing.T) {
 		mutate     func(*Settings)
 		wantSubstr string
 	}{
-		{"an empty repoDir", func(s *Settings) { s.RepoDir = "" }, "repoDir 不能为空"},
-		{"a whitespace repoDir", func(s *Settings) { s.RepoDir = "   " }, "repoDir 不能为空"},
-		{"a relative repoDir", func(s *Settings) { s.RepoDir = "repo" }, "repoDir 必须是绝对路径"},
-		{"a port below the range", func(s *Settings) { s.Port = MinPort - 1 }, "port 必须在"},
-		{"a port above the range", func(s *Settings) { s.Port = MaxPort + 1 }, "port 必须在"},
-		{"a zero start timeout", func(s *Settings) { s.StartTimeout = 0 }, "startTimeoutSeconds 必须至少为 1 秒"},
-		{"a stop timeout above the maximum", func(s *Settings) { s.StopTimeout = MaxTimeoutSeconds*time.Second + time.Second }, "stopTimeoutSeconds 不能超过"},
-		{"a lock timeout above the maximum", func(s *Settings) { s.LockTimeout = MaxTimeoutSeconds*time.Second + time.Second }, "lockTimeoutSeconds 不能超过"},
-		{"a negative rotation threshold", func(s *Settings) { s.LogRotateBytes = -1 }, "logRotateBytes 不能为负"},
-		{"a rotation threshold below the minimum", func(s *Settings) { s.LogRotateBytes = MinRotateBytes - 1 }, "logRotateBytes 不能小于"},
-		{"an empty stateDir", func(s *Settings) { s.StateDir = "" }, "状态目录必须是绝对路径"},
-		{"a non-absolute stateDir", func(s *Settings) { s.StateDir = "state" }, "状态目录必须是绝对路径"},
-		{"an empty logPath", func(s *Settings) { s.LogPath = "" }, "日志文件必须是绝对路径"},
-		{"a non-absolute logPath", func(s *Settings) { s.LogPath = "dsh-web.log" }, "日志文件必须是绝对路径"},
+		{"an empty repoDir", func(s *Settings) { s.RepoDir = "" }, "repoDir cannot be empty"},
+		{"a whitespace repoDir", func(s *Settings) { s.RepoDir = "   " }, "repoDir cannot be empty"},
+		{"a relative repoDir", func(s *Settings) { s.RepoDir = "repo" }, "repoDir must be an absolute path"},
+		{"a port below the range", func(s *Settings) { s.Port = MinPort - 1 }, "port must be between"},
+		{"a port above the range", func(s *Settings) { s.Port = MaxPort + 1 }, "port must be between"},
+		{"a zero start timeout", func(s *Settings) { s.StartTimeout = 0 }, "startTimeoutSeconds must be at least 1 second"},
+		{"a stop timeout above the maximum", func(s *Settings) { s.StopTimeout = MaxTimeoutSeconds*time.Second + time.Second }, "stopTimeoutSeconds cannot exceed"},
+		{"a lock timeout above the maximum", func(s *Settings) { s.LockTimeout = MaxTimeoutSeconds*time.Second + time.Second }, "lockTimeoutSeconds cannot exceed"},
+		{"a negative rotation threshold", func(s *Settings) { s.LogRotateBytes = -1 }, "logRotateBytes cannot be negative"},
+		{"a rotation threshold below the minimum", func(s *Settings) { s.LogRotateBytes = MinRotateBytes - 1 }, "logRotateBytes cannot be smaller than"},
+		{"an empty stateDir", func(s *Settings) { s.StateDir = "" }, "the state directory must be an absolute path"},
+		{"a non-absolute stateDir", func(s *Settings) { s.StateDir = "state" }, "the state directory must be an absolute path"},
+		{"an empty logPath", func(s *Settings) { s.LogPath = "" }, "the log file must be an absolute path"},
+		{"a non-absolute logPath", func(s *Settings) { s.LogPath = "dsh-web.log" }, "the log file must be an absolute path"},
 	}
 	if err := valid().Validate(); err != nil {
 		t.Fatalf("the reference settings must validate: %v", err)
@@ -198,7 +198,7 @@ func TestValidateRangesIncludeTheirBoundaries(t *testing.T) {
 			name:       "rotation one byte below the minimum",
 			document:   `{"logRotateBytes": 65535}`,
 			wantErr:    true,
-			wantSubstr: "logRotateBytes 不能小于",
+			wantSubstr: "logRotateBytes cannot be smaller than",
 		},
 		{
 			name:       "rotation zero, which disables it",
@@ -224,13 +224,13 @@ func TestValidateRangesIncludeTheirBoundaries(t *testing.T) {
 			name:       "start timeout one second above the documented maximum",
 			document:   `{"startTimeoutSeconds": 86401}`,
 			wantErr:    true,
-			wantSubstr: "startTimeoutSeconds 不能超过",
+			wantSubstr: "startTimeoutSeconds cannot exceed",
 		},
 		{
 			name:       "a negative start timeout",
 			document:   `{"startTimeoutSeconds": -1}`,
 			wantErr:    true,
-			wantSubstr: "startTimeoutSeconds 必须至少为 1 秒",
+			wantSubstr: "startTimeoutSeconds must be at least 1 second",
 		},
 	}
 	for _, testCase := range cases {
@@ -361,17 +361,17 @@ func TestEncodeOmitsAnEmptyRepoDir(t *testing.T) {
 func TestDescribeOfAZeroSettingsIsStillWellFormed(t *testing.T) {
 	var settings Settings
 	want := []string{
-		"配置文件:  ()",
-		"状态目录:  ()",
-		"仓库目录:  ()",
-		"监听端口: 0 ()",
-		"Node 版本: (未确定，启动时按 PATH 解析) ()",
-		"日志文件:  ()",
-		"启动超时: 0s ()",
-		"停止超时: 0s ()",
-		"锁超时:   0s ()",
-		"日志轮转: 0 字节 (0 表示不轮转) ()",
-		"日志级别: unset ()",
+		"settings document:  ()",
+		"state directory:  ()",
+		"checkout:  ()",
+		"port: 0 ()",
+		"Node version: (not determined; resolved from PATH at start) ()",
+		"log file:  ()",
+		"start timeout: 0s ()",
+		"stop timeout: 0s ()",
+		"lock timeout: 0s ()",
+		"log rotation: 0 bytes (0 disables) ()",
+		"log level: unset ()",
 	}
 	got := settings.Describe()
 	if strings.Join(got, "\n") != strings.Join(want, "\n") {

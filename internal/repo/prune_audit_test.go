@@ -188,7 +188,7 @@ func TestPruneReportsEachRemovalWithItsResidue(t *testing.T) {
 		t.Fatalf("Prune: %v", err)
 	}
 	candidate := filepath.Join(box.dir, "packages", "group", "gone")
-	want := fmt.Sprintf("清理残留目录: %s (仅含 .typecheck, node_modules, tsconfig.tsbuildinfo)", candidate)
+	want := fmt.Sprintf("removing residue: %s (only .typecheck, node_modules, tsconfig.tsbuildinfo)", candidate)
 	if len(lines) != 1 || lines[0] != want {
 		t.Fatalf("report lines = %#v, want [%q]", lines, want)
 	}

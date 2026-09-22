@@ -233,17 +233,17 @@ func TestTimeoutBoundsAreEnforcedOnEveryKey(t *testing.T) {
 		document   string
 		wantSubstr string
 	}{
-		{"start below the floor", `{"startTimeoutSeconds": 0}`, "startTimeoutSeconds 必须至少为 1 秒"},
-		{"stop below the floor", `{"stopTimeoutSeconds": 0}`, "stopTimeoutSeconds 必须至少为 1 秒"},
-		{"lock below the floor", `{"lockTimeoutSeconds": 0}`, "lockTimeoutSeconds 必须至少为 1 秒"},
-		{"start above the ceiling", `{"startTimeoutSeconds": 86401}`, "startTimeoutSeconds 不能超过 86400 秒"},
-		{"stop above the ceiling", `{"stopTimeoutSeconds": 86401}`, "stopTimeoutSeconds 不能超过 86400 秒"},
-		{"lock above the ceiling", `{"lockTimeoutSeconds": 86401}`, "lockTimeoutSeconds 不能超过 86400 秒"},
+		{"start below the floor", `{"startTimeoutSeconds": 0}`, "startTimeoutSeconds must be at least 1 second"},
+		{"stop below the floor", `{"stopTimeoutSeconds": 0}`, "stopTimeoutSeconds must be at least 1 second"},
+		{"lock below the floor", `{"lockTimeoutSeconds": 0}`, "lockTimeoutSeconds must be at least 1 second"},
+		{"start above the ceiling", `{"startTimeoutSeconds": 86401}`, "startTimeoutSeconds cannot exceed 86400 seconds"},
+		{"stop above the ceiling", `{"stopTimeoutSeconds": 86401}`, "stopTimeoutSeconds cannot exceed 86400 seconds"},
+		{"lock above the ceiling", `{"lockTimeoutSeconds": 86401}`, "lockTimeoutSeconds cannot exceed 86400 seconds"},
 		// 9223372037 seconds is beyond what a signed 64-bit nanosecond duration
 		// can hold, so this is the overflow the ceiling exists for.
-		{"start overflows", `{"startTimeoutSeconds": 9223372037}`, "startTimeoutSeconds 不能超过 86400 秒"},
-		{"stop overflows", `{"stopTimeoutSeconds": 9223372037}`, "stopTimeoutSeconds 不能超过 86400 秒"},
-		{"lock overflows", `{"lockTimeoutSeconds": 9223372037}`, "lockTimeoutSeconds 不能超过 86400 秒"},
+		{"start overflows", `{"startTimeoutSeconds": 9223372037}`, "startTimeoutSeconds cannot exceed 86400 seconds"},
+		{"stop overflows", `{"stopTimeoutSeconds": 9223372037}`, "stopTimeoutSeconds cannot exceed 86400 seconds"},
+		{"lock overflows", `{"lockTimeoutSeconds": 9223372037}`, "lockTimeoutSeconds cannot exceed 86400 seconds"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.key, func(t *testing.T) {

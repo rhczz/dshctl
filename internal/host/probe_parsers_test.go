@@ -123,7 +123,7 @@ func TestParsePIDsKeepsReadingAfterAnOversizedLine(t *testing.T) {
 			output := strings.Repeat("x", testCase.size) + "\n42\n"
 			got := parsePIDs(output, 1)
 			if len(got) != 1 || got[0] != 42 {
-				t.Errorf("parsePIDs(<%d-byte line>+\"\\n42\\n\", 1) = %v, want [42]: a line that cannot be read must not hide the rows after it",
+				t.Errorf("parsePIDs(<%d-byte line>+\"\n42\n\", 1) = %v, want [42]: a line that cannot be read must not hide the rows after it",
 					testCase.size, got)
 			}
 		})

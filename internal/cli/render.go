@@ -43,7 +43,7 @@ func printStatuses(w, extra io.Writer, report service.StatusReport) error {
 		return err
 	}
 	for _, status := range report.Others {
-		if _, err := fmt.Fprintf(extra, "\n"+i18nLine(MsgPortHeading)+"\n", status.Port); err != nil {
+		if _, err := fmt.Fprintf(extra, "\nport %d:", status.Port); err != nil {
 			return err
 		}
 		if err := printStatus(extra, status); err != nil {
@@ -81,7 +81,7 @@ func printURLs(w io.Writer, extra io.Writer, report service.URLReport) error {
 		if status.Port == report.Status.Port && !status.Owning() && !status.Survivor {
 			continue
 		}
-		if _, err := fmt.Fprintf(extra, i18nLine(MsgNoAddressOnPort)+"\n", status.Port, service.StatusSummary(status)); err != nil {
+		if _, err := fmt.Fprintf(extra, "no address on port %d (%s)\n", status.Port, service.StatusSummary(status)); err != nil {
 			return err
 		}
 	}
@@ -93,11 +93,11 @@ func printStatus(w io.Writer, status domain.Status) error {
 	summary := service.StatusSummary(status)
 	switch status.State {
 	case domain.StateRunning:
-		if _, err := fmt.Fprintf(w, i18nLine(MsgStatusRunningBlock), status.URL, status.ListenerPID); err != nil {
+		if _, err := fmt.Fprintf(w, "state: running\naddress: %s\nPID:  %d", status.URL, status.ListenerPID); err != nil {
 			return err
 		}
 		if status.URLFromRecord != "" {
-			if _, err := fmt.Fprintf(w, i18nLine(MsgStatusTokenLine)+"\n", status.URLFromRecord); err != nil {
+			if _, err := fmt.Fprintf(w, "visit: %s\n", status.URLFromRecord); err != nil {
 				return err
 			}
 		}
@@ -112,64 +112,63 @@ func printStatus(w io.Writer, status domain.Status) error {
 		case status.RecordedRepoDir != "":
 			checkout = status.RecordedRepoDir
 			if status.RecordedRepoDir != status.RepoDir {
-				note = i18nLine(MsgStatusConfiguredIs, status.RepoDir)
+				note = fmt.Sprintf(" (configured as %s)", status.RepoDir)
 			}
 		case checkout != "":
-			note = i18nLine(MsgStatusNoRecordedRepo)
+			note = " (configured value; the record names no checkout)"
 		}
-		if _, err := fmt.Fprintf(w, i18nLine(MsgStatusCheckoutLog)+"\n", checkout, note, status.LogPath); err != nil {
+		if _, err := fmt.Fprintf(w, "checkout: %s%s\nlog: %s", checkout, note, status.LogPath); err != nil {
 			return err
 		}
 		return nil
 	case domain.StateStarting:
-		if _, err := fmt.Fprintf(w, i18nLine(MsgStatusStartingBlock)+"\n", status.RecordedPID, status.LogPath); err != nil {
+		if _, err := fmt.Fprintf(w, "state: starting or stopping (the port is not ready)\nPID:  %d\nlog: %s", status.RecordedPID, status.LogPath); err != nil {
 			return err
 		}
 		return nil
 	case domain.StateForeign:
-		if _, err := fmt.Fprintf(w, i18nLine(MsgStatusForeignBlock)+"\n",
-			status.URL, status.ListenerCommand, status.LogPath); err != nil {
+		if _, err := fmt.Fprintf(w, "state: the port is held by a process dshctl did not start\naddress: %s\nprocess: %s\nlog: %s", status.URL, status.ListenerCommand, status.LogPath); err != nil {
 			return err
 		}
 		return nil
 	case domain.StateOrphan:
-		if _, err := fmt.Fprintf(w, i18nLine(MsgStatusOrphanBlock)+"\n", status.URL, status.ListenerCommand); err != nil {
+		if _, err := fmt.Fprintf(w, "state: the port is held by a process dshctl cannot claim\naddress: %s\nprocess: %s\n", status.URL, status.ListenerCommand); err != nil {
 			return err
 		}
 		if status.Survivor {
-			_, err := fmt.Fprintln(w, i18nLine(MsgStatusSurvivorHint))
+			_, err := fmt.Fprintln(w, "hint: this is a survivor of an interrupted start; run dshctl start or dshctl stop to manage it again")
 			return err
 		}
-		_, err := fmt.Fprintln(w, i18nLine(MsgStatusOrphanHint))
+		_, err := fmt.Fprintln(w, "hint: dshctl will not end it; confirm it is safe to stop and handle it yourself")
 		return err
 	case domain.StateUnobservable:
 		// Nothing about this instance is known, and saying "not running" would
 		// be a claim the failed probe cannot support.
-		if _, err := fmt.Fprintf(w, i18nLine(MsgStatusUnobservable)+"\n", status.Port, status.ProbeError); err != nil {
+		if _, err := fmt.Fprintf(w, "state: port %d cannot be probed: %s\n", status.Port, status.ProbeError); err != nil {
 			return err
 		}
 		if status.RecordedPID != 0 {
-			if _, err := fmt.Fprintf(w, i18nLine(MsgStatusRecordPid)+"\n", status.RecordedPID); err != nil {
+			if _, err := fmt.Fprintf(w, "record: pid=%d\n", status.RecordedPID); err != nil {
 				return err
 			}
 		}
-		_, err := fmt.Fprintln(w, i18nLine(MsgStatusUnobservableTip))
+		_, err := fmt.Fprintln(w, "hint: without a port probe (lsof/ss/netstat) this instance cannot be judged; fix that and retry")
 		return err
 	default:
-		if _, err := fmt.Fprintf(w, i18nLine(MsgStatusGeneric)+"\n", summary); err != nil {
+		if _, err := fmt.Fprintf(w, "state: %s\n", summary); err != nil {
 			return err
 		}
 		if status.RecordLive {
-			if _, err := fmt.Fprintf(w, i18nLine(MsgStatusRecordLive)+"\n", status.RecordedPID, status.Port); err != nil {
+			if _, err := fmt.Fprintf(w, "record: pid=%d is still alive but is not listening on port %d; dshctl stop ends it\n", status.RecordedPID, status.Port); err != nil {
 				return err
 			}
 		}
 		if status.RecordStale && status.StaleRecord != nil {
-			if _, err := fmt.Fprintf(w, i18nLine(MsgStatusStaleRecord)+"\n", status.StaleRecord.PID); err != nil {
+			if _, err := fmt.Fprintf(w, "stale record: pid=%d is gone or has been reused\n", status.StaleRecord.PID); err != nil {
 				return err
 			}
 		}
-		if _, err := fmt.Fprintf(w, i18nLine(MsgStatusLog)+"\n", status.LogPath); err != nil {
+		if _, err := fmt.Fprintf(w, "log: %s\n", status.LogPath); err != nil {
 			return err
 		}
 		return nil
@@ -179,14 +178,14 @@ func printStatus(w io.Writer, status domain.Status) error {
 // printChecks writes the human-readable diagnosis.
 func printChecks(w io.Writer, checks []service.Check) error {
 	for _, check := range checks {
-		label := i18nLine(MsgCheckOK)
+		label := "OK  "
 		switch check.Status {
 		case service.CheckWarn:
-			label = i18nLine(MsgCheckWarn)
+			label = "warn"
 		case service.CheckFail:
-			label = i18nLine(MsgCheckFail)
+			label = "fail"
 		}
-		if _, err := fmt.Fprintf(w, i18nLine(MsgCheckLine)+"\n", label, check.Name, check.Detail); err != nil {
+		if _, err := fmt.Fprintf(w, "[%s] %s: %s\n", label, check.Name, check.Detail); err != nil {
 			return err
 		}
 	}

@@ -41,18 +41,7 @@ const maxFileBytes = 64 << 10
 
 // ErrCorrupt reports a history file that exists but cannot be understood.
 // Callers treat it as "refuse to guess", never as "there is no history".
-// ErrCorrupt reports a history that exists but cannot be understood; it is a
-// value with a method so its text is rendered in the reader's language while
-// errors.Is still recognises it.
-type corruptHistory struct{}
-
-func (corruptHistory) Error() string { return i18nLine(MsgCorruptHistory) }
-func (corruptHistory) Is(target error) bool {
-	_, ok := target.(corruptHistory)
-	return ok
-}
-
-var ErrCorrupt error = corruptHistory{}
+var ErrCorrupt = errors.New("the deployment history cannot be parsed")
 
 // Record is one position dshctl deployed a checkout at.
 type Record struct {
@@ -98,29 +87,29 @@ func (s Store) Load() (File, bool, error) {
 	case errors.Is(err, fs.ErrNotExist):
 		return File{}, false, nil
 	case err != nil:
-		return File{}, false, fmt.Errorf("%s: %w", i18nLine(MsgReadFailed, s.Path), err)
+		return File{}, false, fmt.Errorf("the deployment history %s could not be read: %w", s.Path, err)
 	case !info.Mode().IsRegular():
 		// A directory or device at the history path is residue, not a history.
 		// Reading it would either fail forever or follow something outside the
 		// state directory.
-		return File{}, false, fmt.Errorf("%w: %s", ErrCorrupt, i18nLine(MsgNotRegularFile, s.Path))
+		return File{}, false, fmt.Errorf("%w: %s is not a regular file", ErrCorrupt, s.Path)
 	case info.Size() > maxFileBytes:
-		return File{}, false, fmt.Errorf("%w: %s", ErrCorrupt, i18nLine(MsgTooLarge, s.Path, info.Size()))
+		return File{}, false, fmt.Errorf("%w: %s is too large (%d bytes)", ErrCorrupt, s.Path, info.Size())
 	}
 
 	data, err := state.ReadDocument(s.Path)
 	if err != nil {
-		return File{}, false, fmt.Errorf("%s: %w", i18nLine(MsgReadFailed, s.Path), err)
+		return File{}, false, fmt.Errorf("the deployment history %s could not be read: %w", s.Path, err)
 	}
 	trimmed := bytes.TrimSpace(data)
 	if len(trimmed) == 0 {
-		return File{}, false, fmt.Errorf("%w: %s", ErrCorrupt, i18nLine(MsgEmpty, s.Path))
+		return File{}, false, fmt.Errorf("%w: %s is empty", ErrCorrupt, s.Path)
 	}
 	// The document is an object. A top-level null decodes into an empty value
 	// without an error, which would turn a mangled file into "no history" —
 	// exactly the answer that lets a rollback guess.
 	if trimmed[0] != '{' {
-		return File{}, false, fmt.Errorf("%w: %s", ErrCorrupt, i18nLine(MsgNotJSONObject, s.Path))
+		return File{}, false, fmt.Errorf("%w: %s is not a JSON object", ErrCorrupt, s.Path)
 	}
 	// Unknown fields are accepted on purpose. The file is written by one build
 	// of dshctl and read by another — after an upgrade or a downgrade — so a
@@ -142,32 +131,32 @@ func validate(file File) error {
 	seen := make(map[string]struct{}, len(file.Repos))
 	for _, group := range file.Repos {
 		if group.Repo == "" {
-			return fmt.Errorf("%s", i18nLine(MsgGroupNoRepo))
+			return fmt.Errorf("one group has no checkout path")
 		}
 		if _, duplicate := seen[group.Repo]; duplicate {
 			// Two groups for one checkout would make "where can it roll back
 			// to" depend on which group a caller happened to read.
-			return fmt.Errorf("%s", i18nLine(MsgGroupRepeated, group.Repo))
+			return fmt.Errorf("the checkout %s appears in two groups", group.Repo)
 		}
 		seen[group.Repo] = struct{}{}
 		if len(group.Records) == 0 {
-			return fmt.Errorf("%s", i18nLine(MsgGroupEmpty, group.Repo))
+			return fmt.Errorf("the group for %s has no positions", group.Repo)
 		}
 		positions := make(map[string]struct{}, len(group.Records))
 		for _, record := range group.Records {
 			if record.Commit == "" {
-				return fmt.Errorf("%s", i18nLine(MsgRecordNoCommit, group.Repo))
+				return fmt.Errorf("the group for %s has a position without a commit", group.Repo)
 			}
 			if record.At <= 0 {
 				// A position without a time cannot be read back as one: the
 				// view would print 1970 and the record would claim a move that
 				// never happened.
-				return fmt.Errorf("%s", i18nLine(MsgRecordNoTime, group.Repo, record.Commit))
+				return fmt.Errorf("the position %s of %s has no timestamp", group.Repo, record.Commit)
 			}
 			if _, duplicate := positions[record.Commit]; duplicate {
 				// Two entries for one position would make the step arithmetic
 				// ambiguous, and a valid stack never repeats a commit.
-				return fmt.Errorf("%s", i18nLine(MsgRecordRepeated, group.Repo, record.Commit))
+				return fmt.Errorf("the position %s of %s appears twice", group.Repo, record.Commit)
 			}
 			positions[record.Commit] = struct{}{}
 		}
@@ -182,15 +171,15 @@ func validate(file File) error {
 // because it is too large or because a position is malformed.
 func (s Store) Save(file File) error {
 	if err := validate(file); err != nil {
-		return fmt.Errorf("%s: %w", i18nLine(MsgRefuseInvalid), err)
+		return fmt.Errorf("refusing to write an invalid deployment history: %w", err)
 	}
 	data, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
-		return fmt.Errorf("%s: %w", i18nLine(MsgEncodeFailed), err)
+		return fmt.Errorf("the deployment history could not be encoded: %w", err)
 	}
 	payload := append(data, '\n')
 	if len(payload) > maxFileBytes {
-		return fmt.Errorf("%s", i18nLine(MsgWriteTooLarge, len(payload), s.Path))
+		return fmt.Errorf("the deployment history is too large (%d bytes); refusing to write %s", len(payload), s.Path)
 	}
 	return atomically.WriteFile(s.Path, payload, 0o600)
 }

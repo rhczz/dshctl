@@ -71,7 +71,7 @@ func (r Repo) HasOrigin(ctx context.Context) (bool, error) {
 		if run.IsExit(err, 1) {
 			return false, nil
 		}
-		return false, fmt.Errorf("%s: %w", i18nLine(MsgRemoteConfigFailed), err)
+		return false, fmt.Errorf("the checkout's remotes could not be read: %w", err)
 	}
 	return strings.TrimSpace(out) != "", nil
 }
@@ -83,7 +83,7 @@ func (r Repo) HasOrigin(ctx context.Context) (bool, error) {
 // action stays "learn what the remote has".
 func (r Repo) Fetch(ctx context.Context, out, errOut io.Writer) error {
 	if err := r.stream(ctx, out, errOut, "fetch", r.remote(), "--tags"); err != nil {
-		return fmt.Errorf("%s: %w", i18nLine(MsgFetchFailed), err)
+		return fmt.Errorf("the remote could not be fetched: %w", err)
 	}
 	return nil
 }
@@ -92,11 +92,11 @@ func (r Repo) Fetch(ctx context.Context, out, errOut io.Writer) error {
 func (r Repo) HeadCommit(ctx context.Context) (string, error) {
 	out, err := r.output().Output(ctx, r.gitCommand("rev-parse", "HEAD"))
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", i18nLine(MsgHeadFailed), err)
+		return "", fmt.Errorf("the checkout revision could not be read: %w", err)
 	}
 	sha := strings.TrimSpace(out)
 	if sha == "" {
-		return "", fmt.Errorf("%s", i18nLine(MsgHeadNoCommit))
+		return "", fmt.Errorf("the checkout revision could not be read: git returned no commit")
 	}
 	return sha, nil
 }
@@ -108,7 +108,7 @@ func (r Repo) HeadCommit(ctx context.Context) (string, error) {
 func (r Repo) HeadName(ctx context.Context) (string, string, error) {
 	branch, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--abbrev-ref", "HEAD"))
 	if err != nil {
-		return "", "", fmt.Errorf("%s: %w", i18nLine(MsgBranchFailed), err)
+		return "", "", fmt.Errorf("the checkout branch could not be read: %w", err)
 	}
 	branch = strings.TrimSpace(branch)
 	if branch == "HEAD" {
@@ -125,11 +125,11 @@ func (r Repo) HeadName(ctx context.Context) (string, string, error) {
 func (r Repo) RemoteTip(ctx context.Context) (string, error) {
 	out, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--verify", r.RemoteTipName()+"^{commit}"))
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", i18nLine(MsgRemoteTipFailed, r.RemoteTipName()), err)
+		return "", fmt.Errorf("the position of %s could not be determined: %w", r.RemoteTipName(), err)
 	}
 	sha := strings.TrimSpace(out)
 	if sha == "" {
-		return "", fmt.Errorf("%s", i18nLine(MsgRemoteTipNoCommit, r.RemoteTipName()))
+		return "", fmt.Errorf("the position of %s could not be determined: git returned no commit", r.RemoteTipName())
 	}
 	return sha, nil
 }
@@ -151,10 +151,10 @@ func (r Repo) RemoteTip(ctx context.Context) (string, error) {
 // spelled like a version would run.
 func (r Repo) ResolveRevision(ctx context.Context, selector string) (string, error) {
 	if strings.TrimSpace(selector) == "" {
-		return "", fmt.Errorf("%s", i18nLine(MsgSelectorEmpty))
+		return "", fmt.Errorf("the version cannot be empty")
 	}
 	if strings.HasPrefix(selector, "-") {
-		return "", fmt.Errorf("%s", i18nLine(MsgSelectorFlagLike, selector))
+		return "", fmt.Errorf("the version cannot start with -: %q", selector)
 	}
 	// HEAD is not a branch name even though git resolves it through one: it
 	// names the commit the checkout is already at, which the caller's short
@@ -162,7 +162,7 @@ func (r Repo) ResolveRevision(ctx context.Context, selector string) (string, err
 	if selector != "HEAD" {
 		if name, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--symbolic-full-name", selector)); err == nil {
 			if strings.HasPrefix(strings.TrimSpace(name), "refs/heads/") {
-				return "", fmt.Errorf("%s", i18nLine(MsgSelectorLocalBranch, selector, r.RemoteTipName()))
+				return "", fmt.Errorf("the version cannot name a local branch %q: use %s for the remote tip, or a tag/commit", selector, r.RemoteTipName())
 			}
 		}
 	}
@@ -178,20 +178,20 @@ func (r Repo) ResolveRevision(ctx context.Context, selector string) (string, err
 		lastErr = err
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("%s", i18nLine(MsgGitNoCommit))
+		lastErr = fmt.Errorf("git returned no commit")
 	}
-	return "", fmt.Errorf("%s: %w", i18nLine(MsgResolveFailed, selector), lastErr)
+	return "", fmt.Errorf("the version %q could not be resolved: %w", selector, lastErr)
 }
 
 // CountRange counts the commits reachable from to but not from.
 func (r Repo) CountRange(ctx context.Context, from, to string) (int, error) {
 	out, err := r.output().Output(ctx, r.gitCommand("rev-list", "--count", from+".."+to))
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", i18nLine(MsgCountFailed, from, to), err)
+		return 0, fmt.Errorf("the commits in %s..%s could not be counted: %w", from, to, err)
 	}
 	count, err := strconv.Atoi(strings.TrimSpace(out))
 	if err != nil {
-		return 0, fmt.Errorf("%s", i18nLine(MsgCountOdd, from, to, out))
+		return 0, fmt.Errorf("the commits in %s..%s could not be counted: git answered %q", from, to, out)
 	}
 	return count, nil
 }
@@ -205,7 +205,7 @@ func (r Repo) FirstParentLog(ctx context.Context, from, to string) ([]Commit, er
 	const format = "%H%x00%h%x00%s"
 	out, err := r.output().Output(ctx, r.gitCommand("log", "--first-parent", "--format="+format, from+".."+to))
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", i18nLine(MsgLogFailed, from, to), err)
+		return nil, fmt.Errorf("the commit list of %s..%s could not be read: %w", from, to, err)
 	}
 	var commits []Commit
 	for _, line := range strings.Split(out, "\n") {
@@ -214,7 +214,7 @@ func (r Repo) FirstParentLog(ctx context.Context, from, to string) ([]Commit, er
 		}
 		fields := strings.Split(line, "\x00")
 		if len(fields) != 3 {
-			return nil, fmt.Errorf("%s", i18nLine(MsgLogParseFailed, line))
+			return nil, fmt.Errorf("git's commit list could not be parsed: %q", line)
 		}
 		commits = append(commits, Commit{Full: fields[0], Short: fields[1], Subject: fields[2]})
 	}
@@ -229,11 +229,11 @@ func (r Repo) CommitInfo(ctx context.Context, revision string) (Commit, error) {
 	const format = "%H%x00%h%x00%s"
 	out, err := r.output().Output(ctx, r.gitCommand("log", "-1", "--format="+format, revision))
 	if err != nil {
-		return Commit{}, fmt.Errorf("%s: %w", i18nLine(MsgCommitInfoFailed, revision), err)
+		return Commit{}, fmt.Errorf("the information of %s could not be read: %w", revision, err)
 	}
 	fields := strings.Split(strings.TrimSpace(out), "\x00")
 	if len(fields) != 3 {
-		return Commit{}, fmt.Errorf("%s", i18nLine(MsgCommitInfoParse, revision, out))
+		return Commit{}, fmt.Errorf("the information of %s could not be parsed: %q", revision, out)
 	}
 	return Commit{Full: fields[0], Short: fields[1], Subject: fields[2]}, nil
 }
@@ -248,7 +248,7 @@ func (r Repo) Tags(ctx context.Context) (map[string][]string, error) {
 	const format = "%(objectname)%00%(*objectname)%00%(objecttype)%00%(*objecttype)%00%(refname:short)"
 	out, err := r.output().Output(ctx, r.gitCommand("for-each-ref", "--format="+format, "refs/tags"))
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", i18nLine(MsgTagsFailed), err)
+		return nil, fmt.Errorf("the checkout's tags could not be read: %w", err)
 	}
 	tags := map[string][]string{}
 	for _, line := range strings.Split(out, "\n") {
@@ -257,7 +257,7 @@ func (r Repo) Tags(ctx context.Context) (map[string][]string, error) {
 		}
 		fields := strings.Split(line, "\x00")
 		if len(fields) != 5 {
-			return nil, fmt.Errorf("%s", i18nLine(MsgTagsParse, line))
+			return nil, fmt.Errorf("git's tag list could not be parsed: %q", line)
 		}
 		object, peeled, objectType, peeledType, name := fields[0], fields[1], fields[2], fields[3], fields[4]
 		var commit string
@@ -284,14 +284,14 @@ func (r Repo) IsAncestor(ctx context.Context, ancestor, descendant string) (bool
 		// Exit 1 is git's answer "no"; anything else is a failure to look.
 		return false, nil
 	default:
-		return false, fmt.Errorf("%s: %w", i18nLine(MsgAncestorFailed, ancestor, descendant), err)
+		return false, fmt.Errorf("whether %s is an ancestor of %s could not be decided: %w", ancestor, descendant, err)
 	}
 }
 
 // CheckoutDetach moves the worktree to commit without moving any branch.
 func (r Repo) CheckoutDetach(ctx context.Context, commit string, out, errOut io.Writer) error {
 	if err := r.stream(ctx, out, errOut, "checkout", "--detach", commit); err != nil {
-		return fmt.Errorf("%s: %w", i18nLine(MsgSwitchFailed, commit), err)
+		return fmt.Errorf("could not switch to %s: %w", commit, err)
 	}
 	return nil
 }
@@ -300,10 +300,10 @@ func (r Repo) CheckoutDetach(ctx context.Context, commit string, out, errOut io.
 // origin/master. A local commit makes the merge refuse; nothing is discarded.
 func (r Repo) FastForwardMaster(ctx context.Context, out, errOut io.Writer) error {
 	if err := r.stream(ctx, out, errOut, "checkout", r.branch()); err != nil {
-		return fmt.Errorf("%s: %w", i18nLine(MsgSwitchMasterFailed, r.branch()), err)
+		return fmt.Errorf("could not switch to the %s branch: %w", r.branch(), err)
 	}
 	if err := r.stream(ctx, out, errOut, "merge", "--ff-only", r.RemoteTipName()); err != nil {
-		return fmt.Errorf("%s: %w", i18nLine(MsgFastForwardFailed, r.RemoteTipName()), err)
+		return fmt.Errorf("could not fast-forward to %s: %w", r.RemoteTipName(), err)
 	}
 	return nil
 }
@@ -316,7 +316,7 @@ func (r Repo) FastForwardMaster(ctx context.Context, out, errOut io.Writer) erro
 func (r Repo) TrackedChanges(ctx context.Context) (bool, error) {
 	out, err := r.output().Output(ctx, r.gitCommand("status", "--porcelain", "--untracked-files=no"))
 	if err != nil {
-		return false, fmt.Errorf("%s: %w", i18nLine(MsgStatusFailed), err)
+		return false, fmt.Errorf("the checkout's state could not be read: %w", err)
 	}
 	return strings.TrimSpace(out) != "", nil
 }

@@ -97,7 +97,6 @@ LAYERS = {
         "internal/detach",
         "internal/history",
         "internal/host",
-        "internal/i18n",
         "internal/logging",
         "internal/paths",
         "internal/run",
@@ -121,7 +120,6 @@ LAYERS = {
         "internal/detach",
         "internal/history",
         "internal/host",
-        "internal/i18n",
         "internal/logging",
         "internal/paths",
         "internal/run",
@@ -136,27 +134,24 @@ LAYERS = {
         "internal/state",
         "internal/version",
     },
-    # Leaf packages may carry a message catalog: i18n is a capability leaf, and
-    # a package's words belong to the package that speaks them.
     "internal/atomically": {"internal/i18n"},
     "internal/detach": {"internal/i18n"},
     "internal/host": {"internal/i18n"},
     "internal/logfile": {"internal/i18n"},
-    "internal/logging": {"internal/i18n", "internal/logfile"},
+    "internal/logging": {"internal/logfile"},
     "internal/paths": {"internal/i18n"},
     "internal/run": {"internal/i18n"},
     "internal/config": {
         "internal/atomically",
         "internal/exitcode",
-        "internal/i18n",
         "internal/logging",
         "internal/paths",
     },
-    "internal/state": {"internal/atomically", "internal/i18n"},
-    "internal/history": {"internal/atomically", "internal/i18n", "internal/state"},
-    "internal/nodejs": {"internal/i18n", "internal/paths", "internal/run"},
+    "internal/state": {"internal/atomically"},
+    "internal/history": {"internal/atomically", "internal/state"},
+    "internal/nodejs": {"internal/paths", "internal/run"},
     "internal/lock": {"internal/i18n"},
-    "internal/repo": {"internal/i18n", "internal/run"},
+    "internal/repo": {"internal/run"},
     "internal/version": {"internal/buildinfo"},
     # Every remaining package is a leaf: it may import the standard library and
     # nothing else of ours.
@@ -411,33 +406,6 @@ def check_notes() -> list[str]:
     return problems
 
 
-def check_i18n_literals() -> list[str]:
-    """Operator-facing text lives in a message catalog, not in a literal.
-
-    A Chinese string literal in production code is a message no translator can
-    find: each package's messages.go is the one home for what an operator reads,
-    and this rule keeps a new message from being written the old way.
-    """
-    problems = []
-    cjk = re.compile(r'"[^"\n]*[\u4e00-\u9fff][^"\n]*"')
-    for path in sorted(ROOT.rglob("*.go")):
-        if path.name.endswith("_test.go") or path.name == "messages.go":
-            continue
-        # The catalog framework's own diagnostics are developer-facing: they
-        # report a programming mistake (a duplicate id), not something an
-        # operator can act on, so they stay in English and out of a catalog.
-        if path.parent.name == "i18n":
-            continue
-        if any(part in SKIP_DIRS for part in path.parts):
-            continue
-        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-            if line.lstrip().startswith("//"):
-                continue
-            if cjk.search(line):
-                problems.append(f"{rel(path)}:{number}: 操作者文案必须进消息目录")
-    return problems
-
-
 def check_go_comments() -> list[str]:
     """A comment states one contract; a wrapped paragraph belongs in a doc."""
     problems: list[str] = []
@@ -633,7 +601,6 @@ CHECKS = {
     "package-map": check_package_map,
     "tracked-artifacts": check_tracked_artifacts,
     "trailing-newline": check_trailing_newline,
-    "i18n-literals": check_i18n_literals,
 }
 
 

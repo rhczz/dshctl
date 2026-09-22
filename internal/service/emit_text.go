@@ -24,7 +24,7 @@ type TextEmitter struct {
 func (t TextEmitter) Emit(event Event) {
 	switch event.Kind {
 	case EventWarning:
-		fmt.Fprintf(t.err(), i18nLine(MsgTextWarning), event.Text)
+		fmt.Fprintf(t.err(), "warning: %s\n", event.Text)
 	case EventError:
 		fmt.Fprintln(t.err(), event.Text)
 	case EventOutput:

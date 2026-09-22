@@ -38,7 +38,7 @@ func testStore(path string) Store[testDoc] {
 		MaxBytes: maxTestBytes,
 		Validate: func(doc testDoc) error {
 			if doc.PID <= 0 {
-				return fmt.Errorf("pid 无效: %d", doc.PID)
+				return fmt.Errorf("the record's pid is invalid: %d", doc.PID)
 			}
 			return nil
 		},

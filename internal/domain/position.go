@@ -26,7 +26,7 @@ func (t Target) Label() string {
 	if t.Name == "" {
 		return ShortCommit(t.Commit)
 	}
-	return fmt.Sprintf("%s（%s）", ShortCommit(t.Commit), t.Name)
+	return fmt.Sprintf("%s (%s)", ShortCommit(t.Commit), t.Name)
 }
 
 // ShortCommit is how a revision is named in a message.

@@ -150,7 +150,7 @@ func TestTimelineKeepsLocalStateWhenFetchFails(t *testing.T) {
 	if report.Remote.Commit != f.host.gitRemote {
 		t.Fatalf("remote = %q, want the locally known tip", report.Remote.Commit)
 	}
-	if !strings.Contains(f.errOut.String(), "无法获取远程更新") {
+	if !strings.Contains(f.errOut.String(), "the remote could not be fetched") {
 		t.Fatalf("stderr = %q, want the fetch warning", f.errOut.String())
 	}
 
@@ -320,7 +320,7 @@ func TestTimelineReportsACorruptHistory(t *testing.T) {
 	if len(report.History) != 0 {
 		t.Fatalf("history = %+v, want none", report.History)
 	}
-	if !strings.Contains(f.errOut.String(), "无法读取更新历史") {
+	if !strings.Contains(f.errOut.String(), "the deployment history") {
 		t.Fatalf("stderr = %q, want the history warning", f.errOut.String())
 	}
 }

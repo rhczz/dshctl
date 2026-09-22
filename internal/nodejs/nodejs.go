@@ -119,7 +119,7 @@ func (r *Resolver) Resolve(ctx context.Context, prefs Preferences) (Installation
 func (r *Resolver) discover(ctx context.Context) (Installation, *Failure) {
 	path, err := r.lookPath("node")
 	if err != nil {
-		return Installation{}, &Failure{Observations: []Observation{{Source: SourcePath, Detail: i18nLine(MsgNoNodeOnPath)}}}
+		return Installation{}, &Failure{Observations: []Observation{{Source: SourcePath, Detail: "no node"}}}
 	}
 	installation, probeErr := r.inspect(ctx, path)
 	if probeErr != nil {
@@ -147,7 +147,7 @@ func (r *Resolver) findRequested(ctx context.Context, requested, home string) (I
 	if err != nil {
 		return Installation{}, &Failure{
 			Requested:    requested,
-			Observations: []Observation{managers, {Source: SourcePath, Detail: i18nLine(MsgNoNodeOnPath)}},
+			Observations: []Observation{managers, {Source: SourcePath, Detail: "no node"}},
 		}
 	}
 	installation, probeErr := r.inspect(ctx, path)
@@ -177,7 +177,7 @@ func (r *Resolver) inspect(ctx context.Context, path string) (Installation, erro
 
 	out, err := r.output().Output(ctx, run.Command{Name: path, Args: []string{"-v"}})
 	if err != nil {
-		return Installation{}, fmt.Errorf("%s", i18nLine(MsgProbeFailed, path, err))
+		return Installation{}, fmt.Errorf("could not run `%s -v`: %v", path, err)
 	}
 	version := ParseVersion(out)
 	// The token has to look like a release. A binary that answers with a
@@ -185,7 +185,7 @@ func (r *Resolver) inspect(ctx context.Context, path string) (Installation, erro
 	// unreadable version is clearer than letting "not" travel onward as a release
 	// that the gate then refuses.
 	if version == "" || !startsWithDigit(version) {
-		return Installation{}, fmt.Errorf("%s", i18nLine(MsgProbeNoVersion, path, strings.TrimSpace(out)))
+		return Installation{}, fmt.Errorf("`%s -v` printed no version: %q", path, strings.TrimSpace(out))
 	}
 	installation := Installation{
 		Version:  version,
@@ -214,15 +214,15 @@ func (r *Resolver) inspect(ctx context.Context, path string) (Installation, erro
 
 // unusableDetail explains why a binary on PATH could not be turned into a
 // runtime, in the words of the failure itself.
-func unusableDetail(err error) string { return i18nLine(MsgVersionUndetermined) + err.Error() }
+func unusableDetail(err error) string { return "the version cannot be determined: " + err.Error() }
 
 // managersObservation summarises what the version managers had to offer.
 func managersObservation(candidates []candidate) Observation {
 	if len(candidates) == 0 {
-		return Observation{Source: SourceManagers, Detail: i18nLine(MsgManagersNone)}
+		return Observation{Source: SourceManagers, Detail: "none installed"}
 	}
 	// installed() reports releases from the highest down.
-	return Observation{Source: SourceManagers, Detail: i18nLine(MsgManagersNewest) + candidates[0].version}
+	return Observation{Source: SourceManagers, Detail: "the newest is " + candidates[0].version}
 }
 
 // Failure reports why no runtime could be resolved. It carries facts rather
@@ -242,11 +242,11 @@ type Failure struct {
 func (f *Failure) Error() string {
 	switch {
 	case f.Requested != "":
-		return i18nLine(MsgNotFoundRequested, f.Requested)
+		return fmt.Sprintf("Node %s was not found", f.Requested)
 	case f.Err != nil:
-		return i18nLine(MsgPathNodeUnusable, f.Err)
+		return fmt.Sprintf("the node on PATH cannot be used: %v", f.Err)
 	default:
-		return i18nLine(MsgPathNodeMissing)
+		return "there is no node on PATH"
 	}
 }
 
@@ -298,16 +298,14 @@ func Assess(installation Installation, minimum, tested string) Verdict {
 	if Compare(installation.Version, minimum) < 0 {
 		return Verdict{
 			Status: TooOld,
-			Reason: i18nLine(MsgBelowMinimum,
-				installation.Version, minimum, installation.NodePath, originLabel(installation.Source)),
+			Reason: fmt.Sprintf("Node %s is below the minimum %s (%s, from %s)", installation.Version, minimum, installation.NodePath, originLabel(installation.Source)),
 			Remedy: Remedies(minimum, tested),
 		}
 	}
 	if majorOf(installation.Version) != majorOf(tested) {
 		return Verdict{
 			Status: Untested,
-			Reason: i18nLine(MsgUntestedMajor,
-				installation.Version, tested, installation.NodePath, originLabel(installation.Source), majorOf(tested)),
+			Reason: fmt.Sprintf("Node %s is outside what dshctl has verified (verified %s; %s, from %s); if the Web side reports \"Failed to load plugins\", switch to Node %d.x", installation.Version, tested, installation.NodePath, originLabel(installation.Source), majorOf(tested)),
 		}
 	}
 	return Verdict{Status: Supported}
@@ -317,7 +315,7 @@ func Assess(installation Installation, minimum, tested string) Verdict {
 // one-shot escape hatch that fixes the version for this installation only.
 func Remedies(minimum, tested string) string {
 	major := majorOf(minimum)
-	return fmt.Sprintf(`修复(任选一种):
+	return fmt.Sprintf(`fix it with any one of these:
   nvm:      nvm install %[1]d && nvm alias default %[1]d
   fnm:      fnm install %[1]d && fnm default %[1]d
   Homebrew: brew install node@%[1]d
@@ -326,8 +324,8 @@ func Remedies(minimum, tested string) string {
   asdf:     asdf install nodejs %[2]s && asdf global nodejs %[2]s
   mise:     mise use -g node@%[1]d
   nodenv:   nodenv install %[2]s && nodenv global %[2]s
-  官方安装包: https://nodejs.org/en/download
-也可以只指定一次: --node <版本> 或 DSH_NODE_VERSION=<版本>(成功后写入配置)`, major, tested)
+  official installer: https://nodejs.org/en/download
+or name it once: --node <version> or DSH_NODE_VERSION=<version> (written into the document on success)`, major, tested)
 }
 
 // Describe renders the operator-facing explanation of a resolution failure: what
@@ -335,9 +333,9 @@ func Remedies(minimum, tested string) string {
 func Describe(failure *Failure, minimum, tested string) string {
 	var builder strings.Builder
 	if failure.Requested != "" {
-		fmt.Fprintf(&builder, i18nLine(MsgRemedyNotFound), failure.Requested)
+		fmt.Fprintf(&builder, "Node %s was not found (looked in the nvm/fnm install roots and on PATH)", failure.Requested)
 	} else {
-		builder.WriteString(i18nLine(MsgRemedyNoUsableNode))
+		builder.WriteString("no usable node")
 	}
 	for _, observation := range failure.Observations {
 		builder.WriteString("\n")
@@ -641,7 +639,7 @@ func describeObservation(observation Observation) string {
 	label := observationLabel(observation.Source)
 	switch {
 	case observation.Path != "" && observation.Version != "":
-		return i18nLine(MsgObservationLine, label, observation.Path, observation.Version)
+		return fmt.Sprintf("  %s: %s is %s", label, observation.Path, observation.Version)
 	case observation.Path != "":
 		return fmt.Sprintf("  %s: %s %s", label, observation.Path, observation.Detail)
 	default:

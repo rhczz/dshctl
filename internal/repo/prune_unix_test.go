@@ -72,8 +72,8 @@ func TestPruneReportsARemovalItCouldNotPerform(t *testing.T) {
 		t.Fatal("a candidate reported as failed was removed anyway")
 	}
 	want := []string{
-		fmt.Sprintf("清理残留目录: %s (仅含 node_modules)", candidate),
-		fmt.Sprintf("警告: 无法删除 %s，构建将继续;可稍后手动执行 pnpm run clean", candidate),
+		fmt.Sprintf("removing residue: %s (only node_modules)", candidate),
+		fmt.Sprintf("warning: %s could not be removed; the build continues, run pnpm run clean by hand later", candidate),
 	}
 	if len(lines) != len(want) || lines[0] != want[0] || lines[1] != want[1] {
 		t.Fatalf("report lines = %#v, want %#v", lines, want)

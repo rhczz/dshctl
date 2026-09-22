@@ -27,7 +27,7 @@ func TestStartRefusesAForeignListener(t *testing.T) {
 
 	_, err := f.Start(context.Background())
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "无法确认")
+	wantContains(t, err, "cannot be confirmed as one dshctl started")
 	f.wantNoSpawn(t)
 	f.wantNoSignals(t)
 }
@@ -42,7 +42,7 @@ func TestStartRefusesAnUnidentifiableListener(t *testing.T) {
 
 	_, err := f.Start(context.Background())
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "无法确认")
+	wantContains(t, err, "cannot be confirmed as one dshctl started")
 	f.wantNoSpawn(t)
 	f.wantNoSignals(t)
 }
@@ -62,7 +62,7 @@ func TestStartIsIdempotentWhenAlreadyRunning(t *testing.T) {
 	}
 	f.wantNoSpawn(t)
 	f.wantNoSignals(t)
-	if !strings.Contains(f.out.String(), "已在运行") {
+	if !strings.Contains(f.out.String(), "DSH Web is already running") {
 		t.Fatalf("output = %q", f.out.String())
 	}
 }
@@ -237,7 +237,7 @@ func TestStopOnlySignalsTheRecordedProcess(t *testing.T) {
 	if result.Status.State != domain.StateStopped {
 		t.Fatalf("state = %q, want %q", result.Status.State, domain.StateStopped)
 	}
-	if !strings.Contains(f.out.String(), "已停止") {
+	if !strings.Contains(f.out.String(), "stopped") {
 		t.Fatalf("output = %q", f.out.String())
 	}
 }
@@ -290,7 +290,7 @@ func TestStopRefusesForceWhenPIDIsRecycledDuringGrace(t *testing.T) {
 	if err == nil {
 		t.Fatal("Stop succeeded while the pid belonged to a recycled process")
 	}
-	if !strings.Contains(err.Error(), "复用") {
+	if !strings.Contains(err.Error(), "was reused by another process while waiting") {
 		t.Fatalf("Stop error = %v, want a recycled-pid report", err)
 	}
 	f.wantSignals(t, []fakeSignal{{4321, host.Graceful}})
@@ -462,8 +462,8 @@ func TestFailedStartCleansUpTheWholeGroup(t *testing.T) {
 	// The cleanup reports each step, so an operator reading the console knows
 	// what happened to the processes this start created and where to look.
 	for _, want := range []string{
-		"启动失败或超时，正在清理本次启动的进程 ...",
-		"已清理。日志尾部:",
+		"the start failed or timed out; cleaning up the processes this run started ...",
+		"cleaned up. The tail of the log:",
 	} {
 		if !strings.Contains(f.errOut.String(), want) {
 			t.Fatalf("stderr = %q, want %q", f.errOut.String(), want)
@@ -619,7 +619,7 @@ func TestStopReportsAProcessThatSurvivesTheForceSignal(t *testing.T) {
 
 	_, err := f.Stop(context.Background())
 	wantCode(t, err, exitcode.Failure)
-	if !strings.Contains(err.Error(), "强制结束后仍然存在") {
+	if !strings.Contains(err.Error(), "still exists after a forced end") {
 		t.Fatalf("Stop error = %v, want a still-alive report", err)
 	}
 	f.wantSignals(t, []fakeSignal{{4321, host.Graceful}, {4321, host.Force}})
@@ -646,7 +646,7 @@ func TestStopReportsAnotherHarnessServer(t *testing.T) {
 	if !f.host.isAlive(4242) {
 		t.Fatal("a foreign harness server was ended")
 	}
-	if !strings.Contains(f.errOut.String(), "非 DSH 进程占用") {
+	if !strings.Contains(f.errOut.String(), "is held by a non-DSH process (pid=") {
 		t.Fatalf("stderr = %q", f.errOut.String())
 	}
 }
@@ -694,7 +694,7 @@ func TestStopReportsAnUnverifiableListener(t *testing.T) {
 	if !f.host.isAlive(7777) {
 		t.Fatal("an unverifiable listener was ended")
 	}
-	if !strings.Contains(f.errOut.String(), "无法确认") {
+	if !strings.Contains(f.errOut.String(), "cannot be confirmed as one dshctl started") {
 		t.Fatalf("stderr = %q", f.errOut.String())
 	}
 }
@@ -714,7 +714,7 @@ func TestStopReportsAStrangerOnThePort(t *testing.T) {
 		t.Fatal("the result must report that the port could not be claimed")
 	}
 	f.wantNoSignals(t)
-	if !strings.Contains(f.errOut.String(), "无法确认") {
+	if !strings.Contains(f.errOut.String(), "cannot be confirmed as one dshctl started") {
 		t.Fatalf("stderr = %q", f.errOut.String())
 	}
 }
@@ -730,7 +730,7 @@ func TestStopSaysSoWhenNothingRuns(t *testing.T) {
 	if _, err := f.Stop(context.Background()); err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
-	if !strings.Contains(f.out.String(), "未在运行") {
+	if !strings.Contains(f.out.String(), "DSH Web is not running") {
 		t.Fatalf("output = %q", f.out.String())
 	}
 	if _, ok := f.stateRecord(t); ok {
@@ -1073,8 +1073,8 @@ func TestUpdateSurfacesTheBuildFailure(t *testing.T) {
 
 	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "pnpm run build 失败")
-	if strings.Contains(err.Error(), "尚未构建") {
+	wantContains(t, err, "pnpm run build failed")
+	if strings.Contains(err.Error(), "the checkout has not been built (no") {
 		t.Fatalf("the build failure was masked by the missing build record: %v", err)
 	}
 }
@@ -1094,7 +1094,7 @@ func TestUpdateRestoresTheServiceWhenTheSwitchFails(t *testing.T) {
 
 	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "更新失败")
+	wantContains(t, err, "update failed")
 	// The old server was stopped, then the old build was started again.
 	if signals := f.host.signalsSent(); len(signals) != 1 || signals[0] != (fakeSignal{4321, host.Graceful}) {
 		t.Fatalf("signals = %v, want the old server stopped once", signals)
@@ -1103,10 +1103,10 @@ func TestUpdateRestoresTheServiceWhenTheSwitchFails(t *testing.T) {
 	if !ok || record.PID == 4321 {
 		t.Fatalf("record = %+v (ok=%v), want the restored server", record, ok)
 	}
-	if !strings.Contains(f.out.String(), "恢复启动旧版本") {
+	if !strings.Contains(f.out.String(), "the old build is intact; starting the old version again") {
 		t.Fatalf("output = %q", f.out.String())
 	}
-	if !strings.Contains(f.out.String(), "启动成功") {
+	if !strings.Contains(f.out.String(), "start succeeded") {
 		t.Fatalf("the restored server was not reported as started: %q", f.out.String())
 	}
 }
@@ -1140,7 +1140,7 @@ func TestUpdateLeavesTheServiceStoppedWhenInstallFails(t *testing.T) {
 
 	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "保持停止")
+	wantContains(t, err, "the service stays stopped")
 	f.wantNoSpawn(t)
 }
 
@@ -1238,7 +1238,7 @@ func TestLogsBuildOnlyReportsAMissingRecord(t *testing.T) {
 	if err := f.Logs(context.Background(), LogsOptions{BuildOnly: true}); err != nil {
 		t.Fatalf("Logs: %v", err)
 	}
-	if !strings.Contains(f.errOut.String(), "没有 build/update/rollback 记录") {
+	if !strings.Contains(f.errOut.String(), "the log has no build/update/rollback record") {
 		t.Fatalf("stderr = %q", f.errOut.String())
 	}
 }
@@ -1321,16 +1321,16 @@ func TestDoctorReportsEveryItem(t *testing.T) {
 	for _, check := range checks {
 		byName[check.Name] = check
 	}
-	for _, want := range []string{"状态目录", "配置文件", "仓库版本", "依赖", "构建产物", "Node", "pnpm", "端口", "运行记录", "操作锁", "日志"} {
+	for _, want := range []string{"state directory", "settings document", "checkout revision", "dependencies", "build artifacts", "Node", "pnpm", "port", "runtime record", "operation lock", "log"} {
 		if _, ok := byName[want]; !ok {
 			t.Fatalf("doctor did not report %q: %+v", want, checks)
 		}
 	}
-	if byName["端口"].Status != CheckOK {
-		t.Fatalf("port check = %+v, want ok while the managed server runs", byName["端口"])
+	if byName["port"].Status != CheckOK {
+		t.Fatalf("port check = %+v, want ok while the managed server runs", byName["port"])
 	}
-	if byName["运行记录"].Status != CheckOK {
-		t.Fatalf("record check = %+v, want ok", byName["运行记录"])
+	if byName["runtime record"].Status != CheckOK {
+		t.Fatalf("record check = %+v, want ok", byName["runtime record"])
 	}
 }
 
@@ -1384,7 +1384,7 @@ func TestTheLogLevelDecidesWhatTheFileCarries(t *testing.T) {
 	if _, err := quiet.Status(context.Background(), quiet.Settings.Port); err != nil {
 		t.Fatalf("status: %v", err)
 	}
-	if content := quiet.logContent(t); strings.Contains(content, "观测端口") {
+	if content := quiet.logContent(t); strings.Contains(content, "observe port") {
 		t.Fatalf("a debug line was recorded at the default level:\n%s", content)
 	}
 
@@ -1393,7 +1393,7 @@ func TestTheLogLevelDecidesWhatTheFileCarries(t *testing.T) {
 	if _, err := loud.Status(context.Background(), loud.Settings.Port); err != nil {
 		t.Fatalf("status: %v", err)
 	}
-	if content := loud.logContent(t); !strings.Contains(content, "观测端口") {
+	if content := loud.logContent(t); !strings.Contains(content, "observe port") {
 		t.Fatalf("no debug line was recorded at debug level:\n%s", content)
 	}
 }

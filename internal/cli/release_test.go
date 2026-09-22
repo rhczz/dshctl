@@ -192,11 +192,11 @@ func TestTimelineLeavesTheWorktreeAndStateDirUntouched(t *testing.T) {
 		t.Fatalf("the fetch did not run: %v", err)
 	}
 	for _, want := range []string{
-		"仓库: " + repoDir,
-		"差距: 落后 1 个提交",
+		"checkout: " + repoDir,
+		"gap: 1 commits behind",
 		"dsh-v0.1.0",
-		"← 远程最新",
-		"← 当前",
+		"← remote tip",
+		"← current",
 	} {
 		if !strings.Contains(result.stdout, want) {
 			t.Fatalf("stdout = %q, want it to contain %q", result.stdout, want)
@@ -278,7 +278,7 @@ func TestUpdateRejectsAnUnknownVersionWithoutStoppingTheService(t *testing.T) {
 	if !strings.Contains(result.stderr, "no-such-version") {
 		t.Fatalf("stderr = %q, want it to name the selector", result.stderr)
 	}
-	if strings.Contains(result.stdout, "停止服务") || strings.Contains(result.stdout, "更新完成") {
+	if strings.Contains(result.stdout, "DSH Web is running; stopping it first") || strings.Contains(result.stdout, "update finished") {
 		t.Fatalf("stdout = %q, want no deployment attempt", result.stdout)
 	}
 }
@@ -295,7 +295,7 @@ func TestUpdateRejectsASelectorThatLooksLikeAFlag(t *testing.T) {
 	if result.code != 2 {
 		t.Fatalf("update exit = %d, want 2 (stderr = %s)", result.code, result.stderr)
 	}
-	if !strings.Contains(result.stderr, "版本参数无效") {
+	if !strings.Contains(result.stderr, "'s version argument is invalid") {
 		t.Fatalf("stderr = %q, want the invalid-selector message", result.stderr)
 	}
 }
@@ -312,7 +312,7 @@ func TestUpdateRejectsASecondVersionArgument(t *testing.T) {
 	if result.code != 2 {
 		t.Fatalf("update exit = %d, want 2 (stderr = %s)", result.code, result.stderr)
 	}
-	if !strings.Contains(result.stderr, "只接受一个版本参数") {
+	if !strings.Contains(result.stderr, "takes one version argument") {
 		t.Fatalf("stderr = %q, want the extra-argument message", result.stderr)
 	}
 }
@@ -326,9 +326,9 @@ func TestRollbackRejectsBadStepArguments(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"zero steps", []string{"rollback", "-n", "0"}, "必须是正整数"},
-		{"negative steps", []string{"rollback", "-n", "-2"}, "必须是正整数"},
-		{"steps and a version", []string{"rollback", "-n", "2", "dsh-v0.1.0"}, "不能同时使用"},
+		{"zero steps", []string{"rollback", "-n", "0"}, "rollback's -n must be a positive number"},
+		{"negative steps", []string{"rollback", "-n", "-2"}, "rollback's -n must be a positive number"},
+		{"steps and a version", []string{"rollback", "-n", "2", "dsh-v0.1.0"}, "rollback's -n and a version cannot be used together"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -361,7 +361,7 @@ func TestRollbackWithoutHistoryIsAPreflight(t *testing.T) {
 	if result.code != 4 {
 		t.Fatalf("rollback exit = %d, want 4 (stderr = %s)", result.code, result.stderr)
 	}
-	if !strings.Contains(result.stderr, "没有可回退的历史") {
+	if !strings.Contains(result.stderr, "nothing to roll back to: dshctl has not recorded a position for this checkout yet") {
 		t.Fatalf("stderr = %q, want the missing-history message", result.stderr)
 	}
 }
@@ -386,7 +386,7 @@ func TestUpdateThenRollbackThroughTheRealBinary(t *testing.T) {
 	if tagged == original {
 		t.Fatal("update did not move the checkout to the tag")
 	}
-	if !strings.Contains(update.stdout, "更新完成") {
+	if !strings.Contains(update.stdout, "update finished") {
 		t.Fatalf("update stdout = %q, want the completion report", update.stdout)
 	}
 
@@ -400,7 +400,7 @@ func TestUpdateThenRollbackThroughTheRealBinary(t *testing.T) {
 	if diff := firstTreeDifference(before, worktreeSnapshot(t, repoDir)); diff != "" {
 		t.Fatalf("the cycle changed the working tree:\n%s", diff)
 	}
-	if !strings.Contains(rollback.stdout, "回退完成") {
+	if !strings.Contains(rollback.stdout, "roll back finished") {
 		t.Fatalf("rollback stdout = %q, want the completion report", rollback.stdout)
 	}
 
@@ -408,7 +408,7 @@ func TestUpdateThenRollbackThroughTheRealBinary(t *testing.T) {
 	if timeline.code != 0 {
 		t.Fatalf("timeline exit = %d, want 0 (stderr = %s)", timeline.code, timeline.stderr)
 	}
-	for _, want := range []string{"更新历史:", "-n 1", "← 当前"} {
+	for _, want := range []string{"deployment history", "-n 1", "← current"} {
 		if !strings.Contains(timeline.stdout, want) {
 			t.Fatalf("timeline stdout = %q, want it to contain %q", timeline.stdout, want)
 		}
@@ -431,7 +431,7 @@ func TestUpdateHEADIsANoOpThroughTheRealBinary(t *testing.T) {
 	if result.code != 0 {
 		t.Fatalf("update HEAD exit = %d, want 0 (stderr = %s)", result.code, result.stderr)
 	}
-	if !strings.Contains(result.stdout, "无需更新") {
+	if !strings.Contains(result.stdout, "nothing to update") {
 		t.Fatalf("stdout = %q, want the no-op report", result.stdout)
 	}
 	if strings.Contains(result.stdout, "pnpm install") {
@@ -453,14 +453,14 @@ func TestTimelineFailsPreflightOutsideACheckout(t *testing.T) {
 	if result.code != 4 {
 		t.Fatalf("timeline exit = %d, want 4 (stderr = %s)", result.code, result.stderr)
 	}
-	if !strings.Contains(result.stderr, "仓库目录不存在") {
+	if !strings.Contains(result.stderr, "the checkout does not exist") {
 		t.Fatalf("stderr = %q, want the missing-checkout message", result.stderr)
 	}
 }
 
 // TestTimelineExitsPreflightWhenFetchFails pins the honesty contract at the
 // command line: the locally known report is printed, the remote is named as
-// unknown, "已是最新" never appears, and the exit code says the preflight
+// unknown, "up to date (" never appears, and the exit code says the preflight
 // failed.
 func TestTimelineExitsPreflightWhenFetchFails(t *testing.T) {
 	root := t.TempDir()
@@ -472,13 +472,13 @@ func TestTimelineExitsPreflightWhenFetchFails(t *testing.T) {
 	if result.code != 4 {
 		t.Fatalf("timeline exit = %d, want 4 (stderr = %s)", result.code, result.stderr)
 	}
-	if !strings.Contains(result.stdout, "远程: 无法获取（") {
+	if !strings.Contains(result.stdout, "remote: unavailable (") {
 		t.Fatalf("stdout = %q, want the unknown-remote header", result.stdout)
 	}
-	if strings.Contains(result.stdout, "已是最新") {
+	if strings.Contains(result.stdout, "up to date (") {
 		t.Fatalf("stdout = %q, must not claim to be up to date", result.stdout)
 	}
-	if !strings.Contains(result.stderr, "无法获取远程更新") {
+	if !strings.Contains(result.stderr, "the remote could not be fetched") {
 		t.Fatalf("stderr = %q, want the fetch warning", result.stderr)
 	}
 }

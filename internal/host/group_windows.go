@@ -62,7 +62,7 @@ func processParents() (map[uint32]uint32, error) {
 		parents[entry.ProcessID] = entry.ParentProcessID
 	}
 	if len(parents) == 0 {
-		return nil, errors.New(i18nLine(MsgEmptySnapshot))
+		return nil, errors.New("the process snapshot is empty")
 	}
 	return parents, nil
 }

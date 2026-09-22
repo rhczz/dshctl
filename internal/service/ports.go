@@ -157,9 +157,7 @@ func (s *Service) RestartAll(ctx context.Context) ([]StartResult, error) {
 				return nil, err
 			}
 			if observed.occupant() {
-				return nil, exitcode.New(exitcode.Preflight,
-					i18nLine(MsgPortsRestartOccupant),
-					port, observed.status.ListenerPID, observed.status.ListenerCommand)
+				return nil, exitcode.New(exitcode.Preflight, "port %d is held by a process dshctl cannot claim (pid=%d): %s\nhint: confirm and handle it first, then restart", port, observed.status.ListenerPID, observed.status.ListenerCommand)
 			}
 		}
 		running, err := s.runningSelection(ctx, selection.Ports)

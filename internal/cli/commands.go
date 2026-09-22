@@ -23,81 +23,81 @@ func Commands() []Command {
 	return []Command{
 		{
 			Name:    "start",
-			Summary: i18nLine(MsgStartSummary),
-			Help:    i18nLine(MsgStartHelp),
+			Summary: "start DSH Web in the background (no install/build)",
+			Help:    "Start DSH Web in the background and wait for the port, without running\ninstall/build.\n\nThe checkout, node, pnpm and the build artifacts are checked first. A port held by\nanother program refuses the start; so does a process dshctl cannot claim, because\ndshctl never ends a process it did not start.\n\nWhen the settings document names no repoDir, a successful start writes the\ncheckout it used into the document; when the document already names one, a line\nsays so and nothing is rewritten. A service that is already running only records\nthe checkout in its runtime record, without restarting.\n\nEnvironment: DSH_REPO_DIR, DSH_PORT, DSH_NODE_VERSION.\n--json: the whole run as one document (ok, the command's own result, and what it\nsaid along the way).\nExit codes: 0 success (including already running), 4 a precondition failed.",
 			Run:     runStart,
 		},
 		{
 			Name:    "stop",
-			Summary: i18nLine(MsgStopSummary),
-			Help:    i18nLine(MsgStopHelp),
+			Summary: "stop DSH Web (every instance without --port)",
+			Help:    "Stop DSH Web.\n\nWithout --port every service this state directory manages is stopped; with --port\nor DSH_PORT only that one. Only a process the runtime record names and whose start\ntime still matches is ended; a port held by another program is reported and left\nalone, never killed by mistake.\n\n--json: the whole run as one document (ok, the command's own result, and what it\nsaid along the way).\nExit codes: 0 success (nothing to do counts), 4 a service could not be confirmed\nas stopped because its ownership could not be established.",
 			Run:     runStop,
 		},
 		{
 			Name:    "restart",
-			Summary: i18nLine(MsgRestartSummary),
-			Help:    i18nLine(MsgRestartHelp),
+			Summary: "restart DSH Web (every running instance without --port)",
+			Help:    "Restart DSH Web. Without --port every running service of this state directory\nis restarted; with a port only that one. Stopping and starting happen under one\noperation lock, so no other dshctl operation can slip between them; a port whose\nownership cannot be established refuses the restart before anything is stopped.\n\n--json: the whole run as one document (ok, the command's own result, and what it\nsaid along the way).\nExit codes: 0 success (nothing running counts), 4 a precondition failed.",
 			Run:     runRestart,
 		},
 		{
 			Name:    "status",
-			Summary: i18nLine(MsgStatusSummary),
+			Summary: "report the running state (every instance without --port)",
 			Usage:   "[--json]",
-			Help:    i18nLine(MsgStatusHelp),
+			Help:    "Report the running state. The port answers \"is anything listening\"; the runtime\nrecord answers \"is it ours\".\n\nWithout --port every service of this state directory is reported, the configured\nport first; with a port only that one.\n\n  --json   structured output for scripts (status is the configured port, ports is\n           every observed instance)\n\nExit codes: 0 running (or starting), 3 not running or the port is held by another\nprogram, 4 the port cannot be probed.",
 			Run:     runStatus,
 		},
 		{
 			Name:    "url",
-			Summary: i18nLine(MsgURLSummary),
-			Help:    i18nLine(MsgURLHelp),
+			Summary: "print the token-carrying address",
+			Help:    "Print the address dsh web announced last (with its token), ready to paste into a\nbrowser.\n\nWithout --port one line per running instance; with a port only that one. An\ninstance that runs but has not announced an address yet is explained on standard\nerror.\nExit codes: 0 at least one address was printed, 3 there was none.",
 			Run:     runURL,
 		},
 		{
 			Name:    "logs",
-			Summary: i18nLine(MsgLogsSummary),
+			Summary: "show the log (including build/update/rollback records)",
 			Usage:   "[-n <N>] [-f|--follow] [--build]",
-			Help:    i18nLine(MsgLogsHelp),
+			Help:    "Show the log. Server output, build output and update output share one file.\n\n  -n <lines>     print the last N lines (default 200; below 1 means the default)\n  -f, --follow   keep following the output (across log rotation)\n  --build        only the last build/update/rollback record, for a failed deploy\n\nExit codes: 0 success, 1 the log file is missing or unreadable.",
 			Run:     runLogs,
 		},
 		{
 			Name:    "build",
-			Summary: i18nLine(MsgBuildSummary),
-			Help:    i18nLine(MsgBuildHelp),
+			Summary: "run pnpm run build in the checkout",
+			Help:    "Remove the residue of deleted packages, then run pnpm run build; the output is\nshown live and written to the log at the same time.\n\nWhen the settings document names no repoDir, a successful build writes this\ncheckout into it. A running service refuses the build, because it would replace\nartifacts that service is using.\n\n--json: the whole run as one document (ok, the command's own result, and what it\nsaid along the way).\nExit codes: 0 success, 1 the build failed, 4 a precondition failed (checkout,\ndependencies or artifacts missing, or a service is running).",
 			Run:     runBuild,
 		},
 		{
 			Name:    "timeline",
-			Summary: i18nLine(MsgTimelineSummary),
+			Summary: "show how far this checkout is from origin/master",
 			Usage:   "[--json]",
-			Help:    i18nLine(MsgTimelineHelp),
+			Help:    "Compare this checkout with the remote origin/master: how far behind or ahead it\nis, the tags inside the gap, the recent commits, and the deployment history dshctl\nrecorded itself.\n\nIt runs git fetch first — the only reporting command that writes .git (remote\ntracking refs; it never touches the state directory or the worktree). When the\nfetch fails it still prints what is known locally, marks it as unconfirmed, and\nexits 4: stale remote information is never called \"up to date\".\n\n  --json   structured output for scripts\n\nExit codes: 0 normal (behind, ahead and diverged are all normal), 4 not a\ncheckout, no origin, the fetch failed, or git could not be read.",
 			Run:     runTimeline,
 		},
 		{
 			Name:    "update",
-			Summary: i18nLine(MsgUpdateSummary),
+			Summary: "move to a version, rebuild, and restart what was running",
 			Usage:   "[--json] [latest|<tag>|<commit>]",
-			Help:    i18nLine(MsgUpdateHelp),
+			Help:    "The move is: resolve the target → stop the service (only if it was running) →\ngit switch → remove residue → pnpm install → pnpm run build → start it again.\n\nTargets:\n  dshctl update              the tip of origin/master (same as latest)\n  dshctl update latest       the same\n  dshctl update <tag>        the commit that tag points at (detached HEAD)\n  dshctl update <commit>     that commit (full or abbreviated hash)\n\nA local branch name is not a version: local master may be behind origin/master, so\nuse latest for the remote tip and a tag or hash for a specific commit.\n\nEvery check (target resolution, clean worktree) happens before the service is\nstopped; a target that is already the current version restarts nothing. A worktree\nwith tracked changes refuses the move (untracked files are left alone). When the\nswitch succeeds but install/build fails, the service stays down and dshctl\nrollback returns.\n\nWhen the settings document names no repoDir, a successful move writes this\ncheckout into it.\n\n--json: the whole run as one document (ok, the command's own result, and what it\nsaid along the way).\nExit codes: 0 success (including nothing to update), 1 the switch, install or build\nfailed, 4 a precondition failed.",
 			Run:     runUpdate,
 		},
 		{
 			Name:    "rollback",
-			Summary: i18nLine(MsgRollbackSummary),
+			Summary: "return to a position dshctl deployed before, without the network",
 			Usage:   "[--json] [-n <N>] [<tag>|<commit>]",
-			Help:    i18nLine(MsgRollbackHelp),
+			Help:    "The move is the same as update (resolve the target → stop → git switch → remove\nresidue → install → build → start again), but the target comes from the deployment\nhistory dshctl recorded or from a version you name, and there is no network: going\nback to a known position is the firefighting path and has to work offline.\n\n  dshctl rollback            the position before the last update/rollback\n  dshctl rollback -n 3       three steps back\n  dshctl rollback <tag>      the commit that tag points at\n  dshctl rollback <commit>   that commit (full or abbreviated hash)\n\n-n and a version cannot be given together. A worktree with tracked changes refuses\nthe move (untracked files are left alone).\n\n--json: the whole run as one document (ok, the command's own result, and what it\nsaid along the way).\nExit codes: 0 success (including nothing to roll back), 1 the switch, install or\nbuild failed, 4 no history to walk, a step count out of range, an unresolvable\nversion, or a failed precondition.",
 			Run:     runRollback,
 		},
 		{
 			Name:    "doctor",
-			Summary: i18nLine(MsgDoctorSummary),
+			Summary: "inspect the environment",
 			Usage:   "[--json]",
-			Help:    i18nLine(MsgDoctorHelp),
+			Help:    "A read-only inspection: state directory, settings document, checkout revision,\ndependencies and build artifacts, Node, pnpm, port ownership, runtime record,\noperation lock, log size, and the toolchain this binary was built with.\n\n  --json   structured output for scripts\n\nExit codes: 0 nothing blocking (warnings do not change the exit code), 1 something\nfailed.",
 			Run:     runDoctor,
 		},
 		{
 			Name:    "version",
-			Summary: i18nLine(MsgVersionSummary),
+			Summary: "print the build metadata",
 			Usage:   "[--json]",
-			Help:    i18nLine(MsgVersionHelp),
+			Help:    "Print the version, the commit, the build time and the target platform. The JSON form also carries the Go toolchain and module.",
 			Run:     runVersion,
 		},
 	}
@@ -114,7 +114,7 @@ const usageColumn = 34
 // called, which arguments it takes, what it does, and the examples for the
 // first run. Details (exit codes, failure modes) stay in `dshctl help <命令>`.
 func Usage(w io.Writer) {
-	fmt.Fprint(w, i18nLine(MsgUsageHeader))
+	fmt.Fprint(w, "dshctl — manage the DeepSeek Harness Web server on this machine\n\nusage:\n  dshctl [global flags] <command> [command flags]\n  dshctl                        the same as dshctl start\n  dshctl help [command]         the full help of one command\n\n  global flags go before the command name.\n\ncommands:\n")
 	for _, command := range Commands() {
 		invocation := strings.TrimSpace("dshctl " + command.Name + " " + command.Usage)
 		if len(invocation) <= usageColumn {
@@ -123,7 +123,7 @@ func Usage(w io.Writer) {
 		}
 		fmt.Fprintf(w, "  %s\n  %-*s%s\n", invocation, usageColumn+2, "", command.Summary)
 	}
-	fmt.Fprintf(w, i18nLine(MsgUsageTail), i18nLine(MsgExitCodes))
+	fmt.Fprintf(w, "\ncommon:\n  dshctl --repo ~/projects/deepseek-harness start   first run: name the checkout and start\n  dshctl status                                     see the running state\n  dshctl url                                        get the token-carrying address\n  dshctl logs -f                                    follow the log\n  dshctl timeline                                   how far behind, and which tags\n  dshctl update                                     update to the tip of origin/master\n  dshctl update dsh-v0.1.6-alpha.2                  update to a tag\n  dshctl rollback                                   return to the previous position\n\nflags:\n  --json           JSON output for scripts (status/timeline/doctor/version)\n  -n <N>           logs: print the last N lines (default 200; below 1 means the default)\n  -f, --follow     logs: keep following (across rotation)\n  --build          logs: only the last build/update/rollback record\n  -n <N>           rollback: how many positions to walk back (default 1)\n\nglobal flags:\n  --repo <path>    override the checkout (environment DSH_REPO_DIR)\n  --port <port>    name one port (environment DSH_PORT); without it, status/stop/\n                   restart/url act on every service this state directory manages\n  --node <version> Node release for this run only (environment DSH_NODE_VERSION)\n  --config <file>  override the settings document (environment DSHCTL_CONFIG)\n  -v, --verbose    print the resolved settings and where each came from\n  -h, --help       this help\n  -V, --version    the build metadata\n\nNode:     taken from PATH by default, written into the document after the first\n          successful start; below 24.12.0 is refused\n          precedence: --node > DSH_NODE_VERSION > nodeVersion in the document > PATH\n\nstate dir: $DSHCTL_STATE_DIR or $DSH_HOME/dshctl or ~/.dsh/dshctl\nexit codes: 0 success/running, 1 failure, 2 usage or settings error, 3 not running, 4 a precondition failed, 5 lock timeout\n\none command's full help (flags, exit codes, notes): dshctl help <command>\n")
 }
 
 // runStart implements `dshctl start`.
@@ -162,7 +162,7 @@ func runStop(ctx context.Context, env *Env, args []string) error {
 			return app.StopAll(ctx)
 		}, func(result any) error {
 			if stopped, ok := result.(service.StopAllResult); ok && stopped.Unverifiable {
-				return exitcode.New(exitcode.Preflight, "%s", i18nLine(MsgStopIncomplete))
+				return exitcode.New(exitcode.Preflight, "an instance's ownership could not be established, so not every stop is confirmed")
 			}
 			return nil
 		})
@@ -200,7 +200,7 @@ func runRestart(ctx context.Context, env *Env, args []string) error {
 // runStatus implements `dshctl status`.
 func runStatus(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "status")
-	asJSON := flags.Bool("json", false, i18nLine(MsgFlagJSON))
+	asJSON := flags.Bool("json", false, "print JSON")
 	help, err := parseFlags(flags, args)
 	if err != nil {
 		return err
@@ -255,8 +255,7 @@ func runURL(ctx context.Context, env *Env, args []string) error {
 		return nil
 	}
 	if !report.Status.Owning() && !report.Status.Survivor {
-		return exitcode.New(exitcode.NotRunning, "%s",
-			i18nLine(MsgURLNotRunning, service.StatusSummary(report.Status)))
+		return exitcode.New(exitcode.NotRunning, "DSH Web is not running (%s), so there is no address", service.StatusSummary(report.Status))
 	}
 	return exitcode.SilentExit(exitcode.NotRunning)
 }
@@ -264,10 +263,10 @@ func runURL(ctx context.Context, env *Env, args []string) error {
 // runLogs implements `dshctl logs`.
 func runLogs(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "logs")
-	follow := flags.Bool("f", false, i18nLine(MsgFlagFollow))
-	flags.BoolVar(follow, "follow", false, i18nLine(MsgFlagFollow))
-	lines := flags.Int("n", service.DefaultLogLines, i18nLine(MsgFlagLines))
-	buildOnly := flags.Bool("build", false, i18nLine(MsgFlagBuildOnly))
+	follow := flags.Bool("f", false, "keep following the output")
+	flags.BoolVar(follow, "follow", false, "keep following the output")
+	lines := flags.Int("n", service.DefaultLogLines, "print the last N lines")
+	buildOnly := flags.Bool("build", false, "only the last build/update/rollback record")
 	help, err := parseFlags(flags, args)
 	if err != nil {
 		return err
@@ -276,7 +275,7 @@ func runLogs(ctx context.Context, env *Env, args []string) error {
 		return nil
 	}
 	if *buildOnly && *follow {
-		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("%s", i18nLine(MsgLogsFlagConflict)))
+		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("--build and --follow cannot be used together"))
 	}
 	return newApp(env).Logs(ctx, service.LogsOptions{
 		Lines:     *lines,
@@ -307,7 +306,7 @@ func runBuild(ctx context.Context, env *Env, args []string) error {
 // runTimeline implements `dshctl timeline`.
 func runTimeline(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "timeline")
-	asJSON := flags.Bool("json", false, i18nLine(MsgFlagJSON))
+	asJSON := flags.Bool("json", false, "print JSON")
 	help, err := parseFlags(flags, args)
 	if err != nil {
 		return err
@@ -362,7 +361,7 @@ func runUpdate(ctx context.Context, env *Env, args []string) error {
 func runRollback(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "rollback")
 	asJSON := jsonFlag(flags)
-	steps := flags.Int("n", 0, i18nLine(MsgFlagSteps))
+	steps := flags.Int("n", 0, "how many positions to walk back (default 1)")
 	help, rest, err := parseFlagsWithArgs(flags, args)
 	if err != nil {
 		return err
@@ -381,10 +380,10 @@ func runRollback(ctx context.Context, env *Env, args []string) error {
 		}
 	})
 	if given && target != "" {
-		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("%s", i18nLine(MsgRollbackConflict)))
+		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("rollback's -n and a version cannot be used together"))
 	}
 	if given && *steps < 1 {
-		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("%s", i18nLine(MsgRollbackSteps, *steps)))
+		return exitcode.Wrap(exitcode.Usage, fmt.Errorf("rollback's -n must be a positive number: %d", *steps))
 	}
 	if target != "" {
 		if *asJSON {
@@ -408,7 +407,7 @@ func runRollback(ctx context.Context, env *Env, args []string) error {
 // runDoctor implements `dshctl doctor`.
 func runDoctor(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "doctor")
-	asJSON := flags.Bool("json", false, i18nLine(MsgFlagJSON))
+	asJSON := flags.Bool("json", false, "print JSON")
 	help, err := parseFlags(flags, args)
 	if err != nil {
 		return err
@@ -433,7 +432,7 @@ func runDoctor(ctx context.Context, env *Env, args []string) error {
 // runVersion implements `dshctl version`.
 func runVersion(_ context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "version")
-	asJSON := flags.Bool("json", false, i18nLine(MsgFlagJSON))
+	asJSON := flags.Bool("json", false, "print JSON")
 	help, err := parseFlags(flags, args)
 	if err != nil {
 		return err

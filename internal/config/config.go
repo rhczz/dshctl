@@ -352,7 +352,7 @@ func (s Settings) Provision() error {
 	if paths.IsDir(s.ConfigPath) {
 		// A directory at the config path cannot be read as a settings document;
 		// failing here is clearer than failing on every later load.
-		return fmt.Errorf("%s", i18nLine(MsgConfigPathIsDir, s.ConfigPath))
+		return fmt.Errorf("the settings path %s is a directory, so no default document can be written", s.ConfigPath)
 	}
 	// A symlink or other residue falls through: WriteFile renames the document
 	// over it, which is how a stale symlink is retired without following it.
@@ -364,7 +364,7 @@ func (s Settings) Provision() error {
 	// default to write, and a document holding a path derived from nowhere is
 	// exactly the file every later run would honour.
 	if s.Home == "" {
-		return errors.New(i18nLine(MsgNoHome))
+		return errors.New("the home directory cannot be determined: the environment does not provide one")
 	}
 	data, err := encode(provisionedDocument(Default(s.Home), DefaultRepoDir(s.Home)))
 	if err != nil {
@@ -380,13 +380,13 @@ func (s Settings) Provision() error {
 //   - a Usage-coded error naming the first invalid field.
 func (s Settings) Validate() error {
 	if strings.TrimSpace(s.RepoDir) == "" {
-		return usagef("%s", i18nLine(MsgRepoDirEmpty))
+		return usagef("repoDir cannot be empty")
 	}
 	if !filepath.IsAbs(s.RepoDir) {
-		return usagef("%s", i18nLine(MsgRepoDirNotAbsolute, s.RepoDir))
+		return usagef("repoDir must be an absolute path: %s", s.RepoDir)
 	}
 	if s.Port < MinPort || s.Port > MaxPort {
-		return usagef("%s", i18nLine(MsgPortOutOfRange, MinPort, MaxPort, s.Port))
+		return usagef("port must be between %d and %d: %d", MinPort, MaxPort, s.Port)
 	}
 	// NodeVersion is deliberately not validated here. An empty value is legal and
 	// means "not determined yet"; a value that names no installed release is a
@@ -403,16 +403,16 @@ func (s Settings) Validate() error {
 		return err
 	}
 	if s.LogRotateBytes < 0 {
-		return usagef("%s", i18nLine(MsgRotateNegative, s.LogRotateBytes))
+		return usagef("logRotateBytes cannot be negative: %d", s.LogRotateBytes)
 	}
 	if s.LogRotateBytes > 0 && s.LogRotateBytes < MinRotateBytes {
-		return usagef("%s", i18nLine(MsgRotateTooSmall, MinRotateBytes, s.LogRotateBytes))
+		return usagef("logRotateBytes cannot be smaller than %d (every write would rotate): %d", MinRotateBytes, s.LogRotateBytes)
 	}
 	if !filepath.IsAbs(s.StateDir) {
-		return usagef("%s", i18nLine(MsgStateDirNotAbsolute, s.StateDir))
+		return usagef("the state directory must be an absolute path: %s", s.StateDir)
 	}
 	if !filepath.IsAbs(s.LogPath) {
-		return usagef("%s", i18nLine(MsgLogPathNotAbsolute, s.LogPath))
+		return usagef("the log file must be an absolute path: %s", s.LogPath)
 	}
 	return nil
 }
@@ -471,7 +471,7 @@ func (s Settings) StateSelection() (StateSelection, error) {
 	matches, err := filepath.Glob(StateFileGlob(s.StateDir))
 	if err != nil {
 		return StateSelection{}, exitcode.Wrap(exitcode.Failure,
-			fmt.Errorf("%s: %w", i18nLine(MsgStateGlobFailed, s.StateDir), err))
+			fmt.Errorf("the runtime records in %s could not be located: %w", s.StateDir, err))
 	}
 	// filepath.Glob reports a directory it cannot read as "no matches" rather
 	// than as an error, and "no matches" is exactly how this selection concludes
@@ -482,7 +482,7 @@ func (s Settings) StateSelection() (StateSelection, error) {
 	if len(matches) == 0 {
 		if _, err := os.ReadDir(s.StateDir); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return StateSelection{}, exitcode.Wrap(exitcode.Failure,
-				fmt.Errorf("%s: %w", i18nLine(MsgStateDirUnreadable, s.StateDir), err))
+				fmt.Errorf("the state directory %s could not be read: %w", s.StateDir, err))
 		}
 	}
 	ports := make([]int, 0, len(matches)+1)
@@ -617,7 +617,7 @@ func (s Settings) BuildRecordPath() string {
 // line stays readable and says what the next start will do about it.
 func nodeVersionDisplay(version string) string {
 	if strings.TrimSpace(version) == "" {
-		return i18nLine(MsgNodeUndetermined)
+		return "(not determined; resolved from PATH at start)"
 	}
 	return version
 }
@@ -626,17 +626,17 @@ func nodeVersionDisplay(version string) string {
 func (s Settings) Describe() []string {
 	seconds := func(d time.Duration) string { return strconv.Itoa(int(d/time.Second)) + "s" }
 	return []string{
-		i18nLine(MsgDescribeConfig, s.ConfigPath, s.Sources.ConfigPath),
-		i18nLine(MsgDescribeStateDir, s.StateDir, s.Sources.StateDir),
-		i18nLine(MsgDescribeRepoDir, s.RepoDir, s.Sources.RepoDir),
-		i18nLine(MsgDescribePort, strconv.Itoa(s.Port), s.Sources.Port),
-		i18nLine(MsgDescribeNode, nodeVersionDisplay(s.NodeVersion), s.Sources.NodeVersion),
-		i18nLine(MsgDescribeLog, s.LogPath, s.Sources.LogPath),
-		i18nLine(MsgDescribeStartTO, seconds(s.StartTimeout), s.Sources.Timeouts),
-		i18nLine(MsgDescribeStopTO, seconds(s.StopTimeout), s.Sources.Timeouts),
-		i18nLine(MsgDescribeLockTO, seconds(s.LockTimeout), s.Sources.Timeouts),
-		i18nLine(MsgDescribeRotate, strconv.FormatInt(s.LogRotateBytes, 10), s.Sources.Timeouts),
-		i18nLine(MsgDescribeLogLevel, s.LogLevel.String(), s.Sources.LogLevel),
+		fmt.Sprintf("settings document: %s (%s)", s.ConfigPath, s.Sources.ConfigPath),
+		fmt.Sprintf("state directory: %s (%s)", s.StateDir, s.Sources.StateDir),
+		fmt.Sprintf("checkout: %s (%s)", s.RepoDir, s.Sources.RepoDir),
+		fmt.Sprintf("port: %s (%s)", strconv.Itoa(s.Port), s.Sources.Port),
+		fmt.Sprintf("Node version: %s (%s)", nodeVersionDisplay(s.NodeVersion), s.Sources.NodeVersion),
+		fmt.Sprintf("log file: %s (%s)", s.LogPath, s.Sources.LogPath),
+		fmt.Sprintf("start timeout: %s (%s)", seconds(s.StartTimeout), s.Sources.Timeouts),
+		fmt.Sprintf("stop timeout: %s (%s)", seconds(s.StopTimeout), s.Sources.Timeouts),
+		fmt.Sprintf("lock timeout: %s (%s)", seconds(s.LockTimeout), s.Sources.Timeouts),
+		fmt.Sprintf("log rotation: %s bytes (0 disables) (%s)", strconv.FormatInt(s.LogRotateBytes, 10), s.Sources.Timeouts),
+		fmt.Sprintf("log level: %s (%s)", s.LogLevel.String(), s.Sources.LogLevel),
 	}
 }
 
@@ -684,7 +684,7 @@ func provisionedDocument(settings Settings, guessRepoDir string) File {
 func encode(document File) ([]byte, error) {
 	data, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", i18nLine(MsgEncodeFailed), err)
+		return nil, fmt.Errorf("the settings document could not be encoded: %w", err)
 	}
 	return append(data, '\n'), nil
 }
@@ -733,7 +733,7 @@ func (s Settings) RecordRuntime(repoDir, nodeVersion string) (Wrote, error) {
 	}
 	release := strings.TrimSpace(nodeVersion)
 	if checkout == "" && release == "" {
-		return wrote, errors.New(i18nLine(MsgRuntimeEmpty))
+		return wrote, errors.New("refusing to write an empty runtime record (no checkout and no Node version)")
 	}
 
 	document, found, err := readFile(s.ConfigPath)
@@ -753,7 +753,7 @@ func (s Settings) RecordRuntime(repoDir, nodeVersion string) (Wrote, error) {
 	guess := ""
 	if !found {
 		if s.Home == "" {
-			return wrote, errors.New(i18nLine(MsgNoHome))
+			return wrote, errors.New("the home directory cannot be determined: the environment does not provide one")
 		}
 		guess = DefaultRepoDir(s.Home)
 		document = provisionedDocument(Default(s.Home), guess)
@@ -796,7 +796,7 @@ func recordedCheckout(repoDir string) (string, error) {
 	}
 	resolved, err := paths.Resolve(repoDir)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", i18nLine(MsgRuntimeRepoFailed), err)
+		return "", fmt.Errorf("refusing to write the checkout into the document: %w", err)
 	}
 	return resolved, nil
 }
@@ -847,7 +847,7 @@ func readFile(path string) (File, bool, error) {
 		if errors.Is(err, fs.ErrNotExist) {
 			return File{}, false, nil
 		}
-		return File{}, false, fmt.Errorf("%s: %w", i18nLine(MsgReadFailed, path), err)
+		return File{}, false, fmt.Errorf("the settings document %s could not be read: %w", path, err)
 	}
 	info, err := os.Stat(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -856,13 +856,13 @@ func readFile(path string) (File, bool, error) {
 		return File{}, false, nil
 	}
 	if err != nil {
-		return File{}, false, fmt.Errorf("%s: %w", i18nLine(MsgReadFailed, path), err)
+		return File{}, false, fmt.Errorf("the settings document %s could not be read: %w", path, err)
 	}
 	if !info.Mode().IsRegular() {
-		return File{}, false, fmt.Errorf("%s", i18nLine(MsgNotRegularFile, path))
+		return File{}, false, fmt.Errorf("the settings document %s is not a regular file, so it cannot be read as settings", path)
 	}
 	if info.Size() > maxConfigBytes {
-		return File{}, false, fmt.Errorf("%s", i18nLine(MsgTooLarge, path, info.Size(), maxConfigBytes))
+		return File{}, false, fmt.Errorf("%s is too large (%d bytes, limit %d)", path, info.Size(), maxConfigBytes)
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -871,7 +871,7 @@ func readFile(path string) (File, bool, error) {
 		// reported as that failure rather than as a usage error — exactly like
 		// the non-regular and oversized branches above — so the same condition
 		// does not change status depending on which step noticed it.
-		return File{}, false, fmt.Errorf("%s: %w", i18nLine(MsgReadFailed, path), err)
+		return File{}, false, fmt.Errorf("the settings document %s could not be read: %w", path, err)
 	}
 
 	decoder := json.NewDecoder(bytes.NewReader(data))
@@ -881,10 +881,10 @@ func readFile(path string) (File, bool, error) {
 			// An empty file is a legal way to say "everything at its default".
 			return File{}, true, nil
 		}
-		return File{}, false, usagef("%s: %v", i18nLine(MsgParseFailed, path), err)
+		return File{}, false, usagef("the settings document %s could not be parsed: %v", path, err)
 	}
 	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
-		return File{}, false, usagef("%s", i18nLine(MsgTrailingContent, path))
+		return File{}, false, usagef("the settings document %s has content after its first JSON value", path)
 	}
 	return document, true, nil
 }
@@ -899,7 +899,7 @@ func applyFile(settings *Settings, document File, guess string) error {
 	if document.RepoDir != nil {
 		resolved, err := paths.Resolve(*document.RepoDir)
 		if err != nil {
-			return fmt.Errorf("%s: %w", i18nLine(MsgFileRepoDir), err)
+			return fmt.Errorf("the settings document's repoDir: %w", err)
 		}
 		settings.RepoDir = resolved
 		if resolved != guess {
@@ -910,7 +910,7 @@ func applyFile(settings *Settings, document File, guess string) error {
 		settings.Port = *document.Port
 	}
 	if document.LogLevel != nil {
-		level, err := applyLogLevel(i18nLine(MsgFileLogLevel), *document.LogLevel)
+		level, err := applyLogLevel("the settings document's logLevel", *document.LogLevel)
 		if err != nil {
 			return err
 		}
@@ -947,7 +947,7 @@ func applyFile(settings *Settings, document File, guess string) error {
 // the built-in default although the document names the same path. It says so
 // rather than claiming the file decided, because an operator reading `-v` would
 // otherwise see a path their file carries and wonder why an override still wins.
-var SourceRepoDirRepeatsDefault = i18nLine(MsgSourceRepeatsGuess)
+var SourceRepoDirRepeatsDefault = "default(repoDir in the document equals the default)"
 
 // markFileSources records "file" for every field the document decided. It is
 // called before applyEnv so that a later environment value can overwrite the
@@ -991,19 +991,19 @@ func applyEnv(settings *Settings, getenv paths.Getenv) error {
 	if raw := getenv(paths.EnvRepoDir); strings.TrimSpace(raw) != "" {
 		resolved, err := paths.Resolve(raw)
 		if err != nil {
-			return fmt.Errorf("%s: %w", i18nLine(MsgEnvRepoDir, paths.EnvRepoDir), err)
+			return fmt.Errorf("the environment variable %s: %w", paths.EnvRepoDir, err)
 		}
 		settings.RepoDir = resolved
 	}
 	if raw := getenv(paths.EnvPort); strings.TrimSpace(raw) != "" {
 		port, err := strconv.Atoi(strings.TrimSpace(raw))
 		if err != nil {
-			return usagef("%s", i18nLine(MsgEnvPortNotANumber, paths.EnvPort, raw))
+			return usagef("the environment variable %s is not a number: %q", paths.EnvPort, raw)
 		}
 		settings.Port = port
 	}
 	if raw := strings.TrimSpace(getenv(paths.EnvLogLevel)); raw != "" {
-		level, err := applyLogLevel(i18nLine(MsgEnvLogLevel, paths.EnvLogLevel), raw)
+		level, err := applyLogLevel(fmt.Sprintf("the environment variable %s", paths.EnvLogLevel), raw)
 		if err != nil {
 			return err
 		}
@@ -1030,7 +1030,7 @@ func applyOverrides(settings *Settings, overrides Overrides) error {
 	if overrides.RepoDir != nil {
 		resolved, err := paths.Resolve(*overrides.RepoDir)
 		if err != nil {
-			return fmt.Errorf("%s: %w", i18nLine(MsgFlagRepo), err)
+			return fmt.Errorf("the flag --repo: %w", err)
 		}
 		settings.RepoDir = resolved
 	}
@@ -1038,7 +1038,7 @@ func applyOverrides(settings *Settings, overrides Overrides) error {
 		settings.Port = *overrides.Port
 	}
 	if overrides.LogLevel != nil {
-		level, err := applyLogLevel(i18nLine(MsgFlagLogLevel), *overrides.LogLevel)
+		level, err := applyLogLevel("the flag --log-level", *overrides.LogLevel)
 		if err != nil {
 			return err
 		}
@@ -1105,7 +1105,7 @@ func resolveConfigPath(getenv paths.Getenv, stateDir string, override *string) (
 	if override != nil && strings.TrimSpace(*override) != "" {
 		path, err := paths.Resolve(*override)
 		if err != nil {
-			return "", "", fmt.Errorf("%s: %w", i18nLine(MsgFlagConfig), err)
+			return "", "", fmt.Errorf("the flag --config: %w", err)
 		}
 		return path, "flag", nil
 	}
@@ -1124,7 +1124,7 @@ func resolveLogPath(getenv paths.Getenv, stateDir string) (string, string, error
 	if raw := getenv(paths.EnvLogFile); strings.TrimSpace(raw) != "" {
 		path, err := paths.Resolve(raw)
 		if err != nil {
-			return "", "", fmt.Errorf("%s: %w", i18nLine(MsgEnvLogFile, paths.EnvLogFile), err)
+			return "", "", fmt.Errorf("the environment variable %s: %w", paths.EnvLogFile, err)
 		}
 		return path, "env " + paths.EnvLogFile, nil
 	}
@@ -1143,10 +1143,10 @@ func resolveLogPath(getenv paths.Getenv, stateDir string) (string, string, error
 // the case it is.
 func durationFromSeconds(name string, seconds int) (time.Duration, error) {
 	if seconds > MaxTimeoutSeconds {
-		return 0, usagef("%s", i18nLine(MsgTimeoutTooLong, name, MaxTimeoutSeconds, seconds))
+		return 0, usagef("%s cannot exceed %d seconds: %d", name, MaxTimeoutSeconds, seconds)
 	}
 	if seconds < 1 {
-		return 0, usagef("%s", i18nLine(MsgTimeoutTooShort, name, seconds))
+		return 0, usagef("%s must be at least 1 second: %d", name, seconds)
 	}
 	return time.Duration(seconds) * time.Second, nil
 }
@@ -1155,10 +1155,10 @@ func durationFromSeconds(name string, seconds int) (time.Duration, error) {
 func validateTimeout(name string, value time.Duration) error {
 	seconds := int(value / time.Second)
 	if seconds < 1 {
-		return usagef("%s", i18nLine(MsgTimeoutTooShortText, name, value))
+		return usagef("%s must be at least 1 second: %s", name, value)
 	}
 	if seconds > MaxTimeoutSeconds {
-		return usagef("%s", i18nLine(MsgTimeoutTooLongText, name, MaxTimeoutSeconds, value))
+		return usagef("%s cannot exceed %d seconds: %s", name, MaxTimeoutSeconds, value)
 	}
 	return nil
 }

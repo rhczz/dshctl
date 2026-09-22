@@ -1,6 +1,6 @@
 ---
 name: dshctl-style
-description: 按 dshctl 的书写规范改代码与注释：gofmt -s、注释讲契约不讲过程、语言分工与 i18n 目录、错误包装、命名与文件布局、TODO 分级、折行与结尾换行。用于写新文件、评审风格、把外部代码改成本仓库写法，或 fmt-check/vet 报错时。
+description: 按 dshctl 的书写规范改代码与注释：gofmt -s、注释讲契约不讲过程、文案就地写英文、错误包装、命名与文件布局、TODO 分级、折行与结尾换行。用于写新文件、评审风格、把外部代码改成本仓库写法，或 fmt-check/vet 报错时。
 ---
 
 # dshctl 书写规范
@@ -21,7 +21,7 @@ description: 按 dshctl 的书写规范改代码与注释：gofmt -s、注释讲
 
 5. **每个导出标识符都要有文档注释，字段用 `// X is …` 句式**。范例：`internal/run` 的 `Result`/`ExitError`、`internal/exitcode` 的 `Error`、`internal/service` 的 `StartResult`/`StopResult`、`internal/state` 的 `Record`。
 
-6. **语言分工：面向操作者的句子进目录，开发者读的用英文**。每个包有一个 `messages.go`：一条消息两种语言，英文默认、机器语言为中文时中文（见 `dshctl-architecture`）；测试失败信息、标识符、注释、包文档、README 的开发者段落用英文。判据是读者：终端前的操作者读目录里的那句话，改代码的人读英文。**代码里不得再出现中文文案字面量**——`make conventions` 的 `i18n-literals` 规则会拒绝（目录文件与测试除外）；哨兵错误用"带方法的值"让文案在读取时才渲染。
+6. **语言分工：面向操作者的句子就地写英文，开发者读的也是英文**。错误文案、帮助、日志与测试失败信息一律英文，且写在产生它的调用点上（没有消息目录、没有语言层，见 `dshctl-architecture`）；注释、标识符、包文档同样英文。README 是中文的对外契约，与代码里的英文文案各司其职。
 
 7. **错误包装**：`fmt.Errorf("描述: %w", err)`；命令、参数、路径加反引号或 `%q`/`%s`；句尾不加句号。范例：`internal/detach` 的 `无法启动 %s: %w`、`internal/nodejs` 的 `` 无法执行 `%s -v`: %w ``。退出码与分类只用 `internal/exitcode` 的 `New`/`Wrap`，不自己造码。
 

@@ -97,7 +97,7 @@ func TestSecondAcquireTimesOut(t *testing.T) {
 	if timeout.Waited != 250*time.Millisecond {
 		t.Fatalf("waited = %s, want the timeout", timeout.Waited)
 	}
-	if !strings.Contains(timeout.Error(), "另一个 dshctl 操作正在进行") {
+	if !strings.Contains(timeout.Error(), "another dshctl operation is running") {
 		t.Fatalf("message = %q", timeout.Error())
 	}
 }
