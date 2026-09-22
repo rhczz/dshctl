@@ -83,29 +83,29 @@ func (s Store) Load() (File, bool, error) {
 	case errors.Is(err, fs.ErrNotExist):
 		return File{}, false, nil
 	case err != nil:
-		return File{}, false, fmt.Errorf("无法读取更新历史 %s: %w", s.Path, err)
+		return File{}, false, fmt.Errorf("%s: %w", i18nLine(MsgReadFailed, s.Path), err)
 	case !info.Mode().IsRegular():
 		// A directory or device at the history path is residue, not a history.
 		// Reading it would either fail forever or follow something outside the
 		// state directory.
-		return File{}, false, fmt.Errorf("%w: %s 不是普通文件", ErrCorrupt, s.Path)
+		return File{}, false, fmt.Errorf("%w: %s", ErrCorrupt, i18nLine(MsgNotRegularFile, s.Path))
 	case info.Size() > maxFileBytes:
-		return File{}, false, fmt.Errorf("%w: %s 过大 (%d 字节)", ErrCorrupt, s.Path, info.Size())
+		return File{}, false, fmt.Errorf("%w: %s", ErrCorrupt, i18nLine(MsgTooLarge, s.Path, info.Size()))
 	}
 
 	data, err := state.ReadDocument(s.Path)
 	if err != nil {
-		return File{}, false, fmt.Errorf("无法读取更新历史 %s: %w", s.Path, err)
+		return File{}, false, fmt.Errorf("%s: %w", i18nLine(MsgReadFailed, s.Path), err)
 	}
 	trimmed := bytes.TrimSpace(data)
 	if len(trimmed) == 0 {
-		return File{}, false, fmt.Errorf("%w: %s 内容为空", ErrCorrupt, s.Path)
+		return File{}, false, fmt.Errorf("%w: %s", ErrCorrupt, i18nLine(MsgEmpty, s.Path))
 	}
 	// The document is an object. A top-level null decodes into an empty value
 	// without an error, which would turn a mangled file into "no history" —
 	// exactly the answer that lets a rollback guess.
 	if trimmed[0] != '{' {
-		return File{}, false, fmt.Errorf("%w: %s 不是 JSON 对象", ErrCorrupt, s.Path)
+		return File{}, false, fmt.Errorf("%w: %s", ErrCorrupt, i18nLine(MsgNotJSONObject, s.Path))
 	}
 	// Unknown fields are accepted on purpose. The file is written by one build
 	// of dshctl and read by another — after an upgrade or a downgrade — so a
@@ -127,32 +127,32 @@ func validate(file File) error {
 	seen := make(map[string]struct{}, len(file.Repos))
 	for _, group := range file.Repos {
 		if group.Repo == "" {
-			return fmt.Errorf("有一组没有仓库路径")
+			return fmt.Errorf("%s", i18nLine(MsgGroupNoRepo))
 		}
 		if _, duplicate := seen[group.Repo]; duplicate {
 			// Two groups for one checkout would make "where can it roll back
 			// to" depend on which group a caller happened to read.
-			return fmt.Errorf("仓库 %s 出现了两组", group.Repo)
+			return fmt.Errorf("%s", i18nLine(MsgGroupRepeated, group.Repo))
 		}
 		seen[group.Repo] = struct{}{}
 		if len(group.Records) == 0 {
-			return fmt.Errorf("仓库 %s 的组没有任何位置", group.Repo)
+			return fmt.Errorf("%s", i18nLine(MsgGroupEmpty, group.Repo))
 		}
 		positions := make(map[string]struct{}, len(group.Records))
 		for _, record := range group.Records {
 			if record.Commit == "" {
-				return fmt.Errorf("仓库 %s 有一条没有 commit 的位置", group.Repo)
+				return fmt.Errorf("%s", i18nLine(MsgRecordNoCommit, group.Repo))
 			}
 			if record.At <= 0 {
 				// A position without a time cannot be read back as one: the
 				// view would print 1970 and the record would claim a move that
 				// never happened.
-				return fmt.Errorf("仓库 %s 的位置 %s 没有时间戳", group.Repo, record.Commit)
+				return fmt.Errorf("%s", i18nLine(MsgRecordNoTime, group.Repo, record.Commit))
 			}
 			if _, duplicate := positions[record.Commit]; duplicate {
 				// Two entries for one position would make the step arithmetic
 				// ambiguous, and a valid stack never repeats a commit.
-				return fmt.Errorf("仓库 %s 的位置 %s 出现了两次", group.Repo, record.Commit)
+				return fmt.Errorf("%s", i18nLine(MsgRecordRepeated, group.Repo, record.Commit))
 			}
 			positions[record.Commit] = struct{}{}
 		}
@@ -167,15 +167,15 @@ func validate(file File) error {
 // because it is too large or because a position is malformed.
 func (s Store) Save(file File) error {
 	if err := validate(file); err != nil {
-		return fmt.Errorf("拒绝写入更新历史: %w", err)
+		return fmt.Errorf("%s: %w", i18nLine(MsgRefuseInvalid), err)
 	}
 	data, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
-		return fmt.Errorf("无法序列化更新历史: %w", err)
+		return fmt.Errorf("%s: %w", i18nLine(MsgEncodeFailed), err)
 	}
 	payload := append(data, '\n')
 	if len(payload) > maxFileBytes {
-		return fmt.Errorf("更新历史过大 (%d 字节)，拒绝写入 %s", len(payload), s.Path)
+		return fmt.Errorf("%s", i18nLine(MsgWriteTooLarge, len(payload), s.Path))
 	}
 	return atomically.WriteFile(s.Path, payload, 0o600)
 }

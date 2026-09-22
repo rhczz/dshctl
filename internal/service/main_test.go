@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"github.com/rhczz/dshctl/internal/config"
+	"github.com/rhczz/dshctl/internal/history"
 	"github.com/rhczz/dshctl/internal/i18n"
 	"github.com/rhczz/dshctl/internal/lock"
+	"github.com/rhczz/dshctl/internal/logfile"
 	"github.com/rhczz/dshctl/internal/nodejs"
 	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/state"
@@ -21,7 +23,7 @@ import (
 func TestMain(m *testing.M) {
 	// The catalog the binary installs: every layer's words, merged. A test that
 	// renders a lower layer's error needs that layer's catalog too.
-	catalog, err := i18n.Merge(Messages, config.Messages, lock.Messages, nodejs.Messages, repo.Messages, state.Messages)
+	catalog, err := i18n.Merge(Messages, config.Messages, history.Messages, lock.Messages, logfile.Messages, nodejs.Messages, repo.Messages, state.Messages)
 	if err != nil {
 		panic(err)
 	}

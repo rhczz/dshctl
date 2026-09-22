@@ -188,10 +188,10 @@ func (l *Logger) RotateIfNeeded() (bool, error) {
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("无法读取日志大小 %s: %w", l.Path, err)
+		return false, fmt.Errorf("%s: %w", i18nLine(MsgSizeFailed, l.Path), err)
 	}
 	if !info.Mode().IsRegular() {
-		return false, fmt.Errorf("日志路径 %s 不是普通文件，请检查 DSH_LOG_FILE 配置", l.Path)
+		return false, fmt.Errorf("%s", i18nLine(MsgNotRegularFile, l.Path))
 	}
 	if info.Size() <= l.RotateBytes {
 		return false, nil
@@ -200,7 +200,7 @@ func (l *Logger) RotateIfNeeded() (bool, error) {
 		return false, err
 	}
 	if err := os.Truncate(l.Path, 0); err != nil {
-		return false, fmt.Errorf("日志轮转失败，无法清空 %s: %w", l.Path, err)
+		return false, fmt.Errorf("%s: %w", i18nLine(MsgRotateTruncate, l.Path), err)
 	}
 	return true, nil
 }
@@ -212,14 +212,14 @@ func (l *Logger) copyToBackupStable() error {
 	for {
 		info, err := os.Stat(l.Path)
 		if err != nil {
-			return fmt.Errorf("日志轮转失败，无法读取 %s: %w", l.Path, err)
+			return fmt.Errorf("%s: %w", i18nLine(MsgRotateRead, l.Path), err)
 		}
 		if err := l.copyToBackup(info.Size()); err != nil {
 			return err
 		}
 		again, err := os.Stat(l.Path)
 		if err != nil {
-			return fmt.Errorf("日志轮转失败，无法读取 %s: %w", l.Path, err)
+			return fmt.Errorf("%s: %w", i18nLine(MsgRotateRead, l.Path), err)
 		}
 		if again.Size() == info.Size() {
 			return nil
@@ -234,28 +234,28 @@ func (l *Logger) copyToBackupStable() error {
 func (l *Logger) copyToBackup(size int64) error {
 	source, err := os.Open(l.Path)
 	if err != nil {
-		return fmt.Errorf("日志轮转失败，无法读取 %s: %w", l.Path, err)
+		return fmt.Errorf("%s: %w", i18nLine(MsgRotateRead, l.Path), err)
 	}
 	defer source.Close()
 
 	backup, err := os.OpenFile(l.BackupPath(), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
-		return fmt.Errorf("日志轮转失败，无法写入 %s: %w", l.BackupPath(), err)
+		return fmt.Errorf("%s: %w", i18nLine(MsgRotateWrite, l.BackupPath()), err)
 	}
 	written, copyErr := io.CopyBuffer(backup, io.LimitReader(source, size), make([]byte, copyBufferBytes))
 	syncErr := backup.Sync()
 	closeErr := backup.Close()
 	if copyErr != nil {
-		return fmt.Errorf("日志轮转失败，复制到 %s 时出错: %w", l.BackupPath(), copyErr)
+		return fmt.Errorf("%s: %w", i18nLine(MsgRotateCopy, l.BackupPath()), copyErr)
 	}
 	if syncErr != nil {
-		return fmt.Errorf("日志轮转失败，同步 %s 时出错: %w", l.BackupPath(), syncErr)
+		return fmt.Errorf("%s: %w", i18nLine(MsgRotateSync, l.BackupPath()), syncErr)
 	}
 	if closeErr != nil {
-		return fmt.Errorf("日志轮转失败，关闭 %s 时出错: %w", l.BackupPath(), closeErr)
+		return fmt.Errorf("%s: %w", i18nLine(MsgRotateClose, l.BackupPath()), closeErr)
 	}
 	if written != size {
-		return fmt.Errorf("日志轮转失败，%s 只写入了 %d/%d 字节", l.BackupPath(), written, size)
+		return fmt.Errorf("%s", i18nLine(MsgRotateShort, l.BackupPath(), written, size))
 	}
 	return nil
 }
@@ -279,7 +279,7 @@ func (l *Logger) Size() (int64, error) {
 		return 0, nil
 	}
 	if err != nil {
-		return 0, fmt.Errorf("无法读取日志大小 %s: %w", l.Path, err)
+		return 0, fmt.Errorf("%s: %w", i18nLine(MsgSizeFailed, l.Path), err)
 	}
 	return info.Size(), nil
 }
@@ -301,11 +301,11 @@ func (l *Logger) now() time.Time {
 // open opens the log for appending, creating its directory when needed.
 func (l *Logger) open() (*os.File, error) {
 	if err := os.MkdirAll(filepath.Dir(l.Path), 0o700); err != nil {
-		return nil, fmt.Errorf("无法创建日志目录 %s: %w", filepath.Dir(l.Path), err)
+		return nil, fmt.Errorf("%s: %w", i18nLine(MsgMkdirFailed, filepath.Dir(l.Path)), err)
 	}
 	file, err := os.OpenFile(l.Path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
-		return nil, fmt.Errorf("无法打开日志 %s: %w", l.Path, err)
+		return nil, fmt.Errorf("%s: %w", i18nLine(MsgOpenFailed, l.Path), err)
 	}
 	return file, nil
 }
@@ -318,7 +318,7 @@ func (l *Logger) append(text string) error {
 	}
 	defer file.Close()
 	if _, err := file.WriteString(text); err != nil {
-		return fmt.Errorf("无法写入日志 %s: %w", l.Path, err)
+		return fmt.Errorf("%s: %w", i18nLine(MsgWriteFailed, l.Path), err)
 	}
 	return nil
 }
@@ -352,10 +352,10 @@ func (l *Logger) endsWithNewline() bool {
 // fatal to the round trip.
 func ValidateTitle(title string) error {
 	if title == "" {
-		return errors.New("日志段落名不能为空")
+		return errors.New(i18nLine(MsgTitleEmpty))
 	}
 	if index := strings.IndexFunc(title, unicode.IsSpace); index >= 0 {
-		return fmt.Errorf("日志段落名不能包含空白字符: %q", title)
+		return fmt.Errorf("%s", i18nLine(MsgTitleWhitespace, title))
 	}
 	return nil
 }
@@ -397,7 +397,7 @@ func TailFrom(path string, lines int, w io.Writer) (int, int64, error) {
 	if _, statErr := os.Stat(path); errors.Is(statErr, fs.ErrNotExist) {
 		return 0, 0, nil
 	} else if statErr != nil {
-		return 0, 0, fmt.Errorf("无法读取 %s 的大小: %w", path, statErr)
+		return 0, 0, fmt.Errorf("%s: %w", i18nLine(MsgSizeFailed, path), statErr)
 	}
 	data, readSize, err := readTailLines(path, lines, maxTailBytes)
 	if err != nil {
@@ -442,13 +442,13 @@ func readTailLines(path string, count int, limit int64) ([]byte, int64, error) {
 	defer file.Close()
 	info, err := file.Stat()
 	if err != nil {
-		return nil, 0, fmt.Errorf("无法读取 %s 的大小: %w", path, err)
+		return nil, 0, fmt.Errorf("%s: %w", i18nLine(MsgSizeFailed, path), err)
 	}
 	if !info.Mode().IsRegular() {
 		// A directory or a device where the log belongs is a mistake, not an
 		// empty log: on Unix the read below fails by itself, while on Windows a
 		// directory is opened happily and answers with no bytes at all.
-		return nil, 0, fmt.Errorf("日志路径 %s 不是普通文件，无法读取", path)
+		return nil, 0, fmt.Errorf("%s", i18nLine(MsgNotRegularFile, path))
 	}
 	size := info.Size()
 	if size == 0 {
@@ -466,7 +466,7 @@ func readTailLines(path string, count int, limit int64) ([]byte, int64, error) {
 		position -= readSize
 		chunk := make([]byte, readSize)
 		if _, err := file.ReadAt(chunk, position); err != nil && !errors.Is(err, io.EOF) {
-			return nil, 0, fmt.Errorf("无法读取 %s: %w", path, err)
+			return nil, 0, fmt.Errorf("%s: %w", i18nLine(MsgReadFailed, path), err)
 		}
 		newlines += bytes.Count(chunk, []byte{'\n'})
 		chunks = append(chunks, chunk)
@@ -613,10 +613,10 @@ func readTailBytes(path string, limit int64) ([]byte, bool, error) {
 	defer file.Close()
 	info, err := file.Stat()
 	if err != nil {
-		return nil, false, fmt.Errorf("无法读取 %s 的大小: %w", path, err)
+		return nil, false, fmt.Errorf("%s: %w", i18nLine(MsgSizeFailed, path), err)
 	}
 	if !info.Mode().IsRegular() {
-		return nil, false, fmt.Errorf("日志路径 %s 不是普通文件，无法读取", path)
+		return nil, false, fmt.Errorf("%s", i18nLine(MsgNotRegularFile, path))
 	}
 	offset := int64(0)
 	truncated := false
@@ -625,11 +625,11 @@ func readTailBytes(path string, limit int64) ([]byte, bool, error) {
 		truncated = true
 	}
 	if _, err := file.Seek(offset, io.SeekStart); err != nil {
-		return nil, false, fmt.Errorf("无法定位 %s: %w", path, err)
+		return nil, false, fmt.Errorf("%s: %w", i18nLine(MsgLocateFailed, path), err)
 	}
 	data, err := io.ReadAll(file)
 	if err != nil {
-		return nil, false, fmt.Errorf("无法读取 %s: %w", path, err)
+		return nil, false, fmt.Errorf("%s: %w", i18nLine(MsgReadFailed, path), err)
 	}
 	return data, truncated, nil
 }
