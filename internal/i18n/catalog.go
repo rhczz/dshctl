@@ -22,7 +22,7 @@ func Merge(catalogs ...Catalog) (Catalog, error) {
 	for _, catalog := range catalogs {
 		for id, message := range catalog {
 			if _, exists := merged[id]; exists {
-				return nil, fmt.Errorf("消息 id 重复: %s", id)
+				return nil, fmt.Errorf("duplicate message id: %s", id)
 			}
 			merged[id] = message
 		}

@@ -39,7 +39,7 @@ const (
 	// The table API rejects AF_UNSPEC (0) with ERROR_INVALID_PARAMETER — asking
 	// for "both families at once" is not a thing this call does; the two tables
 	// have to be requested by name. Passing 0 made every port probe fail on
-	// Windows with "GetExtendedTcpTable 失败: 87", so `status`, `start` and
+	// Windows with a GetExtendedTcpTable failure, so `status`, `start` and
 	// `stop` all reported that the port state was unknown instead of answering.
 	addressFamilyINET = 2
 	// addressFamilyINET6 is Winsock's AF_INET6, the IPv6 table selector.

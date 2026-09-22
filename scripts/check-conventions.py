@@ -411,6 +411,33 @@ def check_notes() -> list[str]:
     return problems
 
 
+def check_i18n_literals() -> list[str]:
+    """Operator-facing text lives in a message catalog, not in a literal.
+
+    A Chinese string literal in production code is a message no translator can
+    find: each package's messages.go is the one home for what an operator reads,
+    and this rule keeps a new message from being written the old way.
+    """
+    problems = []
+    cjk = re.compile(r'"[^"\n]*[\u4e00-\u9fff][^"\n]*"')
+    for path in sorted(ROOT.rglob("*.go")):
+        if path.name.endswith("_test.go") or path.name == "messages.go":
+            continue
+        # The catalog framework's own diagnostics are developer-facing: they
+        # report a programming mistake (a duplicate id), not something an
+        # operator can act on, so they stay in English and out of a catalog.
+        if path.parent.name == "i18n":
+            continue
+        if any(part in SKIP_DIRS for part in path.parts):
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if line.lstrip().startswith("//"):
+                continue
+            if cjk.search(line):
+                problems.append(f"{rel(path)}:{number}: 操作者文案必须进消息目录")
+    return problems
+
+
 def check_go_comments() -> list[str]:
     """A comment states one contract; a wrapped paragraph belongs in a doc."""
     problems: list[str] = []
@@ -606,6 +633,7 @@ CHECKS = {
     "package-map": check_package_map,
     "tracked-artifacts": check_tracked_artifacts,
     "trailing-newline": check_trailing_newline,
+    "i18n-literals": check_i18n_literals,
 }
 
 

@@ -1138,7 +1138,7 @@ func resolveLogPath(getenv paths.Getenv, stateDir string) (string, string, error
 // and that is the whole point: time.Duration(seconds)*time.Second wraps around
 // once the value passes what a signed 64-bit nanosecond count can hold, so a
 // number far too large arrives as a negative duration and the reader is told the
-// opposite of what is wrong ("必须至少为 1 秒" for a value of 9223372037). The
+// opposite of what is wrong ("at least 1 second" for a value of 9223372037). The
 // ceiling exists for this case; checking it first is what lets it be reported as
 // the case it is.
 func durationFromSeconds(name string, seconds int) (time.Duration, error) {

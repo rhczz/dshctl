@@ -170,7 +170,7 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "a configured timeout is not range-checked before it becomes a duration",
         "internal/config/config.go",
-        "\tif seconds > MaxTimeoutSeconds {\n\t\treturn 0, usagef(\"%s 不能超过 %d 秒: %d\", name, MaxTimeoutSeconds, seconds)\n\t}",
+        "\tif seconds > MaxTimeoutSeconds {\n\t\treturn 0, usagef(\"%s\", i18nLine(MsgTimeoutTooLong, name, MaxTimeoutSeconds, seconds))\n\t}",
         "\tif false {\n\t\treturn 0, usagef(\"%s 不能超过 %d 秒: %d\", name, MaxTimeoutSeconds, seconds)\n\t}",
         ["./internal/config/"],
     ),

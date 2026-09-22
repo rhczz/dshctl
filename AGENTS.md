@@ -36,7 +36,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 - 校验只在四处边界：CLI 参数、配置文件、状态与日志文件、外部命令输出；`"探测不了"绝不当作"没有"`。
 - 状态文件 0600、状态目录 0700、写入原子替换；细节见 `dshctl-state-safety`。
 - README 是唯一对外契约，`internal/cli/documentation_test.go` 强制环境变量、配置键、命令表、退出码与默认值都被记录。
-- 面向操作者的每一句话都走 `internal/i18n` 的消息目录（英文默认，机器语言为中文时中文）；测试失败信息、标识符与注释英文。
+- 面向操作者的每一句话都在各包的 `messages.go` 目录里（英文默认，机器语言为中文时中文），`make conventions` 的 `i18n-literals` 规则拒绝代码里的中文文案；测试失败信息、标识符与注释英文。
 
 ## TDD
 
