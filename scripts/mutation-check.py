@@ -450,8 +450,8 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "fetch prunes remote-tracking refs the remote no longer has",
         "internal/repo/release.go",
-        '"fetch", originRemote, "--tags"',
-        '"fetch", originRemote, "--tags", "--prune"',
+        '"fetch", r.remote(), "--tags"',
+        '"fetch", r.remote(), "--tags", "--prune"',
         ["./internal/repo/"],
     ),
     (
