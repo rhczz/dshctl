@@ -77,15 +77,10 @@ AGENTS_SECTIONS = (
 #
 # The vertical order the front-ends see:
 #
-#   cmd/dshctl -> internal/cli -> internal/service -> internal/service?  (see below)
-#
-# Today the engine and the commands share internal/service, and the model and the
-# message catalog are the leaves every layer may use:
-#
-#   internal/domain  (the model: states, records, positions; no imports at all)
-#   internal/i18n    (the message catalog; no imports at all)
-#   infrastructure   (host, run, detach, lock, logfile, state, repo, nodejs,
-#                     config, paths, exitcode, version, atomically, logging)
+# The dependency edges, one line per package that has any. A package missing
+# here is a leaf: it may import the standard library and nothing else of ours.
+# An unregistered edge is a design decision, so the check fails rather than
+# waving it through.
 LAYERS = {
     "cmd/dshctl": {"internal/cli"},
     "internal/cli": {
@@ -93,22 +88,20 @@ LAYERS = {
         "internal/domain",
         "internal/exitcode",
         "internal/history",
-        "internal/atomically",
-        "internal/detach",
-        "internal/history",
-        "internal/host",
-        "internal/logging",
-        "internal/paths",
-        "internal/run",
-        "internal/lock",
-        "internal/logfile",
-        "internal/nodejs",
-        "internal/state",
-        "internal/repo",
         "internal/run",
         "internal/service",
         "internal/version",
     },
+    "internal/config": {
+        "internal/atomically",
+        "internal/exitcode",
+        "internal/logging",
+        "internal/paths",
+    },
+    "internal/history": {"internal/atomically", "internal/state"},
+    "internal/logging": {"internal/logfile"},
+    "internal/nodejs": {"internal/paths", "internal/run"},
+    "internal/repo": {"internal/run"},
     "internal/service": {
         "internal/config",
         "internal/detach",
@@ -116,15 +109,7 @@ LAYERS = {
         "internal/exitcode",
         "internal/history",
         "internal/host",
-        "internal/atomically",
-        "internal/detach",
-        "internal/history",
-        "internal/host",
-        "internal/logging",
-        "internal/paths",
-        "internal/run",
         "internal/lock",
-        "internal/logfile",
         "internal/logfile",
         "internal/logging",
         "internal/nodejs",
@@ -134,24 +119,7 @@ LAYERS = {
         "internal/state",
         "internal/version",
     },
-    "internal/atomically": {"internal/i18n"},
-    "internal/detach": {"internal/i18n"},
-    "internal/host": {"internal/i18n"},
-    "internal/logfile": {"internal/i18n"},
-    "internal/logging": {"internal/logfile"},
-    "internal/paths": {"internal/i18n"},
-    "internal/run": {"internal/i18n"},
-    "internal/config": {
-        "internal/atomically",
-        "internal/exitcode",
-        "internal/logging",
-        "internal/paths",
-    },
     "internal/state": {"internal/atomically"},
-    "internal/history": {"internal/atomically", "internal/state"},
-    "internal/nodejs": {"internal/paths", "internal/run"},
-    "internal/lock": {"internal/i18n"},
-    "internal/repo": {"internal/run"},
     "internal/version": {"internal/buildinfo"},
     # Every remaining package is a leaf: it may import the standard library and
     # nothing else of ours.
