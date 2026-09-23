@@ -47,7 +47,14 @@ func binary(t *testing.T) string {
 		// toolchain pinned: the module has no dependencies, so a build that
 		// needs the network is a build that is doing something the test did not
 		// ask for, and a test must not reach outside the machine it runs on.
-		cmd.Env = append(os.Environ(), "GOPROXY=off", "GOFLAGS=-trimpath", "GOTOOLCHAIN=local")
+		//
+		// GOPATH and GOMODCACHE are pinned into the test's own directory for the
+		// same reason: with them unset, the toolchain writes its module cache
+		// under $HOME, and a test that litters the operator's home is a test
+		// that would pass here and fail wherever a clean home is checked.
+		cmd.Env = append(os.Environ(), "GOPROXY=off", "GOFLAGS=-trimpath", "GOTOOLCHAIN=local",
+			"GOPATH="+filepath.Join(dir, "gopath"),
+			"GOMODCACHE="+filepath.Join(dir, "gomodcache"))
 		if out, err := cmd.CombinedOutput(); err != nil {
 			buildErr = &buildFailure{output: string(out), err: err}
 			return
