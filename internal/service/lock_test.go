@@ -37,7 +37,7 @@ func TestAMutatingCommandReportsExitCodeFiveWhileAnotherOperationHoldsTheLock(t 
 		_, err := f.Restart(context.Background())
 
 		wantCode(t, err, exitcode.LockTimeout)
-		wantContains(t, err, "另一个 dshctl 操作正在进行")
+		wantContains(t, err, "another dshctl operation is running")
 		f.wantNoSignals(t)
 		f.wantNoSpawn(t)
 		if !f.host.isAlive(4321) {

@@ -212,7 +212,7 @@ jobs:
           python3 scripts/check-coverage.py /tmp/coverage.out \
             --require internal/nodejs=100 \
             --report internal/config \
-            --report internal/app
+            --report internal/service
 
   goldens:
     name: record the conformance goldens

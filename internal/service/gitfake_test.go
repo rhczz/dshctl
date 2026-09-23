@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
 )
 
@@ -60,8 +59,8 @@ func (h *fakeHost) gitResult(cmd run.Command) run.Result {
 			return run.Result{Stdout: "refs/heads/" + h.gitBranch}
 		case selector == h.gitBranch && h.gitBranch != "":
 			return run.Result{Stdout: "refs/heads/" + h.gitBranch}
-		case selector == repo.RemoteTipName:
-			return run.Result{Stdout: "refs/remotes/" + repo.RemoteTipName}
+		case selector == "origin/master":
+			return run.Result{Stdout: "refs/remotes/origin/master"}
 		default:
 			return run.Result{}
 		}

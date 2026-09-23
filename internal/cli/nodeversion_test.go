@@ -44,7 +44,7 @@ func TestVerboseReportsAnUndeterminedNodeRelease(t *testing.T) {
 	}, "-v", "doctor")
 
 	combined := result.stdout + result.stderr
-	if !strings.Contains(combined, "Node 版本: (未确定") {
+	if !strings.Contains(combined, "Node version: (not determined") {
 		t.Fatalf("verbose output = %q, want the undetermined release reported", combined)
 	}
 }
@@ -62,7 +62,7 @@ func TestAReleaseBelowTheMinimumIsRefused(t *testing.T) {
 	if result.code != 4 {
 		t.Fatalf("start exit = %d, want the preflight code\nstdout=%s\nstderr=%s", result.code, result.stdout, result.stderr)
 	}
-	for _, want := range []string{"22.14.0", "低于最低要求 24.12.0", "nvm install 24", "brew install node@24"} {
+	for _, want := range []string{"22.14.0", "is below the minimum 24.12.0", "nvm install 24", "brew install node@24"} {
 		if !strings.Contains(result.stderr, want) {
 			t.Fatalf("stderr = %q, want it to contain %q", result.stderr, want)
 		}
@@ -88,7 +88,7 @@ func TestARequestThatNamesNothingIsRefused(t *testing.T) {
 	if result.code != 4 {
 		t.Fatalf("start exit = %d, want the preflight code\nstderr=%s", result.code, result.stderr)
 	}
-	if !strings.Contains(result.stderr, "找不到 Node latest") {
+	if !strings.Contains(result.stderr, "Node latest was not found") {
 		t.Fatalf("stderr = %q, want the unsatisfiable request reported", result.stderr)
 	}
 	if !strings.Contains(result.stderr, "--node") {
@@ -105,10 +105,10 @@ func TestAnUnverifiedMajorVersionIsWarnedAboutAndUsed(t *testing.T) {
 		"DSH_REPO_DIR": checkoutFixture(t),
 	}, "build")
 
-	if strings.Contains(result.stderr, "低于最低要求") {
+	if strings.Contains(result.stderr, "is below the minimum") {
 		t.Fatalf("stderr = %q, want the release accepted", result.stderr)
 	}
-	if !strings.Contains(result.stderr, "不在 dshctl 的验证范围内") {
+	if !strings.Contains(result.stderr, "is outside what dshctl has verified (verified") {
 		t.Fatalf("stderr = %q, want the unverified release reported", result.stderr)
 	}
 }
@@ -126,7 +126,7 @@ func TestTheEnvironmentCannotLowerTheFloor(t *testing.T) {
 	if result.code != 4 {
 		t.Fatalf("start exit = %d, want the preflight code\nstderr=%s", result.code, result.stderr)
 	}
-	if !strings.Contains(result.stderr, "低于最低要求") {
+	if !strings.Contains(result.stderr, "is below the minimum") {
 		t.Fatalf("stderr = %q, want the release refused", result.stderr)
 	}
 	if _, err := os.Stat(filepath.Join(stateDir, "config.json")); err == nil {

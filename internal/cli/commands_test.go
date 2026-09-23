@@ -105,7 +105,7 @@ func TestEveryCommandHelpShowsItsUsage(t *testing.T) {
 			if code != exitcode.OK {
 				t.Fatalf("%s -h exit = %d, want 0 (stderr = %s)", command.Name, code, stderr)
 			}
-			want := "用法: dshctl [全局参数] " + command.Name
+			want := "usage: dshctl [global flags] " + command.Name
 			if command.Usage != "" {
 				want += " " + command.Usage
 			}
@@ -173,7 +173,7 @@ func TestTopLevelHelpShowsAFirstRun(t *testing.T) {
 		"dshctl timeline",
 		"dshctl update",
 		"dshctl rollback",
-		"dshctl help <命令>",
+		"dshctl help <command>",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("the top-level help does not show the example %q", want)
@@ -208,7 +208,7 @@ func TestEveryCommandRejectsUnexpectedArguments(t *testing.T) {
 			if code != exitcode.Usage {
 				t.Fatalf("%s exit = %d, want %d (stderr = %s)", command.Name, code, exitcode.Usage, stderr)
 			}
-			if !strings.Contains(stderr, "命令 "+command.Name) {
+			if !strings.Contains(stderr, "error: command "+command.Name) {
 				t.Fatalf("%s stderr = %q, want it to name the command", command.Name, stderr)
 			}
 			if stdout != "" {
@@ -231,7 +231,7 @@ func TestEveryCommandRejectsAnUndefinedFlag(t *testing.T) {
 			if !strings.Contains(stderr, "definitely-not-a-flag") {
 				t.Fatalf("%s stderr = %q, want it to name the flag", command.Name, stderr)
 			}
-			if !strings.Contains(stderr, "须写在命令名之前") {
+			if !strings.Contains(stderr, "global flags (--repo/--port/--node/--config/-v) go before the command name") {
 				t.Fatalf("%s stderr = %q, want the placement hint", command.Name, stderr)
 			}
 			if stdout != "" {
@@ -249,7 +249,7 @@ func TestBareInvocationMeansStart(t *testing.T) {
 	if code != exitcode.Preflight {
 		t.Fatalf("exit = %d, want %d for a missing checkout (stderr = %s)", code, exitcode.Preflight, stderr)
 	}
-	if !strings.Contains(stderr, "仓库目录") {
+	if !strings.Contains(stderr, "checkout") {
 		t.Fatalf("stderr = %q, want the checkout problem start refuses on", stderr)
 	}
 }
@@ -271,7 +271,7 @@ func TestVersionFlagShortCircuits(t *testing.T) {
 		if !strings.Contains(stdout, "dshctl") {
 			t.Fatalf("%v: stdout = %q, want the version report", args, stdout)
 		}
-		if strings.Contains(stdout, "命令:") {
+		if strings.Contains(stdout, "commands") {
 			t.Fatalf("%v: version must not print the command list: %q", args, stdout)
 		}
 	}
@@ -285,7 +285,7 @@ func TestUnknownCommandWinsOverTheHelpFlag(t *testing.T) {
 		if code != exitcode.Usage {
 			t.Fatalf("%v: exit = %d, want %d", args, code, exitcode.Usage)
 		}
-		if !strings.Contains(stderr, "未知命令") {
+		if !strings.Contains(stderr, "error: unknown command") {
 			t.Fatalf("%v: stderr = %q", args, stderr)
 		}
 	}
@@ -306,7 +306,7 @@ func TestHelpSubcommand(t *testing.T) {
 	if code != exitcode.Usage {
 		t.Fatalf("help --json: exit = %d, want %d", code, exitcode.Usage)
 	}
-	if !strings.Contains(stderr, "未知命令") {
+	if !strings.Contains(stderr, "error: unknown command") {
 		t.Fatalf("help --json: stderr = %q", stderr)
 	}
 }
@@ -331,10 +331,10 @@ func TestGlobalFlagErrorsKeepStdoutClean(t *testing.T) {
 		if stdout != "" {
 			t.Fatalf("%v: stdout = %q, want nothing on a usage error", args, stdout)
 		}
-		if !strings.HasPrefix(stderr, "错误: ") {
+		if !strings.HasPrefix(stderr, "error") {
 			t.Fatalf("%v: stderr = %q, want it to open with the error prefix", args, stderr)
 		}
-		for _, want := range []string{"命令:", "全局参数:", "退出码:"} {
+		for _, want := range []string{"commands:", "global flags:", "exit codes:"} {
 			if !strings.Contains(stderr, want) {
 				t.Fatalf("%v: stderr is missing %q:\n%s", args, want, stderr)
 			}
@@ -358,7 +358,7 @@ func TestSingleDashHelpIsAFlagHelpRequest(t *testing.T) {
 	if stdout != "" {
 		t.Fatalf("status -help stdout = %q, want the flag usage on stderr", stdout)
 	}
-	if !strings.Contains(stderr, "用法: dshctl [全局参数] status") {
+	if !strings.Contains(stderr, "usage: dshctl [global flags] status") {
 		t.Fatalf("status -help stderr = %q, want the flag usage", stderr)
 	}
 
@@ -393,7 +393,7 @@ func TestPortFlagBoundaries(t *testing.T) {
 	// A flag is not a value: the mistake is reported as a bad port rather than
 	// swallowed as the token that follows.
 	code, _, stderr, _ := execute(t, "--port", "--json", "status")
-	if code != exitcode.Usage || !strings.Contains(stderr, "不是数字") {
+	if code != exitcode.Usage || !strings.Contains(stderr, "is not a number") {
 		t.Fatalf("--port --json: exit = %d, stderr = %q", code, stderr)
 	}
 
@@ -419,10 +419,10 @@ func TestSettingsFlagsBeatTheEnvironment(t *testing.T) {
 	if code != exitcode.NotRunning {
 		t.Fatalf("exit = %d, want %d (stderr = %s)", code, exitcode.NotRunning, stderr)
 	}
-	if !strings.Contains(stderr, "仓库目录: "+repo+" (flag)") {
+	if !strings.Contains(stderr, "checkout: "+repo+" (flag)") {
 		t.Fatalf("stderr = %q, want the flag's repository and its source", stderr)
 	}
-	if !strings.Contains(stderr, "Node 版本: 26.1.0 (flag)") {
+	if !strings.Contains(stderr, "Node version: 26.1.0 (flag)") {
 		t.Fatalf("stderr = %q, want the flag's node version and its source", stderr)
 	}
 }
@@ -436,8 +436,8 @@ func TestVerboseDescribesEverySetting(t *testing.T) {
 		t.Fatalf("exit = %d, want %d (stderr = %s)", code, exitcode.NotRunning, stderr)
 	}
 	for _, want := range []string{
-		"配置文件: ", "状态目录: ", "仓库目录: ", "监听端口: ", "Node 版本: ",
-		"日志文件: ", "启动超时: ", "停止超时: ", "锁超时:   ", "日志轮转: ", "日志级别: ",
+		"settings document", "state directory", "checkout", "port", "Node version",
+		"log file", "start timeout", "stop timeout", "lock timeout", "log rotation", "log level",
 	} {
 		if !strings.Contains(stderr, want) {
 			t.Fatalf("verbose output is missing %q:\n%s", want, stderr)
@@ -484,7 +484,7 @@ func TestStopLeavesAForeignPortAlone(t *testing.T) {
 	if !strings.Contains(stderr, strconv.Itoa(port)) {
 		t.Fatalf("stderr = %q, want the occupant reported", stderr)
 	}
-	if strings.Contains(stdout, "已停止") {
+	if strings.Contains(stdout, "stopped") {
 		t.Fatalf("stop claimed a success it did not have: %q", stdout)
 	}
 }
@@ -525,10 +525,10 @@ func TestStatusAndDoctorAgreeAboutAHeldPort(t *testing.T) {
 	if code != exitcode.NotRunning {
 		t.Fatalf("status exit = %d, want %d (stderr = %s)", code, exitcode.NotRunning, stderr)
 	}
-	if !strings.Contains(stdout, "端口") || !strings.Contains(stdout, strconv.Itoa(port)) {
+	if !strings.Contains(stdout, "port") || !strings.Contains(stdout, strconv.Itoa(port)) {
 		t.Fatalf("status stdout = %q, want the port reported as occupied", stdout)
 	}
-	if strings.Contains(stdout, "状态: 运行中") {
+	if strings.Contains(stdout, "state: running") {
 		t.Fatalf("status claimed a server of ours on a foreign port: %q", stdout)
 	}
 
@@ -550,19 +550,19 @@ func TestStatusAndDoctorAgreeAboutAHeldPort(t *testing.T) {
 			t.Fatalf("check %d is incomplete: %+v", index, check)
 		}
 		switch check.Name {
-		case "端口":
+		case "port":
 			portDetail = check.Detail
 			if check.Status == "ok" {
 				t.Fatalf("doctor called a foreign port healthy: %+v", check)
 			}
-		case "运行记录":
+		case "runtime record":
 			recordDetail = check.Detail
 		}
 	}
 	if !strings.Contains(portDetail, strconv.Itoa(port)) {
 		t.Fatalf("doctor's port row = %q, want it to name %d", portDetail, port)
 	}
-	if !strings.Contains(recordDetail, "不存在") {
+	if !strings.Contains(recordDetail, "none (the service has never been started)") {
 		t.Fatalf("doctor's record row = %q, want a fresh state directory to have no record", recordDetail)
 	}
 }
@@ -578,7 +578,7 @@ func TestURLWithoutAServerIsANotRunningError(t *testing.T) {
 	if stdout != "" {
 		t.Fatalf("url printed an address with no server running: %q", stdout)
 	}
-	if !strings.Contains(stderr, "未在运行") {
+	if !strings.Contains(stderr, "DSH Web is not running") {
 		t.Fatalf("url stderr = %q, want the not-running explanation", stderr)
 	}
 }
@@ -646,15 +646,15 @@ func TestLogsRejectsAnUnparsableCount(t *testing.T) {
 // error.
 func TestLogsBuildSection(t *testing.T) {
 	environment, _ := freshEnvironment(t, nil)
-	logPath := seedLogAt(t, environment, "服务输出一行")
+	logPath := seedLogAt(t, environment, "one line of service output")
 	logger := logfile.New(logPath, 0, logfile.Format{Prefix: "=====", Product: "dshctl", Layout: "2006-01-02 15:04:05"})
 	for _, step := range []struct {
 		title string
 		lines []string
 	}{
-		{title: "start", lines: []string{"启动输出"}},
-		{title: "build", lines: []string{"构建第一行", "构建第二行"}},
-		{title: "start", lines: []string{"再次启动"}},
+		{title: "start", lines: []string{"start output"}},
+		{title: "build", lines: []string{"build line one", "build line two"}},
+		{title: "start", lines: []string{"started again"}},
 	} {
 		if err := logger.Section(step.title); err != nil {
 			t.Fatalf("section %s: %v", step.title, err)
@@ -671,16 +671,16 @@ func TestLogsBuildSection(t *testing.T) {
 	if code != exitcode.OK {
 		t.Fatalf("exit = %d, want 0 (stderr = %s)", code, stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "构建第一行") || !strings.Contains(stdout.String(), "构建第二行") {
+	if !strings.Contains(stdout.String(), "build line one") || !strings.Contains(stdout.String(), "build line two") {
 		t.Fatalf("stdout = %q, want the build record's body", stdout.String())
 	}
-	if strings.Contains(stdout.String(), "再次启动") || strings.Contains(stdout.String(), "dshctl build") {
+	if strings.Contains(stdout.String(), "started again") || strings.Contains(stdout.String(), "dshctl build") {
 		t.Fatalf("stdout = %q, want only the build record", stdout.String())
 	}
 
 	// A log with no build record answers with a note on stderr, not a failure.
 	plain, _ := freshEnvironment(t, nil)
-	seedLogAt(t, plain, "只有服务输出")
+	seedLogAt(t, plain, "only service output")
 	stdout.Reset()
 	stderr.Reset()
 	code = Main(context.Background(), []string{"logs", "--build"}, &stdout, &stderr, os.Getenv)
@@ -690,7 +690,7 @@ func TestLogsBuildSection(t *testing.T) {
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want nothing when there is no build record", stdout.String())
 	}
-	if !strings.Contains(stderr.String(), "没有 build/update/rollback 记录") {
+	if !strings.Contains(stderr.String(), "the log has no build/update/rollback record") {
 		t.Fatalf("stderr = %q, want the explanation", stderr.String())
 	}
 }
@@ -717,7 +717,7 @@ func TestLogsFollowEndsOnCancellation(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			environment, _ := freshEnvironment(t, nil)
-			seedLogAt(t, environment, "第一行")
+			seedLogAt(t, environment, "line one")
 			ctx, cancel := testCase.ctx()
 			defer cancel()
 
@@ -726,7 +726,7 @@ func TestLogsFollowEndsOnCancellation(t *testing.T) {
 			if code != exitcode.Interrupted {
 				t.Fatalf("exit = %d, want %d (stderr = %s)", code, exitcode.Interrupted, stderr.String())
 			}
-			if !strings.Contains(stdout.String(), "第一行") {
+			if !strings.Contains(stdout.String(), "line one") {
 				t.Fatalf("stdout = %q, want the tail before the cancellation", stdout.String())
 			}
 		})
@@ -801,7 +801,7 @@ func TestNodeFlagKeepsANumericVersion(t *testing.T) {
 		t.Fatalf("exit = %d, want %d: a numeric node version is odd but not a usage error (stderr = %s)",
 			code, exitcode.NotRunning, stderr)
 	}
-	if !strings.Contains(stderr, "Node 版本: 3080") {
+	if !strings.Contains(stderr, "Node version: 3080") {
 		t.Fatalf("stderr = %q, want the node version echoed", stderr)
 	}
 }
@@ -828,10 +828,10 @@ func TestConfigFlagPointsAtAnotherDocument(t *testing.T) {
 	if code != exitcode.NotRunning {
 		t.Fatalf("exit = %d, want %d (stderr = %s)", code, exitcode.NotRunning, stderr)
 	}
-	if !strings.Contains(stderr, "监听端口: "+strconv.Itoa(port)+" (file)") {
+	if !strings.Contains(stderr, "port: "+strconv.Itoa(port)+" (file)") {
 		t.Fatalf("stderr = %q, want the port from the document", stderr)
 	}
-	if !strings.Contains(stderr, "Node 版本: 26.2.0 (file)") {
+	if !strings.Contains(stderr, "Node version: 26.2.0 (file)") {
 		t.Fatalf("stderr = %q, want the node version from the document", stderr)
 	}
 	if !strings.Contains(stdout, strconv.Itoa(port)) {
@@ -898,11 +898,11 @@ func TestMutatingJSONCarriesTheFailure(t *testing.T) {
 // says so — which is also what a script reading `-v` needs.
 func TestLogLevelFlagReachesTheSettings(t *testing.T) {
 	_, _, stderr, _ := execute(t, "-v", "--log-level", "debug", "status")
-	if !strings.Contains(stderr, "日志级别: debug (flag)") {
+	if !strings.Contains(stderr, "log level: debug (flag)") {
 		t.Fatalf("verbose output does not report the flag's level:\n%s", stderr)
 	}
 	_, _, stderr, _ = execute(t, "-v", "status")
-	if !strings.Contains(stderr, "日志级别: ") || strings.Contains(stderr, "(flag)") {
+	if !strings.Contains(stderr, "log level") || strings.Contains(stderr, "(flag)") {
 		t.Fatalf("verbose output reports a flag that was not given:\n%s", stderr)
 	}
 }
@@ -912,11 +912,11 @@ func TestLogLevelFlagReachesTheSettings(t *testing.T) {
 // rendering gives, rather than whichever classification the interrupted call
 // happened to carry.
 func TestMutatingJSONReportsACancellationAsInterrupted(t *testing.T) {
-	wrapped := fmt.Errorf("探测端口时被取消: %w", context.Canceled)
+	wrapped := fmt.Errorf("probing the port was cancelled: %w", context.Canceled)
 	if got := jsonExitCode(wrapped); got != exitcode.Interrupted {
 		t.Fatalf("jsonExitCode(cancelled) = %d, want %d", got, exitcode.Interrupted)
 	}
-	if got := jsonExitCode(exitcode.New(exitcode.Preflight, "拒绝")); got != exitcode.Preflight {
+	if got := jsonExitCode(exitcode.New(exitcode.Preflight, "refusing to write an invalid deployment history")); got != exitcode.Preflight {
 		t.Fatalf("jsonExitCode(refusal) = %d, want %d", got, exitcode.Preflight)
 	}
 	if got := jsonExitCode(nil); got != exitcode.OK {

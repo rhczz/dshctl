@@ -35,7 +35,7 @@ func TestUpdateRefusesALocalBranchWithoutStopping(t *testing.T) {
 
 	err := f.RunUpdate(context.Background(), "main")
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "本地分支")
+	wantContains(t, err, "the version cannot name a local branch")
 	f.wantNoSignals(t)
 	f.wantNoSpawn(t)
 }
@@ -50,7 +50,7 @@ func TestUpdateHEADIsANoOp(t *testing.T) {
 	if err := f.RunUpdate(context.Background(), "HEAD"); err != nil {
 		t.Fatalf("RunUpdate(HEAD): %v", err)
 	}
-	if !strings.Contains(f.out.String(), "无需更新") {
+	if !strings.Contains(f.out.String(), "nothing to update") {
 		t.Fatalf("stdout = %q, want the no-op report", f.out.String())
 	}
 	f.wantNoSignals(t)
@@ -137,7 +137,7 @@ func TestUpdateANamedVersionWorksWithoutOrigin(t *testing.T) {
 	if f.host.gitHead != tagged {
 		t.Fatalf("head = %q, want the tag %q", f.host.gitHead, tagged)
 	}
-	if !strings.Contains(f.errOut.String(), "无法获取远程更新") {
+	if !strings.Contains(f.errOut.String(), "the remote could not be fetched") {
 		t.Fatalf("stderr = %q, want the fetch warning", f.errOut.String())
 	}
 }
@@ -154,7 +154,7 @@ func TestUpdateNamesAShaTargetOnce(t *testing.T) {
 	if err := f.RunUpdate(context.Background(), target[:8]); err != nil {
 		t.Fatalf("RunUpdate: %v", err)
 	}
-	want := "更新: " + current[:7] + " → " + target[:7] + "\n"
+	want := "update: " + current[:7] + " → " + target[:7] + "\n"
 	if !strings.Contains(f.out.String(), want) {
 		t.Fatalf("stdout = %q, want %q", f.out.String(), want)
 	}
@@ -165,7 +165,7 @@ func TestUpdateNamesAShaTargetOnce(t *testing.T) {
 	if err := f2.RunUpdate(context.Background(), "dsh-v0.1.0"); err != nil {
 		t.Fatalf("RunUpdate: %v", err)
 	}
-	wantTagged := "更新: " + current2[:7] + " → " + target[:7] + "（dsh-v0.1.0）\n"
+	wantTagged := "update: " + current2[:7] + " → " + target[:7] + " (dsh-v0.1.0)\n"
 	if !strings.Contains(f2.out.String(), wantTagged) {
 		t.Fatalf("stdout = %q, want %q", f2.out.String(), wantTagged)
 	}
@@ -182,7 +182,7 @@ func TestUpdateShortCircuitsWhenAlreadyAtTheTarget(t *testing.T) {
 	if err := f.RunUpdate(context.Background(), "latest"); err != nil {
 		t.Fatalf("RunUpdate: %v", err)
 	}
-	if !strings.Contains(f.out.String(), "无需更新") {
+	if !strings.Contains(f.out.String(), "nothing to update") {
 		t.Fatalf("stdout = %q, want the no-op report", f.out.String())
 	}
 	f.wantNoSignals(t)
@@ -241,7 +241,7 @@ func TestUpdateRefusesADirtyWorktreeWithoutStopping(t *testing.T) {
 
 	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "未提交修改")
+	wantContains(t, err, "has uncommitted changes to tracked files, so it cannot switch versions")
 	f.wantNoSignals(t)
 	f.wantNoSpawn(t)
 	for _, forbidden := range []string{"merge", "install", "run build"} {
@@ -284,7 +284,7 @@ func TestUpdateResolvesANamedVersionWithoutTheRemote(t *testing.T) {
 	if f.host.gitHead != tagged {
 		t.Fatalf("head = %q, want the tag despite the failed fetch", f.host.gitHead)
 	}
-	if !strings.Contains(f.errOut.String(), "无法获取远程更新") {
+	if !strings.Contains(f.errOut.String(), "the remote could not be fetched") {
 		t.Fatalf("stderr = %q, want the fetch warning", f.errOut.String())
 	}
 }
@@ -299,7 +299,7 @@ func TestUpdateWarnsAboutATargetOutsideOrigin(t *testing.T) {
 	if err := f.RunUpdate(context.Background(), "dsh-v0.1.0-side"); err != nil {
 		t.Fatalf("RunUpdate: %v", err)
 	}
-	if !strings.Contains(f.errOut.String(), "不在 origin/master 的历史上") {
+	if !strings.Contains(f.errOut.String(), "is not in the history of origin/master") {
 		t.Fatalf("stderr = %q, want the outside-history warning", f.errOut.String())
 	}
 }
@@ -320,11 +320,11 @@ func TestUpdateKeepsDeployingWhenTheHistoryCannotBeWritten(t *testing.T) {
 
 	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "更新历史未写入")
+	wantContains(t, err, "the deployment history could not be written")
 	if !strings.Contains(f.describeCommands(), "install") {
 		t.Fatalf("the deployment stopped at the record: %v", f.describeCommands())
 	}
-	if !strings.Contains(f.out.String(), "更新完成") {
+	if !strings.Contains(f.out.String(), "update finished") {
 		t.Fatalf("stdout = %q, want the deployment to have finished", f.out.String())
 	}
 	if record, ok := f.stateRecord(t); !ok || record.PID == 4321 {

@@ -119,7 +119,7 @@ func followFrom(ctx context.Context, path string, w io.Writer, interval time.Dur
 			}
 			continue
 		} else if err != nil {
-			return fmt.Errorf("无法读取 %s: %w", path, err)
+			return fmt.Errorf("%s could not be read: %w", path, err)
 		}
 
 		reopened, openErr := openForFollow(path)
@@ -171,7 +171,7 @@ func followFrom(ctx context.Context, path string, w io.Writer, interval time.Dur
 		if descriptor.Size() > offset {
 			if _, err := file.Seek(offset, io.SeekStart); err != nil {
 				closeFile()
-				return fmt.Errorf("无法定位 %s: %w", path, err)
+				return fmt.Errorf("%s could not be located: %w", path, err)
 			}
 			written, err := io.Copy(w, file)
 			if err != nil {

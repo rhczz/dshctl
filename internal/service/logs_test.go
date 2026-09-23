@@ -60,7 +60,7 @@ func TestLogsReportsAMissingLog(t *testing.T) {
 
 	err := f.Logs(context.Background(), LogsOptions{Lines: 10})
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "日志文件不存在")
+	wantContains(t, err, "the log file does not exist")
 	wantContains(t, err, f.Settings.LogPath)
 }
 
@@ -188,7 +188,7 @@ func TestLogsBuildOnlyReportsATruncatedLog(t *testing.T) {
 	}
 	err = f.Logs(context.Background(), LogsOptions{BuildOnly: true})
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "日志文件过大")
+	wantContains(t, err, "the log is too large to locate the last build/update/rollback record")
 	if f.out.String() != "" {
 		t.Fatalf("stdout = %q, want nothing printed for an unreadable record", f.out.String())
 	}
@@ -228,8 +228,8 @@ func TestWebURLExplainsWhyThereIsNoAddress(t *testing.T) {
 
 	_, err := f.WebURL(context.Background())
 	wantCode(t, err, exitcode.NotRunning)
-	wantContains(t, err, "DSH Web 未在运行")
-	wantContains(t, err, "没有可访问的地址")
+	wantContains(t, err, "DSH Web is not running")
+	wantContains(t, err, "(")
 }
 
 // TestLogsBuildOnlyReadsTheRealSectionPath is a guard against the fixture

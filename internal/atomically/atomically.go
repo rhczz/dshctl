@@ -24,11 +24,11 @@ import (
 func WriteFile(path string, data []byte, perm os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("无法创建目录 %s: %w", dir, err)
+		return fmt.Errorf("the directory %s could not be created: %w", dir, err)
 	}
 	temp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".tmp*")
 	if err != nil {
-		return fmt.Errorf("无法在 %s 创建临时文件: %w", dir, err)
+		return fmt.Errorf("a temporary file could not be created in %s: %w", dir, err)
 	}
 	tempName := temp.Name()
 	// Best effort: a failed cleanup must not hide the real error.
@@ -36,28 +36,28 @@ func WriteFile(path string, data []byte, perm os.FileMode) error {
 
 	if err := temp.Chmod(perm); err != nil {
 		temp.Close()
-		return fmt.Errorf("无法设置 %s 的权限: %w", tempName, err)
+		return fmt.Errorf("the permissions of %s could not be set: %w", tempName, err)
 	}
 	if _, err := temp.Write(data); err != nil {
 		temp.Close()
-		return fmt.Errorf("无法写入 %s: %w", tempName, err)
+		return fmt.Errorf("%s could not be written: %w", tempName, err)
 	}
 	if err := temp.Sync(); err != nil {
 		temp.Close()
-		return fmt.Errorf("无法同步 %s: %w", tempName, err)
+		return fmt.Errorf("%s could not be synced: %w", tempName, err)
 	}
 	if err := temp.Close(); err != nil {
-		return fmt.Errorf("无法关闭 %s: %w", tempName, err)
+		return fmt.Errorf("%s could not be closed: %w", tempName, err)
 	}
 	if err := replace(tempName, path); err != nil {
-		return fmt.Errorf("无法替换 %s: %w", path, err)
+		return fmt.Errorf("%s could not be replaced: %w", path, err)
 	}
 	// The rename is atomic, but it is only durable once the directory entry
 	// itself has reached the disk. A machine that loses power in between comes
 	// back with the old file, which for a record or a settings document is the
 	// safe outcome — so a failure here is reported, not hidden.
 	if err := syncDir(dir); err != nil {
-		return fmt.Errorf("无法同步目录 %s: %w", dir, err)
+		return fmt.Errorf("the directory %s could not be synced: %w", dir, err)
 	}
 	return nil
 }
@@ -85,20 +85,20 @@ func Sweep(dir string) error {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		}
-		return fmt.Errorf("无法读取目录 %s: %w", dir, err)
+		return fmt.Errorf("the directory %s could not be read: %w", dir, err)
 	}
 	if !info.IsDir() {
 		// A file where a directory belongs is a mistake worth reporting: on Unix
 		// the read below fails on its own, while on Windows it quietly answers
 		// "no entries", which would turn a wrong path into a silent success.
-		return fmt.Errorf("无法清理 %s: 不是目录", dir)
+		return fmt.Errorf("%s cannot be swept: it is not a directory", dir)
 	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		}
-		return fmt.Errorf("无法读取目录 %s: %w", dir, err)
+		return fmt.Errorf("the directory %s could not be read: %w", dir, err)
 	}
 	for _, entry := range entries {
 		if entry.IsDir() || !tempNamePattern.MatchString(entry.Name()) {

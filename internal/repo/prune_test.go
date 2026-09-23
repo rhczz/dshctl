@@ -46,12 +46,22 @@ func newCheckout(t *testing.T) *checkout {
 	box.git("config", "user.email", "fixture@example.com")
 	box.git("config", "user.name", "fixture")
 	box.git("config", "commit.gpgsign", "false")
+	// The layout the tests exercise is stated here, the way a product would
+	// state its own: the mechanism no longer knows it.
 	box.repo = Repo{
 		Dir:                  dir,
 		Ex:                   fixtureRunner{runner: run.NewRunner()},
 		ManifestRel:          "package.json",
 		WorkspaceManifestRel: "pnpm-workspace.yaml",
 		BuildRecordRel:       ".dsh-build/client-build-environment.json",
+		Remote:               "origin",
+		Branch:               "master",
+		Residue: map[string]struct{}{
+			"node_modules": {},
+			"lib":          {},
+			".typecheck":   {},
+		},
+		Areas: []PruneArea{{Name: "packages", Depth: 2}, {Name: "vendor", Depth: 1}},
 	}
 	box.write("package.json", "{}")
 	box.write("pnpm-workspace.yaml", "packages:\n  - packages/*\n")
@@ -415,12 +425,22 @@ func newCheckoutIn(t *testing.T, dir string) *checkout {
 	box.git("config", "user.email", "fixture@example.com")
 	box.git("config", "user.name", "fixture")
 	box.git("config", "commit.gpgsign", "false")
+	// The layout the tests exercise is stated here, the way a product would
+	// state its own: the mechanism no longer knows it.
 	box.repo = Repo{
 		Dir:                  dir,
 		Ex:                   fixtureRunner{runner: run.NewRunner()},
 		ManifestRel:          "package.json",
 		WorkspaceManifestRel: "pnpm-workspace.yaml",
 		BuildRecordRel:       ".dsh-build/client-build-environment.json",
+		Remote:               "origin",
+		Branch:               "master",
+		Residue: map[string]struct{}{
+			"node_modules": {},
+			"lib":          {},
+			".typecheck":   {},
+		},
+		Areas: []PruneArea{{Name: "packages", Depth: 2}, {Name: "vendor", Depth: 1}},
 	}
 	box.write("package.json", "{}")
 	box.write("pnpm-workspace.yaml", "packages:\n  - packages/*\n")

@@ -49,7 +49,7 @@ func TestBinaryManagesServersOnSeveralPorts(t *testing.T) {
 	if status.code != 0 {
 		t.Fatalf("status exit = %d, stdout=%s stderr=%s", status.code, status.stdout, status.stderr)
 	}
-	if !strings.Contains(status.stdout, "运行中") {
+	if !strings.Contains(status.stdout, "running") {
 		t.Fatalf("status does not report the configured port as running:\n%s", status.stdout)
 	}
 	for _, port := range []int{configured, named} {
@@ -65,7 +65,7 @@ func TestBinaryManagesServersOnSeveralPorts(t *testing.T) {
 		t.Fatalf("standard output is not the report of the configured port %d:\nstdout=%s\nstderr=%s\n%s",
 			configured, status.stdout, status.stderr, def.describe(t))
 	}
-	if want := "端口 " + strconv.Itoa(named); !strings.Contains(status.stderr, want) {
+	if want := "port " + strconv.Itoa(named); !strings.Contains(status.stderr, want) {
 		t.Fatalf("the note for port %d is not on standard error:\nstdout=%s\nstderr=%s\n%s",
 			named, status.stdout, status.stderr, def.describe(t))
 	}
@@ -172,7 +172,7 @@ func TestBinaryReportsAndStopsEveryInstanceWithoutAPort(t *testing.T) {
 			status.code, status.stdout, status.stderr, def.describe(t))
 	}
 	for _, port := range []int{named, other} {
-		if !strings.Contains(status.stderr, "端口 "+strconv.Itoa(port)) {
+		if !strings.Contains(status.stderr, "port "+strconv.Itoa(port)) {
 			t.Fatalf("status never names port %d:\n%s\n%s", port, status.stderr, def.describe(t))
 		}
 		if want := "token=PORT-" + strconv.Itoa(port); !strings.Contains(status.stderr, want) {

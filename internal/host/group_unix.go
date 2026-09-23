@@ -46,10 +46,10 @@ func (h *Host) GroupExists(pid int) bool {
 // unrelated tree.
 func (h *Host) KillGroup(pid int) error {
 	if pid <= 0 {
-		return fmt.Errorf("拒绝向 pid %d 的进程组发送信号", pid)
+		return fmt.Errorf("refusing to signal the process group of pid %d", pid)
 	}
 	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
-		return fmt.Errorf("无法结束进程组 %d: %w", pid, err)
+		return fmt.Errorf("the process group %d could not be ended: %w", pid, err)
 	}
 	return nil
 }
@@ -57,7 +57,7 @@ func (h *Host) KillGroup(pid int) error {
 // SignalGroup asks every process in a group to exit.
 func (h *Host) SignalGroup(pid int, request Request) error {
 	if pid <= 0 {
-		return fmt.Errorf("拒绝向 pid %d 的进程组发送信号", pid)
+		return fmt.Errorf("refusing to signal the process group of pid %d", pid)
 	}
 	signal := syscall.SIGTERM
 	if request == Force {
@@ -65,7 +65,7 @@ func (h *Host) SignalGroup(pid int, request Request) error {
 	}
 	err := syscall.Kill(-pid, signal)
 	if err != nil && !errors.Is(err, syscall.ESRCH) {
-		return fmt.Errorf("无法向进程组 %d 发送 %v: %w", pid, signal, err)
+		return fmt.Errorf("the process group %d could not be sent %v: %w", pid, signal, err)
 	}
 	return nil
 }

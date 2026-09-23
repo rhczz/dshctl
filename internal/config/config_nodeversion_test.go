@@ -547,23 +547,23 @@ func TestNodeVersionTablesAreComplete(t *testing.T) {
 func assertTableRows(t *testing.T, prefix string, frozen []string, cases map[string]func(*testing.T)) {
 	t.Helper()
 	if len(frozen) != len(cases) {
-		t.Fatalf("%s 行数 = %d(冻结)%d(用例), want the same", prefix, len(frozen), len(cases))
+		t.Fatalf("%s rows = %d (frozen) %d (cases), want the same", prefix, len(frozen), len(cases))
 	}
 	seen := map[string]bool{}
 	for _, id := range frozen {
 		if seen[id] {
-			t.Fatalf("冻结列表里 %s 重复", id)
+			t.Fatalf("frozen list repeats %s", id)
 		}
 		seen[id] = true
 		if fn, ok := cases[id]; !ok {
-			t.Errorf("决策表第 %s 行没有对应用例", id)
+			t.Errorf("decision table row %s has no case", id)
 		} else if fn == nil {
-			t.Errorf("决策表第 %s 行的用例是空的", id)
+			t.Errorf("decision table row %s has an empty case", id)
 		}
 	}
 	for id := range cases {
 		if !seen[id] {
-			t.Errorf("用例 %s 没有登记在冻结的决策表里", id)
+			t.Errorf("case %s is not registered in the frozen decision table", id)
 		}
 	}
 }
@@ -650,14 +650,14 @@ func TestDescribeSaysWhenTheReleaseIsUndetermined(t *testing.T) {
 	settings.LogPath = "/state/dsh-web.log"
 
 	undetermined := strings.Join(settings.Describe(), "\n")
-	if !strings.Contains(undetermined, "(未确定") {
+	if !strings.Contains(undetermined, "(not determined; resolved from PATH at start)") {
 		t.Fatalf("verbose output =\n%s\nwant it to say the release is undetermined", undetermined)
 	}
 
 	settings.NodeVersion = "24.20.0"
 	settings.Sources.NodeVersion = "file"
 	determined := strings.Join(settings.Describe(), "\n")
-	if !strings.Contains(determined, "Node 版本: 24.20.0 (file)") {
+	if !strings.Contains(determined, "Node version: 24.20.0 (file)") {
 		t.Fatalf("verbose output =\n%s\nwant the release and its source", determined)
 	}
 }

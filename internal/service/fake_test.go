@@ -724,13 +724,13 @@ func newFixture(t *testing.T) *fixture {
 		Settings: settings,
 		Exec:     h,
 		Host:     h,
-		Repo: repo.Repo{
+		Repo: checkoutLayout(repo.Repo{
 			Dir:                  repoDir,
 			Ex:                   h,
 			ManifestRel:          config.ServerManifestRel,
 			WorkspaceManifestRel: config.WorkspaceManifestRel,
 			BuildRecordRel:       buildRecordRel,
-		},
+		}),
 		Node: &nodejs.Resolver{
 			Output: run.NewCollector(h),
 			LookPath: func(name string) (string, error) {
@@ -899,7 +899,7 @@ func (h *fakeHost) nextUnusedPID() (int, error) {
 	pid := h.nextPID
 	h.nextPID++
 	if h.handedOut[pid] {
-		return 0, fmt.Errorf("fixture 把 pid %d 分配给了两个进程", pid)
+		return 0, fmt.Errorf("fixture gave pid %d to two processes", pid)
 	}
 	h.handedOut[pid] = true
 	return pid, nil
@@ -1555,7 +1555,7 @@ func wantNoFailingCheckoutRow(t *testing.T, checks []Check) {
 	t.Helper()
 	for _, check := range checks {
 		switch check.Name {
-		case "仓库目录", "依赖", "构建产物", "仓库版本", "服务仓库":
+		case "checkout", "dependencies", "build artifacts", "checkout revision", "service checkout":
 			if check.Status == CheckFail {
 				t.Fatalf("doctor reported a blocking row about the checkout: %+v", check)
 			}

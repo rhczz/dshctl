@@ -2,6 +2,8 @@
 
 状态: 已实施
 
+> 取代：2026-09-22-remove-i18n.md —— 文中与 `i18n` 有关的机制/资源划分已随该模块移除。
+
 ## 问题
 
 多个机制包里写死了产品值：`state` 认识 `dsh-web-<port>.state.json` 与 64 KiB 上限、
@@ -42,9 +44,10 @@
   `internal/service/logformat.go`）；`logging` 只认识"写进日志文件"。
 - 已提取：`state` 的 `Store[T]`（机制）与服务层的 `recordStore`（产品值：上限、校验、时间戳）。
 - 已提取：`host` 的工具清单与顺序（`host.Tools` + 服务层的 `hostTools`）。
-- 判定为资源包（不拆分）：`config`、`paths`，以及 `repo`/`history` 的产品值
-  （remote/branch、prune 布局、历史上限与 schema）——它们拥有各自契约，
-  提取留到出现第二个产品时再做。
+- 已提取：`repo` 的 remote/branch 与 prune 布局（服务层的 `checkoutLayout`）、
+  `history.Store.MaxRecords`。
+- 判定为资源包（不拆分）：`config`、`paths`——它们拥有各自契约，机制与产品值
+  同处一包并由包文档标明。
 - 未提取：只读命令的 `Print*` 渲染器应搬进接入层（见 reference 的未提取一节）。
 - 一个例外被登记为边：`history → state`，只为了共用 `state.ReadDocument` 的
   "替换中重读"容错——历史文件与运行记录在 Windows 上有同一种竞态，复制一份实现

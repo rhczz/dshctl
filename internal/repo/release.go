@@ -10,16 +10,31 @@ import (
 	"github.com/rhczz/dshctl/internal/run"
 )
 
-// The deployment contract names one remote and one branch. `latest` is
-// origin/master, not "whatever the checked-out branch happens to track": a
-// checkout on a topic branch would otherwise deploy that branch's upstream
-// while the operator believes they are following the harness releases.
-const (
-	originRemote = "origin"
-	masterBranch = "master"
-	// RemoteTipName is the ref `latest` means.
-	RemoteTipName = originRemote + "/" + masterBranch
-)
+// The deployment contract names one remote and one branch, and which ones is the
+// caller's decision: this package knows how to read and move a checkout, not
+// that a particular product follows origin/master. The service layer states its
+// choice (see internal/service/checkout.go); `latest` is that ref and not
+// "whatever the checked-out branch happens to track", because a checkout on a
+// topic branch would otherwise deploy that branch's upstream while the operator
+// believes they are following the harness releases.
+//
+// The zero value means the usual convention: origin and master.
+func (r Repo) remote() string {
+	if r.Remote == "" {
+		return "origin"
+	}
+	return r.Remote
+}
+
+func (r Repo) branch() string {
+	if r.Branch == "" {
+		return "master"
+	}
+	return r.Branch
+}
+
+// r.RemoteTipName() is the ref `latest` means for this checkout.
+func (r Repo) RemoteTipName() string { return r.remote() + "/" + r.branch() }
 
 // Commit is one entry of the first-parent history.
 type Commit struct {
@@ -56,7 +71,7 @@ func (r Repo) HasOrigin(ctx context.Context) (bool, error) {
 		if run.IsExit(err, 1) {
 			return false, nil
 		}
-		return false, fmt.Errorf("无法读取仓库的远程配置: %w", err)
+		return false, fmt.Errorf("the checkout's remotes could not be read: %w", err)
 	}
 	return strings.TrimSpace(out) != "", nil
 }
@@ -67,8 +82,8 @@ func (r Repo) HasOrigin(ctx context.Context) (bool, error) {
 // the operator's cleanup, not a side effect of reading the version gap. The
 // action stays "learn what the remote has".
 func (r Repo) Fetch(ctx context.Context, out, errOut io.Writer) error {
-	if err := r.stream(ctx, out, errOut, "fetch", originRemote, "--tags"); err != nil {
-		return fmt.Errorf("无法获取远程更新: %w", err)
+	if err := r.stream(ctx, out, errOut, "fetch", r.remote(), "--tags"); err != nil {
+		return fmt.Errorf("the remote could not be fetched: %w", err)
 	}
 	return nil
 }
@@ -77,11 +92,11 @@ func (r Repo) Fetch(ctx context.Context, out, errOut io.Writer) error {
 func (r Repo) HeadCommit(ctx context.Context) (string, error) {
 	out, err := r.output().Output(ctx, r.gitCommand("rev-parse", "HEAD"))
 	if err != nil {
-		return "", fmt.Errorf("无法读取仓库版本: %w", err)
+		return "", fmt.Errorf("the checkout revision could not be read: %w", err)
 	}
 	sha := strings.TrimSpace(out)
 	if sha == "" {
-		return "", fmt.Errorf("无法读取仓库版本: git 没有返回 commit")
+		return "", fmt.Errorf("the checkout revision could not be read: git returned no commit")
 	}
 	return sha, nil
 }
@@ -93,7 +108,7 @@ func (r Repo) HeadCommit(ctx context.Context) (string, error) {
 func (r Repo) HeadName(ctx context.Context) (string, string, error) {
 	branch, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--abbrev-ref", "HEAD"))
 	if err != nil {
-		return "", "", fmt.Errorf("无法读取仓库分支: %w", err)
+		return "", "", fmt.Errorf("the checkout branch could not be read: %w", err)
 	}
 	branch = strings.TrimSpace(branch)
 	if branch == "HEAD" {
@@ -108,13 +123,13 @@ func (r Repo) HeadName(ctx context.Context) (string, string, error) {
 
 // RemoteTip reports the commit origin/master points at.
 func (r Repo) RemoteTip(ctx context.Context) (string, error) {
-	out, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--verify", RemoteTipName+"^{commit}"))
+	out, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--verify", r.RemoteTipName()+"^{commit}"))
 	if err != nil {
-		return "", fmt.Errorf("无法确定 %s 的位置: %w", RemoteTipName, err)
+		return "", fmt.Errorf("the position of %s could not be determined: %w", r.RemoteTipName(), err)
 	}
 	sha := strings.TrimSpace(out)
 	if sha == "" {
-		return "", fmt.Errorf("无法确定 %s 的位置: git 没有返回 commit", RemoteTipName)
+		return "", fmt.Errorf("the position of %s could not be determined: git returned no commit", r.RemoteTipName())
 	}
 	return sha, nil
 }
@@ -136,10 +151,10 @@ func (r Repo) RemoteTip(ctx context.Context) (string, error) {
 // spelled like a version would run.
 func (r Repo) ResolveRevision(ctx context.Context, selector string) (string, error) {
 	if strings.TrimSpace(selector) == "" {
-		return "", fmt.Errorf("版本不能为空")
+		return "", fmt.Errorf("the version cannot be empty")
 	}
 	if strings.HasPrefix(selector, "-") {
-		return "", fmt.Errorf("版本不能以 - 开头: %q", selector)
+		return "", fmt.Errorf("the version cannot start with -: %q", selector)
 	}
 	// HEAD is not a branch name even though git resolves it through one: it
 	// names the commit the checkout is already at, which the caller's short
@@ -147,8 +162,7 @@ func (r Repo) ResolveRevision(ctx context.Context, selector string) (string, err
 	if selector != "HEAD" {
 		if name, err := r.output().Output(ctx, r.gitCommand("rev-parse", "--symbolic-full-name", selector)); err == nil {
 			if strings.HasPrefix(strings.TrimSpace(name), "refs/heads/") {
-				return "", fmt.Errorf("版本不能指向本地分支 %q: 用 %s 表示远程最新，或改用 tag/commit",
-					selector, RemoteTipName)
+				return "", fmt.Errorf("the version cannot name a local branch %q: use %s for the remote tip, or a tag/commit", selector, r.RemoteTipName())
 			}
 		}
 	}
@@ -164,20 +178,20 @@ func (r Repo) ResolveRevision(ctx context.Context, selector string) (string, err
 		lastErr = err
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("git 没有返回 commit")
+		lastErr = fmt.Errorf("git returned no commit")
 	}
-	return "", fmt.Errorf("无法解析版本 %q: %w", selector, lastErr)
+	return "", fmt.Errorf("the version %q could not be resolved: %w", selector, lastErr)
 }
 
 // CountRange counts the commits reachable from to but not from.
 func (r Repo) CountRange(ctx context.Context, from, to string) (int, error) {
 	out, err := r.output().Output(ctx, r.gitCommand("rev-list", "--count", from+".."+to))
 	if err != nil {
-		return 0, fmt.Errorf("无法统计 %s..%s 的提交数: %w", from, to, err)
+		return 0, fmt.Errorf("the commits in %s..%s could not be counted: %w", from, to, err)
 	}
 	count, err := strconv.Atoi(strings.TrimSpace(out))
 	if err != nil {
-		return 0, fmt.Errorf("无法统计 %s..%s 的提交数: git 返回了 %q", from, to, out)
+		return 0, fmt.Errorf("the commits in %s..%s could not be counted: git answered %q", from, to, out)
 	}
 	return count, nil
 }
@@ -191,7 +205,7 @@ func (r Repo) FirstParentLog(ctx context.Context, from, to string) ([]Commit, er
 	const format = "%H%x00%h%x00%s"
 	out, err := r.output().Output(ctx, r.gitCommand("log", "--first-parent", "--format="+format, from+".."+to))
 	if err != nil {
-		return nil, fmt.Errorf("无法读取 %s..%s 的提交列表: %w", from, to, err)
+		return nil, fmt.Errorf("the commit list of %s..%s could not be read: %w", from, to, err)
 	}
 	var commits []Commit
 	for _, line := range strings.Split(out, "\n") {
@@ -200,7 +214,7 @@ func (r Repo) FirstParentLog(ctx context.Context, from, to string) ([]Commit, er
 		}
 		fields := strings.Split(line, "\x00")
 		if len(fields) != 3 {
-			return nil, fmt.Errorf("无法解析 git 的提交列表: %q", line)
+			return nil, fmt.Errorf("git's commit list could not be parsed: %q", line)
 		}
 		commits = append(commits, Commit{Full: fields[0], Short: fields[1], Subject: fields[2]})
 	}
@@ -215,11 +229,11 @@ func (r Repo) CommitInfo(ctx context.Context, revision string) (Commit, error) {
 	const format = "%H%x00%h%x00%s"
 	out, err := r.output().Output(ctx, r.gitCommand("log", "-1", "--format="+format, revision))
 	if err != nil {
-		return Commit{}, fmt.Errorf("无法读取 %s 的信息: %w", revision, err)
+		return Commit{}, fmt.Errorf("the information of %s could not be read: %w", revision, err)
 	}
 	fields := strings.Split(strings.TrimSpace(out), "\x00")
 	if len(fields) != 3 {
-		return Commit{}, fmt.Errorf("无法解析 %s 的信息: %q", revision, out)
+		return Commit{}, fmt.Errorf("the information of %s could not be parsed: %q", revision, out)
 	}
 	return Commit{Full: fields[0], Short: fields[1], Subject: fields[2]}, nil
 }
@@ -234,7 +248,7 @@ func (r Repo) Tags(ctx context.Context) (map[string][]string, error) {
 	const format = "%(objectname)%00%(*objectname)%00%(objecttype)%00%(*objecttype)%00%(refname:short)"
 	out, err := r.output().Output(ctx, r.gitCommand("for-each-ref", "--format="+format, "refs/tags"))
 	if err != nil {
-		return nil, fmt.Errorf("无法读取仓库 tag: %w", err)
+		return nil, fmt.Errorf("the checkout's tags could not be read: %w", err)
 	}
 	tags := map[string][]string{}
 	for _, line := range strings.Split(out, "\n") {
@@ -243,7 +257,7 @@ func (r Repo) Tags(ctx context.Context) (map[string][]string, error) {
 		}
 		fields := strings.Split(line, "\x00")
 		if len(fields) != 5 {
-			return nil, fmt.Errorf("无法解析 git 的 tag 列表: %q", line)
+			return nil, fmt.Errorf("git's tag list could not be parsed: %q", line)
 		}
 		object, peeled, objectType, peeledType, name := fields[0], fields[1], fields[2], fields[3], fields[4]
 		var commit string
@@ -270,14 +284,14 @@ func (r Repo) IsAncestor(ctx context.Context, ancestor, descendant string) (bool
 		// Exit 1 is git's answer "no"; anything else is a failure to look.
 		return false, nil
 	default:
-		return false, fmt.Errorf("无法判断 %s 是否为 %s 的祖先: %w", ancestor, descendant, err)
+		return false, fmt.Errorf("whether %s is an ancestor of %s could not be decided: %w", ancestor, descendant, err)
 	}
 }
 
 // CheckoutDetach moves the worktree to commit without moving any branch.
 func (r Repo) CheckoutDetach(ctx context.Context, commit string, out, errOut io.Writer) error {
 	if err := r.stream(ctx, out, errOut, "checkout", "--detach", commit); err != nil {
-		return fmt.Errorf("无法切换到 %s: %w", commit, err)
+		return fmt.Errorf("could not switch to %s: %w", commit, err)
 	}
 	return nil
 }
@@ -285,11 +299,11 @@ func (r Repo) CheckoutDetach(ctx context.Context, commit string, out, errOut io.
 // FastForwardMaster returns to the master branch and advances it to
 // origin/master. A local commit makes the merge refuse; nothing is discarded.
 func (r Repo) FastForwardMaster(ctx context.Context, out, errOut io.Writer) error {
-	if err := r.stream(ctx, out, errOut, "checkout", masterBranch); err != nil {
-		return fmt.Errorf("无法切换到 %s 分支: %w", masterBranch, err)
+	if err := r.stream(ctx, out, errOut, "checkout", r.branch()); err != nil {
+		return fmt.Errorf("could not switch to the %s branch: %w", r.branch(), err)
 	}
-	if err := r.stream(ctx, out, errOut, "merge", "--ff-only", RemoteTipName); err != nil {
-		return fmt.Errorf("无法快进到 %s: %w", RemoteTipName, err)
+	if err := r.stream(ctx, out, errOut, "merge", "--ff-only", r.RemoteTipName()); err != nil {
+		return fmt.Errorf("could not fast-forward to %s: %w", r.RemoteTipName(), err)
 	}
 	return nil
 }
@@ -302,7 +316,7 @@ func (r Repo) FastForwardMaster(ctx context.Context, out, errOut io.Writer) erro
 func (r Repo) TrackedChanges(ctx context.Context) (bool, error) {
 	out, err := r.output().Output(ctx, r.gitCommand("status", "--porcelain", "--untracked-files=no"))
 	if err != nil {
-		return false, fmt.Errorf("无法读取仓库状态: %w", err)
+		return false, fmt.Errorf("the checkout's state could not be read: %w", err)
 	}
 	return strings.TrimSpace(out) != "", nil
 }

@@ -41,7 +41,7 @@ func TestRollbackReturnsToThePreviousPosition(t *testing.T) {
 	if len(records) != 1 || records[0].Commit != head || records[0].Selector != "-n 1" {
 		t.Fatalf("history = %+v, want only the returned-to position", records)
 	}
-	if !strings.Contains(f.out.String(), "回退完成") {
+	if !strings.Contains(f.out.String(), "roll back finished") {
 		t.Fatalf("stdout = %q, want the rollback reported", f.out.String())
 	}
 	data, err := os.ReadFile(f.Settings.LogPath)
@@ -89,7 +89,7 @@ func TestRollbackRefusesWithoutHistory(t *testing.T) {
 	f := newFixture(t)
 	err := f.RunRollback(context.Background(), "", 1)
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "没有可回退的历史")
+	wantContains(t, err, "nothing to roll back to: dshctl has not recorded a position for this checkout yet")
 	f.wantNoCheckoutUpdate(t)
 }
 
@@ -101,7 +101,7 @@ func TestRollbackRefusesACorruptHistory(t *testing.T) {
 
 	err := f.RunRollback(context.Background(), "", 1)
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "更新历史无法读取")
+	wantContains(t, err, "the deployment history cannot be read: ")
 	f.wantNoCheckoutUpdate(t)
 }
 
@@ -116,7 +116,7 @@ func TestRollbackRefusesBeyondTheHistory(t *testing.T) {
 
 	err := f.RunRollback(context.Background(), "", 5)
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "最多还能退 1 步")
+	wantContains(t, err, "the history has at most 1 steps left")
 	f.wantNoCheckoutUpdate(t)
 }
 
@@ -177,7 +177,7 @@ func TestRollbackStopsAndRestoresTheService(t *testing.T) {
 	if !ok || record.PID == afterUpdate.PID {
 		t.Fatalf("record = %+v (ok=%v), want a freshly started server", record, ok)
 	}
-	if !strings.Contains(f.out.String(), "恢复启动 DSH Web") {
+	if !strings.Contains(f.out.String(), "starting DSH Web again") {
 		t.Fatalf("stdout = %q, want the restart reported", f.out.String())
 	}
 }
@@ -235,7 +235,7 @@ func TestRollbackNamesTheTagItReturnsTo(t *testing.T) {
 	if err := f.RunRollback(context.Background(), "", 1); err != nil {
 		t.Fatalf("RunRollback: %v", err)
 	}
-	want := "回退: " + head[:7] + " → " + target[:7] + "（dsh-v0.1.0）\n"
+	want := "roll back: " + head[:7] + " → " + target[:7] + " (dsh-v0.1.0)\n"
 	if !strings.Contains(f.out.String(), want) {
 		t.Fatalf("stdout = %q, want %q", f.out.String(), want)
 	}
@@ -277,7 +277,7 @@ func TestRollbackShortCircuitsAtTheCurrentPosition(t *testing.T) {
 	if err := f.RunRollback(context.Background(), "here", 0); err != nil {
 		t.Fatalf("RunRollback: %v", err)
 	}
-	if !strings.Contains(f.out.String(), "无需回退") {
+	if !strings.Contains(f.out.String(), "nothing to roll back") {
 		t.Fatalf("stdout = %q, want the no-op report", f.out.String())
 	}
 	f.wantNoSignals(t)

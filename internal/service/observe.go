@@ -190,8 +190,7 @@ func (s *Service) observe(ctx context.Context) (observed, error) {
 		stale := record
 		status.StaleRecord = &stale
 	}
-	s.Log.Debug(fmt.Sprintf("观测端口 %d: state=%s record=%v survivor=%v",
-		status.Port, status.State, hasRecord, status.Survivor))
+	s.Log.Debug(fmt.Sprintf("observe port %d: state=%s record=%v survivor=%v", status.Port, status.State, hasRecord, status.Survivor))
 	return observed{status: status, record: record, hasRecord: hasRecord, corrupt: corrupt}, nil
 }
 
@@ -201,9 +200,7 @@ func (s *Service) probeRequired(ctx context.Context) (readiness, error) {
 	result, err := s.Host.Listening(ctx, s.boundPort())
 	if err != nil {
 		if errors.Is(err, host.ErrUnsupported) {
-			return readiness{}, exitcode.New(exitcode.Preflight,
-				"缺少可用的端口探测工具(lsof/ss/netstat)，无法判断端口 %d 的状态\n"+
-					"提示: 安装其中任意一个(例如 iproute2 或 net-tools)后重试", s.boundPort())
+			return readiness{}, exitcode.New(exitcode.Preflight, "no usable port probe (lsof/ss/netstat), so the state of port %d cannot be decided\nhint: install one of them (iproute2 or net-tools, for example) and retry", s.boundPort())
 		}
 		return readiness{}, exitcode.Wrap(exitcode.Preflight, err)
 	}
@@ -300,9 +297,9 @@ func describeFacts(facts host.Facts) string {
 		return facts.Command
 	}
 	if facts.Source != "" {
-		return "pid=" + strconv.Itoa(facts.PID) + " (来源: " + facts.Source + ")"
+		return "pid=" + strconv.Itoa(facts.PID) + " (source: " + facts.Source + ")"
 	}
-	return "未知进程"
+	return "unknown process"
 }
 
 // waitForListening waits until the port is served by the process this start
@@ -350,8 +347,7 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 					ownerlessSince = time.Now()
 				}
 				if time.Since(ownerlessSince) >= ownerlessListenGrace {
-					return 0, exitcode.New(exitcode.Preflight,
-						"端口 %d 已有监听，但平台探测工具未报告其归属进程，无法确认它是本次启动的服务", s.boundPort())
+					return 0, exitcode.New(exitcode.Preflight, "something listens on port %d but the platform probe did not name its owner, so it cannot be confirmed as the service this start launched", s.boundPort())
 				}
 			} else {
 				ownerlessSince = time.Time{}
@@ -360,12 +356,10 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 				// one is exact, and the host check covers a child that somehow
 				// outlived its reaper.
 				if exited != nil && exited(ctx) {
-					return 0, exitcode.New(exitcode.Failure,
-						"DSH Web 进程 (pid=%d) 已退出，端口 %d 始终没有就绪(详见日志)", expectedPID, s.boundPort())
+					return 0, exitcode.New(exitcode.Failure, "the DSH Web process (pid=%d) exited and port %d never became ready (see the log)", expectedPID, s.boundPort())
 				}
 				if !s.Host.Alive(ctx, expectedPID) {
-					return 0, exitcode.New(exitcode.Failure,
-						"DSH Web 进程 (pid=%d) 已退出，端口 %d 始终没有就绪", expectedPID, s.boundPort())
+					return 0, exitcode.New(exitcode.Failure, "the DSH Web process (pid=%d) exited and port %d never became ready", expectedPID, s.boundPort())
 				}
 			}
 		} else if observation.pid == expectedPID || s.descendsFromSpawned(expectedPID, observation.pid) {
@@ -381,22 +375,18 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 		} else {
 			// A listener outside the spawned group is a race with another
 			// process and is refused.
-			return 0, exitcode.New(exitcode.Preflight,
-				"端口 %d 被另一个进程占用 (pid=%d: %s)",
-				s.boundPort(), observation.pid, describeFacts(observation.facts))
+			return 0, exitcode.New(exitcode.Preflight, "port %d is held by another process (pid=%d: %s)", s.boundPort(), observation.pid, describeFacts(observation.facts))
 		}
 		if time.Now().After(deadline) {
 			// A port that kept answering without a nameable owner is reported as
 			// what it is, rather than as a bare timeout.
 			if !ownerlessSince.IsZero() {
-				return 0, exitcode.New(exitcode.Preflight,
-					"端口 %d 已有监听，但平台探测工具未报告其归属进程，无法确认它是本次启动的服务", s.boundPort())
+				return 0, exitcode.New(exitcode.Preflight, "something listens on port %d but the platform probe did not name its owner, so it cannot be confirmed as the service this start launched", s.boundPort())
 			}
 			if lastErr != nil {
 				return 0, exitcode.Wrap(exitcode.Failure, lastErr)
 			}
-			return 0, exitcode.New(exitcode.Failure,
-				"等待端口 %d 就绪超时 (%s)", s.boundPort(), timeout)
+			return 0, exitcode.New(exitcode.Failure, "timed out waiting for port %d to become ready (%s)", s.boundPort(), timeout)
 		}
 		if err := s.sleep(ctx, s.poll); err != nil {
 			return 0, err
@@ -434,8 +424,7 @@ func (s *Service) waitForStopped(ctx context.Context, timeout time.Duration) err
 			return nil
 		}
 		if time.Now().After(deadline) {
-			return exitcode.New(exitcode.Failure,
-				"端口 %d 仍被 pid=%d 占用，停止超时", s.boundPort(), result.PID)
+			return exitcode.New(exitcode.Failure, "port %d is still held by pid %d; the stop timed out", s.boundPort(), result.PID)
 		}
 		if err := s.sleep(ctx, s.poll); err != nil {
 			return err

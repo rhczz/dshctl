@@ -41,7 +41,6 @@ func TestTheReadmeDocumentsEverySetting(t *testing.T) {
 		paths.EnvRepoDir,
 		paths.EnvPort,
 		paths.EnvNodeVersion,
-		paths.EnvLang,
 		paths.EnvLogLevel,
 	}
 	for _, name := range variables {

@@ -58,14 +58,14 @@ func TestBuildReportsThePruneResult(t *testing.T) {
 	if err := f.RunBuild(context.Background()); err != nil {
 		t.Fatalf("RunBuild: %v", err)
 	}
-	if !strings.Contains(f.out.String(), "已清理 1 个残留目录") {
+	if !strings.Contains(f.out.String(), "removed 1 residue directories") {
 		t.Fatalf("stdout = %q, want the prune count", f.out.String())
 	}
 	data, err := os.ReadFile(f.Settings.LogPath)
 	if err != nil {
 		t.Fatalf("read log: %v", err)
 	}
-	if !strings.Contains(string(data), "已清理 1 个残留目录") {
+	if !strings.Contains(string(data), "removed 1 residue directories") {
 		t.Fatalf("log = %q, want the prune count recorded", data)
 	}
 	if _, err := os.Stat(filepath.Join(f.repo, "packages", "grp", "stale")); !os.IsNotExist(err) {
@@ -87,13 +87,13 @@ func TestBuildReportsItsOwnFailure(t *testing.T) {
 
 	err := f.RunBuild(context.Background())
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "构建失败")
+	wantContains(t, err, "the build failed")
 	wantContains(t, err, f.Settings.LogPath)
-	if !strings.Contains(f.out.String(), "正在构建仓库") {
+	if !strings.Contains(f.out.String(), "building the checkout") {
 		t.Fatalf("stdout = %q, want the build attempt reported", f.out.String())
 	}
 	// The attribution is on the returned error, which is what the CLI prints.
-	if !strings.Contains(err.Error(), "详见日志") {
+	if !strings.Contains(err.Error(), "see the log") {
 		t.Fatalf("error = %v, want it to point at the captured output", err)
 	}
 }
@@ -107,7 +107,7 @@ func TestUpdateRefusesAMissingRepository(t *testing.T) {
 
 	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "仓库目录不存在")
+	wantContains(t, err, "the checkout does not exist")
 	f.wantNoCheckoutUpdate(t)
 	f.wantNoSpawn(t)
 }
@@ -124,7 +124,7 @@ func TestUpdateRefusesADirectoryThatIsNotAGitRepository(t *testing.T) {
 
 	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "不是 git 仓库")
+	wantContains(t, err, "is not a git repository")
 	f.wantNoCheckoutUpdate(t)
 	f.wantNoSpawn(t)
 }
@@ -144,10 +144,10 @@ func TestUpdateDoesNotStopWhenTheFetchFails(t *testing.T) {
 
 	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "无法获取远程更新")
+	wantContains(t, err, "the remote could not be fetched")
 	f.wantNoSpawn(t)
 	f.wantNoSignals(t)
-	if strings.Contains(f.out.String(), "恢复启动旧版本") {
+	if strings.Contains(f.out.String(), "the old build is intact; starting the old version again") {
 		t.Fatalf("stdout = %q, want no restore attempt without a running server", f.out.String())
 	}
 }
@@ -172,11 +172,11 @@ func TestUpdateReportsWhenTheRestoreStartFails(t *testing.T) {
 
 	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Failure)
-	wantContains(t, err, "更新失败")
-	if !strings.Contains(f.errOut.String(), "恢复启动失败") {
+	wantContains(t, err, "update failed")
+	if !strings.Contains(f.errOut.String(), "restoring the service failed") {
 		t.Fatalf("stderr = %q, want the failed restore reported", f.errOut.String())
 	}
-	if !strings.Contains(f.out.String(), "恢复启动旧版本") {
+	if !strings.Contains(f.out.String(), "the old build is intact; starting the old version again") {
 		t.Fatalf("stdout = %q, want the restore attempt reported", f.out.String())
 	}
 	// The old server was stopped for the update and could not be brought back.

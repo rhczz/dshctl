@@ -12,16 +12,17 @@ import (
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/history"
 	"github.com/rhczz/dshctl/internal/paths"
-	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
 )
 
 // shutdownMessage explains a service left stopped after a failed deployment.
-const shutdownMessage = "服务保持停止状态\n提示: 修复问题后可运行 dshctl build && dshctl start"
+func shutdownMessage() string {
+	return "the service stays stopped\nhint: fix the problem and run dshctl build && dshctl start"
+}
 
 // deployRequest is one version move: what to move to, and how to name it.
 type deployRequest struct {
-	// verb names the operation in messages ("更新" / "回退").
+	// verb names the operation in messages.
 	verb string
 	// section is the log section title the move is recorded under.
 	section string
@@ -54,7 +55,7 @@ func (s *Service) RunUpdate(ctx context.Context, target string) error {
 	}
 	return s.withLock(ctx, func() error {
 		return s.deployLocked(ctx, deployRequest{
-			verb: "更新", section: "update", target: target, fetch: true,
+			verb: "update", section: sectionUpdate, target: target, fetch: true,
 		})
 	})
 }
@@ -68,7 +69,7 @@ func (s *Service) RunUpdate(ctx context.Context, target string) error {
 func (s *Service) RunRollback(ctx context.Context, target string, steps int) error {
 	return s.withLock(ctx, func() error {
 		return s.deployLocked(ctx, deployRequest{
-			verb: "回退", section: "rollback", target: target, steps: steps,
+			verb: "roll back", section: sectionRollback, target: target, steps: steps,
 		})
 	})
 }
@@ -90,17 +91,13 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		return err
 	}
 	if verdict == adoptFailed {
-		return exitcode.New(exitcode.Preflight,
-			"检测到上次启动遗留的服务 (pid=%d)，但无法恢复运行记录;请先运行 dshctl stop 或手动处理",
-			observed.status.ListenerPID)
+		return exitcode.New(exitcode.Preflight, "a service left over from an interrupted start was found (pid=%d), but its runtime record could not be rebuilt; run dshctl stop first or handle it by hand", observed.status.ListenerPID)
 	}
 	if verdict == adoptDone {
-		s.narrate("检测到上次启动被中断后仍存活的服务，已恢复管理")
+		s.narrate("a survivor of an interrupted start was found and is managed again")
 	}
 	if observed.occupant() {
-		return exitcode.New(exitcode.Preflight,
-			"端口 %d 被 dshctl 无法确认归属的进程占用 (pid=%d): %s\n提示: 先确认并停止它,再执行%s",
-			s.Settings.Port, observed.status.ListenerPID, observed.status.ListenerCommand, request.verb)
+		return exitcode.New(exitcode.Preflight, "port %d is held by a process dshctl cannot claim (pid=%d): %s\nhint: confirm and stop it first, then %s", s.Settings.Port, observed.status.ListenerPID, observed.status.ListenerCommand, request.verb)
 	}
 
 	// The checkout is shared. This port's server is stopped by the move itself
@@ -120,24 +117,17 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		elsewhere = append(elsewhere, entry)
 	}
 	if len(elsewhere) > 0 {
-		return exitcode.New(exitcode.Preflight,
-			"仓库 %s 还被端口 %v 上的服务使用 (pid %v),%s会替换它正在使用的构建产物\n"+
-				"提示: 先停止那些服务(可用对应的 --port 运行 dshctl stop),再执行%s",
-			s.Settings.RepoDir, elsewhere.ports(), elsewhere.pids(), request.verb, request.verb)
+		return exitcode.New(exitcode.Preflight, "the checkout %s is also used by the service on port %v (pid %v); %s would replace build artifacts it is using\nhint: stop that service first (dshctl stop --port <port>), then %s", s.Settings.RepoDir, elsewhere.ports(), elsewhere.pids(), request.verb, request.verb)
 	}
 
 	if !s.Repo.Exists() {
-		return exitcode.New(exitcode.Preflight,
-			"仓库目录不存在: %s\n提示: 用 --repo 或环境变量 %s 指定仓库路径",
-			s.Settings.RepoDir, paths.EnvRepoDir)
+		return exitcode.New(exitcode.Preflight, "the checkout does not exist: %s\nhint: name it with --repo or the %s environment variable", s.Settings.RepoDir, paths.EnvRepoDir)
 	}
 	if !s.Repo.IsGit() {
-		return exitcode.New(exitcode.Preflight, "%s 不是 git 仓库", s.Settings.RepoDir)
+		return exitcode.New(exitcode.Preflight, "%s is not a git repository", s.Settings.RepoDir)
 	}
 	if !s.Repo.IsServerCheckout() {
-		return exitcode.New(exitcode.Preflight,
-			"%s 看起来不是 DeepSeek Harness 仓库(缺少 %s 或 %s)",
-			s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
+		return exitcode.New(exitcode.Preflight, "%s does not look like a DeepSeek Harness checkout (no %s or %s)", s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
 	}
 	pnpm, err := s.pnpmPath()
 	if err != nil {
@@ -151,7 +141,7 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 	env := run.WithPathPrefix(installation.BinDir)
 
 	var target domain.Target
-	if err := s.Log.Step("解析目标", func() error {
+	if err := s.Log.Step("resolve target", func() error {
 		resolved, err := s.resolveDeployTarget(ctx, request)
 		target = resolved
 		return err
@@ -167,15 +157,12 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		// state could not be determined could discard the operator's work.
 		return exitcode.Wrap(exitcode.Preflight, err)
 	} else if dirty {
-		return exitcode.New(exitcode.Preflight,
-			"仓库 %s 有已跟踪文件的未提交修改，不能切换版本\n"+
-				"提示: 先运行 git -C %s status 查看并处理（未跟踪文件不受影响）",
-			s.Settings.RepoDir, s.Settings.RepoDir)
+		return exitcode.New(exitcode.Preflight, "the checkout %s has uncommitted changes to tracked files, so it cannot switch versions\nhint: run git -C %s status and handle them (untracked files are not affected)", s.Settings.RepoDir, s.Settings.RepoDir)
 	}
 	s.Log.Debug(fmt.Sprintf("%s: %s -> %s (selector=%q fetch=%v)",
 		request.verb, domain.ShortCommit(current), domain.ShortCommit(target.Commit), request.target, request.fetch))
 	if target.Commit == current {
-		s.narrate(fmt.Sprintf("已在 %s，无需%s", target.Label(), request.verb))
+		s.narrate(fmt.Sprintf("already at %s; nothing to %s", target.Label(), request.verb))
 		// A no-op is still a successful run against this checkout, and the
 		// document records the checkout a successful run used.
 		s.writeBack(s.Settings.RepoDir, "")
@@ -188,12 +175,11 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		// only allowed once the identity is verified: it must not rewrite the
 		// checkout underneath a process it cannot safely end.
 		if _, ok := s.stopTarget(ctx, observed); !ok {
-			return exitcode.New(exitcode.Preflight,
-				"运行记录中的服务 (pid=%d) 是否属于本次启动无法验证(平台读不到进程启动时间)，不能安全地结束它\n"+
-					"提示: 确认该进程可以停止后手动结束它，或用 --port 换一个端口",
-				observed.status.RecordedPID)
+			return exitcode.New(exitcode.Preflight, "%s\n%s",
+				fmt.Sprintf("the service in the runtime record (pid=%d) cannot be verified as this run's own (the platform cannot read its start time), so it cannot be ended safely", observed.status.RecordedPID),
+				"hint: confirm the process may be stopped and end it by hand, or use another port with --port")
 		}
-		s.narrate("DSH Web 正在运行，先停止服务 ...")
+		s.narrate("DSH Web is running; stopping it first ...")
 		if _, err := s.stopLocked(ctx); err != nil {
 			return err
 		}
@@ -204,7 +190,7 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	} else if rotated {
-		s.narrate(fmt.Sprintf("日志已轮转: %s", s.LogFile.BackupPath()))
+		s.narrate(fmt.Sprintf("the log was rotated: %s", s.LogFile.BackupPath()))
 	}
 	if err := s.LogFile.Section(request.section); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
@@ -220,14 +206,14 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 				s.warning(fmt.Sprintf("%v", recordErr))
 			}
 		}
-		s.failure(fmt.Sprintf("错误: %s失败: %v", request.verb, err))
+		s.failure(fmt.Sprintf("error: %s failed: %v", request.verb, err))
 		if wasRunning {
-			s.narrate("仓库旧构建仍然完好，恢复启动旧版本 ...")
+			s.narrate("the old build is intact; starting the old version again ...")
 			if _, startErr := s.startLocked(ctx); startErr != nil {
-				s.failure(fmt.Sprintf("恢复启动失败: %v", startErr))
+				s.failure(fmt.Sprintf("restoring the service failed: %v", startErr))
 			}
 		}
-		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("%s失败: %w", request.verb, err))
+		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("%s failed: %w", request.verb, err))
 	}
 
 	// The move is a fact on disk the moment the switch returns: record it
@@ -249,10 +235,11 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		})
 	})
 	if installErr != nil {
-		s.note("pnpm install 失败")
-		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("pnpm install 失败: %w\n%s", installErr, shutdownMessage))
+		s.note("pnpm install failed")
+		return exitcode.Wrap(exitcode.Failure,
+			fmt.Errorf("pnpm install failed: %w\n%s", installErr, shutdownMessage()))
 	}
-	s.note("pnpm install 成功")
+	s.note("pnpm install succeeded")
 
 	s.narrate("--- pnpm run build ---")
 	buildErr := s.Log.Step("pnpm build", func() error {
@@ -264,14 +251,15 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		})
 	})
 	if buildErr != nil {
-		s.note("pnpm run build 失败")
-		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("pnpm run build 失败: %w\n%s", buildErr, shutdownMessage))
+		s.note("pnpm run build failed")
+		return exitcode.Wrap(exitcode.Failure,
+			fmt.Errorf("pnpm run build failed: %w\n%s", buildErr, shutdownMessage()))
 	}
-	s.note("pnpm run build 成功")
+	s.note("pnpm run build succeeded")
 
-	s.narrate(fmt.Sprintf("%s完成", request.verb))
+	s.narrate(fmt.Sprintf("%s finished", request.verb))
 	if wasRunning {
-		s.narrate("恢复启动 DSH Web ...")
+		s.narrate("starting DSH Web again ...")
 		if _, err := s.startLocked(ctx); err != nil {
 			return err
 		}
@@ -296,10 +284,7 @@ func (s *Service) resolveDeployTarget(ctx context.Context, request deployRequest
 			return domain.Target{}, exitcode.Wrap(exitcode.Preflight, err)
 		}
 		if !hasOrigin {
-			return domain.Target{}, exitcode.New(exitcode.Preflight,
-				"仓库 %s 没有 origin 远程，无法解析 latest\n"+
-					"提示: 用 dshctl update <tag|commit> 指定本地已知的版本",
-				s.Settings.RepoDir)
+			return domain.Target{}, exitcode.New(exitcode.Preflight, "the checkout %s has no origin remote, so latest cannot be resolved\nhint: name a local version with dshctl update <tag|commit>", s.Settings.RepoDir)
 		}
 		if err := s.Repo.Fetch(ctx, nil, nil); err != nil {
 			// latest cannot be resolved from local state: the whole point is
@@ -311,14 +296,14 @@ func (s *Service) resolveDeployTarget(ctx context.Context, request deployRequest
 			return domain.Target{}, exitcode.Wrap(exitcode.Preflight, err)
 		}
 		return domain.Target{
-			Commit: tip, Selector: domain.Latest, Name: repo.RemoteTipName, Latest: true,
+			Commit: tip, Selector: domain.Latest, Name: s.Repo.RemoteTipName(), Latest: true,
 		}, nil
 	}
 	if request.fetch {
 		// A named version is useful offline when it is already known locally:
 		// a failed fetch is a warning, not a refusal.
 		if err := s.Repo.Fetch(ctx, nil, nil); err != nil {
-			s.warning(fmt.Sprintf("无法获取远程更新，按本地已知状态解析 %q: %v", request.target, err))
+			s.warning(fmt.Sprintf("the remote could not be fetched; resolving %q from what is known locally: %v", request.target, err))
 		}
 	}
 	commit, err := s.Repo.ResolveRevision(ctx, request.target)
@@ -349,22 +334,18 @@ func (s *Service) rollbackTarget(ctx context.Context, steps int) (domain.Target,
 	store := history.Store{Path: filepath.Join(s.Settings.StateDir, historyFileName)}
 	file, ok, err := store.Load()
 	if err != nil {
-		return domain.Target{}, exitcode.New(exitcode.Preflight,
-			"更新历史无法读取: %v\n提示: 删除 %s 后可用 dshctl update <版本> 定点切换", err, store.Path)
+		return domain.Target{}, exitcode.New(exitcode.Preflight, "the deployment history cannot be read: %v\nhint: delete %s and switch to a named version with dshctl update <version>", err, store.Path)
 	}
 	if !ok {
-		return domain.Target{}, exitcode.New(exitcode.Preflight,
-			"没有可回退的历史: dshctl 还没有记录过这个 checkout 的部署位置\n"+
-				"提示: 用 dshctl timeline 查看版本，用 dshctl update <版本> 定点切换")
+		return domain.Target{}, exitcode.New(exitcode.Preflight, "%s\n%s", "nothing to roll back to: dshctl has not recorded a position for this checkout yet", "hint: dshctl timeline shows the versions; dshctl update <version> moves to one")
 	}
 	records := file.Records(s.Settings.RepoDir)
 	now := history.Record{Commit: current, At: time.Now().Unix()}
 	position, ok := history.Step(records, now, steps)
 	if !ok {
-		return domain.Target{}, exitcode.New(exitcode.Preflight,
-			"没有可回退的位置: 历史里最多还能退 %d 步", len(history.Visit(records, now))-1)
+		return domain.Target{}, exitcode.New(exitcode.Preflight, "nothing to roll back to: the history has at most %d steps left", len(history.Visit(records, now, history.MaxRecords()))-1)
 	}
-	name := "记录中的位置"
+	name := "recorded position"
 	if tags, err := s.Repo.Tags(ctx); err == nil {
 		if tag := firstTag(tags[position.Commit]); tag != "" {
 			name = tag
@@ -409,7 +390,7 @@ func (s *Service) warnWhenOutsideOrigin(ctx context.Context, target domain.Targe
 	if err != nil || ok {
 		return
 	}
-	s.warning(fmt.Sprintf("目标 %s 不在 %s 的历史上（可能来自未合并的分支或本地提交）", domain.ShortCommit(target.Commit), repo.RemoteTipName))
+	s.warning(fmt.Sprintf("target %s is not in the history of %s (it may come from an unmerged branch or a local commit)", domain.ShortCommit(target.Commit), s.Repo.RemoteTipName()))
 }
 
 // recordDeploy writes the move into the deployment history: where the tree was
@@ -419,7 +400,7 @@ func (s *Service) recordDeploy(ctx context.Context, before string, target domain
 	store := history.Store{Path: filepath.Join(s.Settings.StateDir, historyFileName)}
 	file, _, err := store.Load()
 	if err != nil {
-		s.warning(fmt.Sprintf("更新历史无法读取(%v)，将以当前版本重建", err))
+		s.warning(fmt.Sprintf("the deployment history cannot be read (%v); rebuilding from the current version", err))
 		file = history.File{}
 	}
 	records := file.Records(s.Settings.RepoDir)
@@ -427,13 +408,13 @@ func (s *Service) recordDeploy(ctx context.Context, before string, target domain
 	if before != "" && (len(records) == 0 || records[0].Commit != before) {
 		// The starting point is recorded only when the stack does not already
 		// name it: it is what a bare rollback returns to.
-		records = history.Visit(records, history.Record{Commit: before, At: now})
+		records = history.Visit(records, history.Record{Commit: before, At: now}, history.MaxRecords())
 	}
 	records = history.Visit(records, history.Record{
 		Commit: target.Commit, Selector: target.Selector, At: now,
-	})
+	}, history.MaxRecords())
 	if err := store.Save(file.With(s.Settings.RepoDir, records)); err != nil {
-		return fmt.Errorf("更新历史未写入: %w", err)
+		return fmt.Errorf("the deployment history could not be written: %w", err)
 	}
 	return nil
 }

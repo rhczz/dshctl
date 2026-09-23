@@ -258,10 +258,8 @@ func (f *fixture) environment(probes, realPATH bool) []string {
 		"USERPROFILE="+f.home,
 		"PATH="+path,
 		"DSHCTL_STATE_DIR="+f.stateDir,
-		// The goldens were recorded from v0.2.5, whose text is Chinese. Pinning
-		// the language keeps the oracle about behavior rather than about which
-		// language the machine happens to prefer.
-		"DSHCTL_LANG=zh",
+		// The locale is pinned so the oracle is about behaviour rather than
+		// about which language the machine running the suite happens to prefer.
 		"LC_ALL=C",
 		"LANG=C",
 	)
@@ -395,7 +393,7 @@ var normalizers = []struct {
 	{regexp.MustCompile(`"spawnedPid":(\s*)\d+`), `"spawnedPid":${1}<PID>`},
 	{regexp.MustCompile(`"pid":(\s*)\d+`), `"pid":${1}<PID>`},
 	{regexp.MustCompile(`(?i)\bpid \d+`), "pid <PID>"},
-	{regexp.MustCompile(`耗时 \S+`), "耗时 <DUR>"},
+	{regexp.MustCompile(`took \S+`), "took <DUR>"},
 	{regexp.MustCompile(`dshctl \S+ \(`), "dshctl <V> ("},
 	{regexp.MustCompile(`commit [^,)]+, built [^)]*`), "commit <C>, built <B>"},
 	// The toolchain is a property of the machine that compiled the candidate.

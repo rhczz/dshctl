@@ -29,7 +29,7 @@ func TestLoadRejectsAFIFOConfig(t *testing.T) {
 		paths.EnvHarnessHome: filepath.Join(root, "harness"),
 		paths.EnvStateDir:    stateDir,
 	}.Getenv, Overrides{})
-	if err == nil || !strings.Contains(err.Error(), "不是普通文件") {
+	if err == nil || !strings.Contains(err.Error(), "is not a regular file") {
 		t.Fatalf("Load with a FIFO config = %v, want a non-regular report", err)
 	}
 }

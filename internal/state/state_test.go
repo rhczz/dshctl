@@ -3,11 +3,12 @@ package state
 import (
 	"encoding/json"
 	"errors"
-	"github.com/rhczz/dshctl/internal/domain"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rhczz/dshctl/internal/domain"
 )
 
 // store returns a store over a fresh file.

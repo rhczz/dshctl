@@ -24,7 +24,7 @@ import (
 
 // ErrUnsupported reports that a probe cannot be answered on this platform with
 // the tools available. Callers must treat it as "unknown", never as "free".
-var ErrUnsupported = errors.New("当前平台无法完成该探测")
+var ErrUnsupported = errors.New("this probe cannot be answered on this platform")
 
 // Request names the strength of a termination request.
 //

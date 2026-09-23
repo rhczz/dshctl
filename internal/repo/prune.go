@@ -14,31 +14,9 @@ import (
 	"github.com/rhczz/dshctl/internal/run"
 )
 
-// residueEntries are the build leftovers a deleted package can leave behind.
-// The classification matches the repository's own scripts/clean.ts:
-// node_modules, lib and .typecheck, plus stray TypeScript incremental state.
-var residueEntries = map[string]struct{}{
-	"node_modules": {},
-	"lib":          {},
-	".typecheck":   {},
-}
-
-// pruneAreas describe where a package directory can live, and how deep the
-// pattern has to reach to name one.
-//
-// depth counts the path segments used by the pattern itself, so the candidate a
-// match names is the segment at that depth: "packages" with depth 2 matches
-// packages/<group>/<name>, and "vendor" with depth 1 matches vendor/<name>.
-// Residue is then looked for inside that candidate.
-var pruneAreas = []struct {
-	// name is the repository-relative area root.
-	name string
-	// depth is the number of pattern segments below the area root.
-	depth int
-}{
-	{name: "packages", depth: 2},
-	{name: "vendor", depth: 1},
-}
+// The residue entries and prune areas are the checkout's layout, so they come
+// from the caller (see Repo.Residue and Repo.Areas) rather than being written
+// into the mechanism: another product's checkout keeps different things.
 
 // Candidate is one directory scheduled for removal.
 type Candidate struct {
@@ -81,7 +59,7 @@ func (r Repo) PruneCandidates(ctx context.Context) ([]Candidate, error) {
 	// detectable at all.
 	root, err := resolveExistingPrefix(r.Dir)
 	if err != nil {
-		return nil, fmt.Errorf("无法解析仓库路径 %s: %w", r.Dir, err)
+		return nil, fmt.Errorf("the checkout path %s could not be resolved: %w", r.Dir, err)
 	}
 	rootFS := os.DirFS(root)
 
@@ -91,11 +69,11 @@ func (r Repo) PruneCandidates(ctx context.Context) ([]Candidate, error) {
 	}
 
 	var candidates []Candidate
-	for _, area := range pruneAreas {
-		pattern := area.name + strings.Repeat("/*", area.depth)
+	for _, area := range r.Areas {
+		pattern := area.Name + strings.Repeat("/*", area.Depth)
 		matches, err := fs.Glob(rootFS, pattern)
 		if err != nil {
-			return nil, fmt.Errorf("无法展开 %s: %w", pattern, err)
+			return nil, fmt.Errorf("%s could not be expanded: %w", pattern, err)
 		}
 		for _, relative := range matches {
 			candidate, ok := r.classify(root, rootFS, relative, tracked)
@@ -123,12 +101,12 @@ func (r Repo) PruneCandidates(ctx context.Context) ([]Candidate, error) {
 // nothing.
 func (r Repo) trackedDirectories(ctx context.Context) (map[string]struct{}, error) {
 	args := []string{"-C", r.Dir, "ls-files", "-z", "--"}
-	for _, area := range pruneAreas {
-		args = append(args, area.name)
+	for _, area := range r.Areas {
+		args = append(args, area.Name)
 	}
 	output, err := r.output().Output(ctx, run.Command{Name: "git", Args: args})
 	if err != nil {
-		return nil, fmt.Errorf("git ls-files 失败: %w", err)
+		return nil, fmt.Errorf("git ls-files failed: %w", err)
 	}
 	directories := make(map[string]struct{})
 	for _, file := range strings.Split(output, "\x00") {
@@ -172,7 +150,7 @@ func (r Repo) classify(root string, rootFS fs.FS, relative string, tracked map[s
 	found := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		name := entry.Name()
-		if _, ok := residueEntries[name]; ok {
+		if _, ok := r.Residue[name]; ok {
 			found = append(found, name)
 			continue
 		}
@@ -270,12 +248,12 @@ func (r Repo) Prune(ctx context.Context, report func(string)) (PruneReport, erro
 	var result PruneReport
 	for _, candidate := range candidates {
 		if report != nil {
-			report(fmt.Sprintf("清理残留目录: %s (仅含 %s)", candidate.Path, strings.Join(candidate.Entries, ", ")))
+			report(fmt.Sprintf("removing residue: %s (only %s)", candidate.Path, strings.Join(candidate.Entries, ", ")))
 		}
 		if err := os.RemoveAll(candidate.Path); err != nil {
 			result.Failed = append(result.Failed, candidate.Path)
 			if report != nil {
-				report(fmt.Sprintf("警告: 无法删除 %s，构建将继续;可稍后手动执行 pnpm run clean", candidate.Path))
+				report(fmt.Sprintf("warning: %s could not be removed; the build continues, run pnpm run clean by hand later", candidate.Path))
 			}
 			continue
 		}

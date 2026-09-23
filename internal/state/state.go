@@ -29,7 +29,7 @@ import (
 
 // ErrCorrupt reports a document that exists but cannot be understood. Callers
 // treat it as "there is nothing usable here", never as "there is nothing here".
-var ErrCorrupt = errors.New("文档无法解析")
+var ErrCorrupt = errors.New("the document cannot be parsed")
 
 // documentPermission is the mode a stored document gets.
 //
@@ -73,22 +73,22 @@ func (s Store[T]) Load() (T, bool, error) {
 	case errors.Is(err, fs.ErrNotExist):
 		return zero, false, nil
 	case err != nil:
-		return zero, false, fmt.Errorf("无法读取文档 %s: %w", s.Path, err)
+		return zero, false, fmt.Errorf("the document %s could not be read: %w", s.Path, err)
 	case !info.Mode().IsRegular():
 		// A directory or device at the path is residue, not a document. It is
 		// reported as corrupt so the caller can clear it; reading it would
 		// either fail forever or follow something outside the state directory.
-		return zero, false, fmt.Errorf("%w: %s 不是普通文件", ErrCorrupt, s.Path)
+		return zero, false, fmt.Errorf("%w: %s is not a regular file", ErrCorrupt, s.Path)
 	case info.Size() > s.MaxBytes:
-		return zero, false, fmt.Errorf("%w: %s 过大 (%d 字节)", ErrCorrupt, s.Path, info.Size())
+		return zero, false, fmt.Errorf("%w: %s is too large (%d bytes)", ErrCorrupt, s.Path, info.Size())
 	}
 
 	data, err := readDocumentFile(s.Path)
 	if err != nil {
-		return zero, false, fmt.Errorf("无法读取文档 %s: %w", s.Path, err)
+		return zero, false, fmt.Errorf("the document %s could not be read: %w", s.Path, err)
 	}
 	if len(bytes.TrimSpace(data)) == 0 {
-		return zero, false, fmt.Errorf("%w: %s 内容为空", ErrCorrupt, s.Path)
+		return zero, false, fmt.Errorf("%w: %s is empty", ErrCorrupt, s.Path)
 	}
 
 	// Unknown fields are accepted on purpose. A document is written by one build
@@ -103,7 +103,7 @@ func (s Store[T]) Load() (T, bool, error) {
 	}
 	// Exactly one document: trailing content means the file is not one of these.
 	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
-		return zero, false, fmt.Errorf("%w: %s 在文档之后还有内容", ErrCorrupt, s.Path)
+		return zero, false, fmt.Errorf("%w: %s has content after the document", ErrCorrupt, s.Path)
 	}
 	if s.Validate != nil {
 		if err := s.Validate(value); err != nil {
@@ -158,12 +158,12 @@ func (s Store[T]) Save(value T) error {
 	}
 	if s.Validate != nil {
 		if err := s.Validate(value); err != nil {
-			return fmt.Errorf("拒绝写入无效的文档: %w", err)
+			return fmt.Errorf("refusing to write an invalid document: %w", err)
 		}
 	}
 	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
-		return fmt.Errorf("无法序列化文档: %w", err)
+		return fmt.Errorf("the document could not be encoded: %w", err)
 	}
 	return atomically.WriteFile(s.Path, append(data, '\n'), documentPermission)
 }
@@ -179,15 +179,15 @@ func (s Store[T]) Remove() error {
 	case errors.Is(err, fs.ErrNotExist):
 		return nil
 	case err != nil:
-		return fmt.Errorf("无法检查文档 %s: %w", s.Path, err)
+		return fmt.Errorf("the document %s could not be checked: %w", s.Path, err)
 	case info.IsDir():
 		if err := os.RemoveAll(s.Path); err != nil {
-			return fmt.Errorf("无法清理文档路径上的残留 %s: %w", s.Path, err)
+			return fmt.Errorf("the residue at the document path %s could not be cleared: %w", s.Path, err)
 		}
 		return nil
 	}
 	if err := os.Remove(s.Path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("无法删除文档 %s: %w", s.Path, err)
+		return fmt.Errorf("the document %s could not be deleted: %w", s.Path, err)
 	}
 	return nil
 }

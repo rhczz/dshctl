@@ -47,7 +47,14 @@ func binary(t *testing.T) string {
 		// toolchain pinned: the module has no dependencies, so a build that
 		// needs the network is a build that is doing something the test did not
 		// ask for, and a test must not reach outside the machine it runs on.
-		cmd.Env = append(os.Environ(), "GOPROXY=off", "GOFLAGS=-trimpath", "GOTOOLCHAIN=local")
+		//
+		// GOPATH and GOMODCACHE are pinned into the test's own directory for the
+		// same reason: with them unset, the toolchain writes its module cache
+		// under $HOME, and a test that litters the operator's home is a test
+		// that would pass here and fail wherever a clean home is checked.
+		cmd.Env = append(os.Environ(), "GOPROXY=off", "GOFLAGS=-trimpath", "GOTOOLCHAIN=local",
+			"GOPATH="+filepath.Join(dir, "gopath"),
+			"GOMODCACHE="+filepath.Join(dir, "gomodcache"))
 		if out, err := cmd.CombinedOutput(); err != nil {
 			buildErr = &buildFailure{output: string(out), err: err}
 			return
@@ -256,9 +263,8 @@ func binaryEnvironment(t *testing.T, root, home, stateDir string) []string {
 	t.Helper()
 	environment := []string{
 		"HOME=" + home,
-		// The suite asserts the rendering the operator reads, which is Chinese in
-		// v0.2.5; the language of a run is pinned like every other setting.
-		"DSHCTL_LANG=zh",
+		// The environment is pinned so the suite reads the same rendering an
+		// operator would, whatever the machine running it prefers.
 		"DSH_HOME=" + filepath.Join(home, ".dsh"),
 		"DSHCTL_STATE_DIR=" + stateDir,
 		"DSHCTL_CONFIG=" + filepath.Join(stateDir, "config.json"),
@@ -313,7 +319,7 @@ func TestBinaryVersionAndHelp(t *testing.T) {
 	}
 
 	help, _ := runBinary(t, "--help")
-	if help.code != 0 || !strings.Contains(help.stdout, "命令:") {
+	if help.code != 0 || !strings.Contains(help.stdout, "commands") {
 		t.Fatalf("help exit = %d, stdout = %q", help.code, help.stdout)
 	}
 }
@@ -342,7 +348,7 @@ func TestBinaryStatusDoctorAndLogsAreUsableWithoutConfiguration(t *testing.T) {
 	if status.code != 3 {
 		t.Fatalf("status exit = %d, want 3 (stderr = %s)", status.code, status.stderr)
 	}
-	if !strings.Contains(status.stdout, "未运行") && !strings.Contains(status.stdout, "端口") {
+	if !strings.Contains(status.stdout, "not running") && !strings.Contains(status.stdout, "port") {
 		t.Fatalf("status stdout = %q", status.stdout)
 	}
 	if _, err := os.Stat(stateDir); !os.IsNotExist(err) {
@@ -365,7 +371,7 @@ func TestBinaryStatusDoctorAndLogsAreUsableWithoutConfiguration(t *testing.T) {
 	if logs.code != 1 {
 		t.Fatalf("logs exit = %d, want 1 for a missing log", logs.code)
 	}
-	if !strings.Contains(logs.stderr, "日志文件不存在") {
+	if !strings.Contains(logs.stderr, "the log file does not exist") {
 		t.Fatalf("logs stderr = %q", logs.stderr)
 	}
 
@@ -404,7 +410,7 @@ func TestBinaryStopIsSafeWithoutAServer(t *testing.T) {
 	if stop.code != 0 {
 		t.Fatalf("stop exit = %d, want 0 (stderr = %s)", stop.code, stop.stderr)
 	}
-	if !strings.Contains(stop.stdout, "未在运行") {
+	if !strings.Contains(stop.stdout, "DSH Web is not running") {
 		t.Fatalf("stop stdout = %q", stop.stdout)
 	}
 

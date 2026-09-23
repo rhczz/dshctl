@@ -75,7 +75,7 @@ func TestHeldDoesNotFollowASymlinkAtTheLockPath(t *testing.T) {
 // asks for no patience gets: an immediate refusal while the lock is busy, with
 // the wait reported honestly.
 //
-// A negative budget must never be echoed back as a negative wait. "已等待 -1s"
+// A negative budget must never be echoed back as a negative wait. "waited -1s"
 // describes a wait that cannot have happened, and an operator reading it has to
 // work out whether dshctl waited, how long, or whether the timeout was even
 // understood — the honest answer is that nothing was waited.

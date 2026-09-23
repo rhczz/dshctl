@@ -209,11 +209,11 @@ func TestWithPathPrefixWithoutAnExistingPath(t *testing.T) {
 // replace the whole PATH with dir alone.
 func TestWithPathPrefixMatchesTheKeyCaseInsensitively(t *testing.T) {
 	env := []string{"Path=C:\\Windows", "SystemRoot=C:\\Windows"}
-	prefixed := withPathPrefix(env, "C:\\node")
+	prefixed := withPathPrefix(env, "C:\node")
 	if len(prefixed) != 2 {
 		t.Fatalf("env = %v, want the same two entries", prefixed)
 	}
-	want := "Path=C:\\node" + string(os.PathListSeparator) + "C:\\Windows"
+	want := "Path=C:\node" + string(os.PathListSeparator) + "C:\\Windows"
 	if prefixed[0] != want {
 		t.Fatalf("PATH entry = %q, want %q", prefixed[0], want)
 	}

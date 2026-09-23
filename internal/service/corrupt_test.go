@@ -56,20 +56,20 @@ func TestDoctorExplainsACorruptRecord(t *testing.T) {
 	f.seedCorruptRecord(t, corruptRecordContent)
 
 	checks := f.Doctor(context.Background())
-	record := checkNamed(t, checks, "运行记录")
+	record := checkNamed(t, checks, "runtime record")
 	if record.Status != CheckWarn {
-		t.Fatalf("运行记录 check = %+v, want a warning", record)
+		t.Fatalf("runtime record check = %+v, want a warning", record)
 	}
-	if !strings.Contains(record.Detail, f.Record.Path) || !strings.Contains(record.Detail, "无法解析") {
-		t.Fatalf("运行记录 detail = %q, want it to name the unparsable file", record.Detail)
+	if !strings.Contains(record.Detail, f.Record.Path) || !strings.Contains(record.Detail, "cannot be parsed") {
+		t.Fatalf("runtime record detail = %q, want it to name the unparsable file", record.Detail)
 	}
-	if !strings.Contains(record.Detail, "下次 start/stop 会重建它") {
-		t.Fatalf("运行记录 detail = %q, want the promise this test checks below", record.Detail)
+	if !strings.Contains(record.Detail, "cannot be parsed; the next start or stop rebuilds it") {
+		t.Fatalf("runtime record detail = %q, want the promise this test checks below", record.Detail)
 	}
 	// Nothing is listening and no server exists, so the port row is the ordinary
 	// idle one even though a record is present.
-	if port := checkNamed(t, checks, "端口"); port.Status != CheckOK {
-		t.Fatalf("端口 check = %+v, want ok while the port is free", port)
+	if port := checkNamed(t, checks, "port"); port.Status != CheckOK {
+		t.Fatalf("port check = %+v, want ok while the port is free", port)
 	}
 }
 
@@ -93,7 +93,7 @@ func TestStopClearsACorruptRecord(t *testing.T) {
 		t.Fatalf("state = %q, want %q", result.Status.State, domain.StateStopped)
 	}
 	f.wantNoSignals(t)
-	// What the operator was promised ("下次 start/stop 会重建它") must hold: after
+	// What the operator was promised ("cannot be parsed; the next start or stop rebuilds it") must hold: after
 	// a stop there is no usable record left.
 	if _, statErr := os.Lstat(f.Settings.StateFile()); !os.IsNotExist(statErr) {
 		t.Fatalf("stop left the corrupt record at %s (err=%v)", f.Settings.StateFile(), statErr)

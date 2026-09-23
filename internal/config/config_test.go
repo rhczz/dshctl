@@ -295,22 +295,22 @@ func TestLoadRejectsBadInput(t *testing.T) {
 		wantSubstr  string
 	}{
 		{"unknown field", `{"port": 3080, "nope": true}`, nil, "nope"},
-		{"malformed json", `{"port": `, nil, "解析失败"},
-		{"trailing content", `{"port": 3080} {"port": 1}`, nil, "还有内容"},
-		{"trailing garbage", `{"port": 3080} NOT JSON`, nil, "还有内容"},
+		{"malformed json", `{"port": `, nil, "could not be parsed"},
+		{"trailing content", `{"port": 3080} {"port": 1}`, nil, "has content after its first JSON value"},
+		{"trailing garbage", `{"port": 3080} NOT JSON`, nil, "has content after its first JSON value"},
 		{"relative repo", `{"repoDir": "relative/path"}`, nil, "repoDir"},
-		{"port above range", `{"port": 70000}`, nil, "port 必须在"},
-		{"port zero", `{"port": 0}`, nil, "port 必须在"},
-		{"negative port", `{"port": -1}`, nil, "port 必须在"},
-		{"zero start timeout", `{"startTimeoutSeconds": 0}`, nil, "startTimeoutSeconds 必须至少为 1 秒"},
-		{"negative stop timeout", `{"stopTimeoutSeconds": -5}`, nil, "stopTimeoutSeconds 必须至少为 1 秒"},
-		{"lock timeout above max", `{"lockTimeoutSeconds": 90000}`, nil, "lockTimeoutSeconds 不能超过"},
+		{"port above range", `{"port": 70000}`, nil, "port must be between"},
+		{"port zero", `{"port": 0}`, nil, "port must be between"},
+		{"negative port", `{"port": -1}`, nil, "port must be between"},
+		{"zero start timeout", `{"startTimeoutSeconds": 0}`, nil, "startTimeoutSeconds must be at least 1 second"},
+		{"negative stop timeout", `{"stopTimeoutSeconds": -5}`, nil, "stopTimeoutSeconds must be at least 1 second"},
+		{"lock timeout above max", `{"lockTimeoutSeconds": 90000}`, nil, "lockTimeoutSeconds cannot exceed"},
 		{"huge lock timeout", `{"lockTimeoutSeconds": 9223372037}`, nil, "lockTimeoutSeconds"},
-		{"negative rotation", `{"logRotateBytes": -1}`, nil, "logRotateBytes 不能为负"},
-		{"tiny rotation", `{"logRotateBytes": 10}`, nil, "logRotateBytes 不能小于"},
-		{"bad env port", `{}`, env{paths.EnvPort: "abc"}, "不是数字"},
-		{"env port above range", `{}`, env{paths.EnvPort: "70000"}, "port 必须在"},
-		{"relative state dir", `{}`, env{paths.EnvStateDir: "relstate"}, "绝对路径"},
+		{"negative rotation", `{"logRotateBytes": -1}`, nil, "logRotateBytes cannot be negative"},
+		{"tiny rotation", `{"logRotateBytes": 10}`, nil, "logRotateBytes cannot be smaller than"},
+		{"bad env port", `{}`, env{paths.EnvPort: "abc"}, "is not a number"},
+		{"env port above range", `{}`, env{paths.EnvPort: "70000"}, "port must be between"},
+		{"relative state dir", `{}`, env{paths.EnvStateDir: "relstate"}, "a path must be absolute or start with ~"},
 		{"relative log file", `{}`, env{paths.EnvLogFile: "logs/dsh.log"}, "DSH_LOG_FILE"},
 		{"tilde user log file", `{}`, env{paths.EnvLogFile: "~someone/dsh.log"}, "DSH_LOG_FILE"},
 	}
@@ -369,7 +369,7 @@ func TestLoadRejectsANonRegularConfigFile(t *testing.T) {
 		t.Fatalf("mkdir config.json: %v", err)
 	}
 	err := load()
-	if err == nil || !strings.Contains(err.Error(), "不是普通文件") {
+	if err == nil || !strings.Contains(err.Error(), "is not a regular file") {
 		t.Fatalf("Load with a directory config = %v, want a non-regular report", err)
 	}
 	// A file that cannot be read is a failure, not a malformed value: exit 2
@@ -386,7 +386,7 @@ func TestLoadRejectsANonRegularConfigFile(t *testing.T) {
 		t.Fatalf("write oversized config: %v", err)
 	}
 	err = load()
-	if err == nil || !strings.Contains(err.Error(), "过大") {
+	if err == nil || !strings.Contains(err.Error(), "is too large (") {
 		t.Fatalf("Load with an oversized config = %v, want a size report", err)
 	}
 	if code := exitcode.Of(err); code != exitcode.Failure {
@@ -539,7 +539,7 @@ func TestDescribeNamesEverySource(t *testing.T) {
 	settings.LogPath = "/state/dsh-web.log"
 	lines := settings.Describe()
 	joined := strings.Join(lines, "\n")
-	for _, want := range []string{"配置文件", "状态目录", "仓库目录", "监听端口", "Node 版本", "日志文件", "启动超时", "停止超时", "锁超时", "日志轮转"} {
+	for _, want := range []string{"settings document", "state directory", "checkout", "port", "Node version", "log file: ", "start timeout", "stop timeout", "lock timeout", "log rotation: "} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("verbose output is missing %q:\n%s", want, joined)
 		}
@@ -688,7 +688,7 @@ func TestStateFileGlobFindsEveryPortsRecord(t *testing.T) {
 // filepath.Match everywhere: this is also the only place the Windows spelling is
 // executed on a Windows machine rather than merely compiled.
 func TestQuoteGlobMatchesTheLiteralName(t *testing.T) {
-	names := []string{"state", "state[1]", "state]x", "[unclosed", "state*all", "state?x", "state%dx", "普通目录"}
+	names := []string{"state", "state[1]", "state]x", "[unclosed", "state*all", "state?x", "state%dx", "plain directory"}
 	if runtime.GOOS != "windows" {
 		// A backslash is a legal file-name character everywhere except Windows,
 		// where it is the path separator.
@@ -750,7 +750,7 @@ func TestProvisionRefusesADirectoryAtTheConfigPath(t *testing.T) {
 	settings.StateDir = stateDir
 	settings.ConfigPath = configPath
 	err := settings.Provision()
-	if err == nil || !strings.Contains(err.Error(), "是目录") {
+	if err == nil || !strings.Contains(err.Error(), "is a directory") {
 		t.Fatalf("Provision = %v, want a directory report", err)
 	}
 	info, statErr := os.Stat(configPath)

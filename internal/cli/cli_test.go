@@ -54,7 +54,6 @@ func freshEnvironment(t *testing.T, overrides map[string]string) (map[string]str
 	root := t.TempDir()
 	stateDir := filepath.Join(root, "state")
 	environment := map[string]string{
-		"DSHCTL_LANG":      "zh",
 		"DSHCTL_STATE_DIR": stateDir,
 		"DSH_HOME":         filepath.Join(root, "harness"),
 		"DSH_REPO_DIR":     filepath.Join(root, "repo"),
@@ -197,9 +196,9 @@ func TestHelpSelection(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"--help"}, "命令:"},
-		{[]string{"-h"}, "命令:"},
-		{[]string{"help"}, "命令:"},
+		{[]string{"--help"}, "commands"},
+		{[]string{"-h"}, "commands"},
+		{[]string{"help"}, "commands"},
 		{[]string{"help", "build"}, "dshctl build"},
 		{[]string{"build", "-h"}, "dshctl build"},
 		{[]string{"--help", "status"}, "dshctl status"},
@@ -225,7 +224,7 @@ func TestHelpForAnUnknownCommand(t *testing.T) {
 	if code != exitcode.Usage {
 		t.Fatalf("exit = %d, want %d", code, exitcode.Usage)
 	}
-	if !strings.Contains(stderr, "未知命令") {
+	if !strings.Contains(stderr, "error: unknown command") {
 		t.Fatalf("stderr = %q", stderr)
 	}
 }
@@ -236,7 +235,7 @@ func TestUnknownCommand(t *testing.T) {
 	if code != exitcode.Usage {
 		t.Fatalf("exit = %d, want %d", code, exitcode.Usage)
 	}
-	if !strings.Contains(stderr, "未知命令") {
+	if !strings.Contains(stderr, "error: unknown command") {
 		t.Fatalf("stderr = %q", stderr)
 	}
 	if _, err := os.Stat(stateDir); !os.IsNotExist(err) {
@@ -250,7 +249,7 @@ func TestUnexpectedArgumentIsAUsageError(t *testing.T) {
 	if code != exitcode.Usage {
 		t.Fatalf("exit = %d, want %d", code, exitcode.Usage)
 	}
-	if !strings.Contains(stderr, "不接受位置参数") {
+	if !strings.Contains(stderr, "takes no positional arguments") {
 		t.Fatalf("stderr = %q", stderr)
 	}
 	if _, err := os.Stat(stateDir); !os.IsNotExist(err) {
@@ -265,11 +264,11 @@ func TestGlobalFlagErrors(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"unknown flag", []string{"--bogus"}, "未知的全局参数"},
-		{"missing value", []string{"--port"}, "需要一个值"},
-		{"empty value", []string{"--repo="}, "不能为空"},
-		{"empty config", []string{"--config="}, "不能为空"},
-		{"non-numeric port", []string{"--port", "abc"}, "不是数字"},
+		{"unknown flag", []string{"--bogus"}, "unknown global flag"},
+		{"missing value", []string{"--port"}, "needs a value"},
+		{"empty value", []string{"--repo="}, "cannot be empty"},
+		{"empty config", []string{"--config="}, "cannot be empty"},
+		{"non-numeric port", []string{"--port", "abc"}, "is not a number"},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -303,7 +302,7 @@ func TestMisplacedGlobalFlagPrintsTheHint(t *testing.T) {
 	if code != exitcode.Usage {
 		t.Fatalf("exit = %d, want %d (stderr = %s)", code, exitcode.Usage, stderr)
 	}
-	if !strings.Contains(stderr, "须写在命令名之前") {
+	if !strings.Contains(stderr, "global flags (--repo/--port/--node/--config/-v) go before the command name") {
 		t.Fatalf("stderr = %q, want the placement hint", stderr)
 	}
 	if _, err := os.Stat(stateDir); !os.IsNotExist(err) {
@@ -318,7 +317,7 @@ func TestRelativeRepoIsAUsageError(t *testing.T) {
 	if code != exitcode.Usage {
 		t.Fatalf("exit = %d, want %d (stderr = %s)", code, exitcode.Usage, stderr)
 	}
-	if !strings.Contains(stderr, "绝对路径") {
+	if !strings.Contains(stderr, "a path must be absolute or start with ~") {
 		t.Fatalf("stderr = %q", stderr)
 	}
 }
@@ -329,7 +328,7 @@ func TestReportingCommandsDoNotProvision(t *testing.T) {
 	if code != exitcode.Failure {
 		t.Fatalf("exit = %d, want %d (stderr = %s)", code, exitcode.Failure, stderr)
 	}
-	if !strings.Contains(stderr, "日志文件不存在") {
+	if !strings.Contains(stderr, "the log file does not exist") {
 		t.Fatalf("stderr = %q", stderr)
 	}
 	if _, err := os.Stat(stateDir); !os.IsNotExist(err) {
@@ -343,10 +342,10 @@ func TestStatusReportsAFreePortAsNotRunning(t *testing.T) {
 	if code != exitcode.NotRunning {
 		t.Fatalf("exit = %d, want %d (stderr = %s)", code, exitcode.NotRunning, stderr)
 	}
-	if !strings.Contains(stdout, "未运行") {
+	if !strings.Contains(stdout, "not running") {
 		t.Fatalf("stdout = %q", stdout)
 	}
-	if strings.Contains(stderr, "错误") {
+	if strings.Contains(stderr, "error") {
 		t.Fatalf("a not-running status must not print an error: %q", stderr)
 	}
 }
@@ -517,7 +516,7 @@ func TestVerboseNamesTheSources(t *testing.T) {
 	if code != exitcode.NotRunning {
 		t.Fatalf("exit = %d, want %d", code, exitcode.NotRunning)
 	}
-	for _, want := range []string{"配置文件", "状态目录", "仓库目录", "监听端口"} {
+	for _, want := range []string{"settings document", "state directory", "checkout", "port"} {
 		if !strings.Contains(stderr, want) {
 			t.Fatalf("verbose output is missing %q:\n%s", want, stderr)
 		}

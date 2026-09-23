@@ -12,15 +12,15 @@ func TestTextEmitterRendersEveryKind(t *testing.T) {
 	var out, errOut strings.Builder
 	emitter := TextEmitter{Out: &out, Err: &errOut}
 
-	emitter.Emit(Event{Kind: EventNarrative, Text: "状态: 运行中"})
+	emitter.Emit(Event{Kind: EventNarrative, Text: "state: running"})
 	emitter.Emit(Event{Kind: EventOutput, Text: "raw bytes without a newline"})
-	emitter.Emit(Event{Kind: EventWarning, Text: "无法获取远程更新"})
-	emitter.Emit(Event{Kind: EventError, Text: "错误: 更新失败: 超时"})
+	emitter.Emit(Event{Kind: EventWarning, Text: "the remote could not be fetched"})
+	emitter.Emit(Event{Kind: EventError, Text: "error: update failed: timed out"})
 
-	if got, want := out.String(), "状态: 运行中\nraw bytes without a newline"; got != want {
+	if got, want := out.String(), "state: running\nraw bytes without a newline"; got != want {
 		t.Errorf("stdout = %q, want %q", got, want)
 	}
-	if got, want := errOut.String(), "警告: 无法获取远程更新\n错误: 更新失败: 超时\n"; got != want {
+	if got, want := errOut.String(), "warning: the remote could not be fetched\nerror: update failed: timed out\n"; got != want {
 		t.Errorf("stderr = %q, want %q", got, want)
 	}
 }

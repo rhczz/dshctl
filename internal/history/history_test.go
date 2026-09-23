@@ -156,7 +156,7 @@ func TestLoadRejectsCorruption(t *testing.T) {
 // second rollback keeps walking backwards instead of bouncing forward.
 func TestVisitTruncatesToAnExistingPosition(t *testing.T) {
 	records := []Record{record("b", "latest", 3), record("a", "", 2), record("x", "", 1)}
-	got := Visit(records, record("a", "-n 2", 4))
+	got := Visit(records, record("a", "-n 2", 4), MaxRecords())
 	want := []Record{record("a", "-n 2", 4), record("x", "", 1)}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Visit = %+v, want %+v", got, want)
@@ -167,7 +167,7 @@ func TestVisitTruncatesToAnExistingPosition(t *testing.T) {
 // never seen becomes the new top and the old positions are kept below it.
 func TestVisitPrependsANewPosition(t *testing.T) {
 	records := []Record{record("a", "", 2), record("x", "", 1)}
-	got := Visit(records, record("b", "latest", 3))
+	got := Visit(records, record("b", "latest", 3), MaxRecords())
 	want := []Record{record("b", "latest", 3), record("a", "", 2), record("x", "", 1)}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Visit = %+v, want %+v", got, want)
@@ -178,13 +178,13 @@ func TestVisitPrependsANewPosition(t *testing.T) {
 // rollback can reach, and the oldest fall off.
 func TestVisitCapsTheStack(t *testing.T) {
 	var records []Record
-	for index := 0; index < MaxRecords+10; index++ {
-		records = Visit(records, record(fmt.Sprintf("c%03d", index), "", int64(index)))
+	for index := 0; index < MaxRecords()+10; index++ {
+		records = Visit(records, record(fmt.Sprintf("c%03d", index), "", int64(index)), MaxRecords())
 	}
-	if len(records) != MaxRecords {
-		t.Fatalf("stack length = %d, want %d", len(records), MaxRecords)
+	if len(records) != MaxRecords() {
+		t.Fatalf("stack length = %d, want %d", len(records), MaxRecords())
 	}
-	if records[0].Commit != fmt.Sprintf("c%03d", MaxRecords+9) {
+	if records[0].Commit != fmt.Sprintf("c%03d", MaxRecords()+9) {
 		t.Fatalf("stack top = %q, want the newest position", records[0].Commit)
 	}
 	if records[len(records)-1].Commit != "c010" {
@@ -363,7 +363,7 @@ func TestFileRecordsReturnsACopy(t *testing.T) {
 // its selector and time are the new ones.
 func TestVisitRefreshesAnExistingTop(t *testing.T) {
 	records := []Record{record("b", "", 1), record("a", "", 1)}
-	got := Visit(records, record("b", "-n 1", 9))
+	got := Visit(records, record("b", "-n 1", 9), MaxRecords())
 	want := []Record{record("b", "-n 1", 9), record("a", "", 1)}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Visit = %+v, want %+v", got, want)
@@ -373,7 +373,7 @@ func TestVisitRefreshesAnExistingTop(t *testing.T) {
 // TestVisitOnAnEmptyStack pins the first deployment: the position is the whole
 // stack.
 func TestVisitOnAnEmptyStack(t *testing.T) {
-	got := Visit(nil, record("a", "latest", 1))
+	got := Visit(nil, record("a", "latest", 1), MaxRecords())
 	want := []Record{record("a", "latest", 1)}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Visit = %+v, want %+v", got, want)
@@ -393,7 +393,7 @@ func TestStepOnAnEmptyStack(t *testing.T) {
 // explicitly built.
 func TestSaveWritesTheRecordsItIsGiven(t *testing.T) {
 	box := store(t)
-	records := make([]Record, MaxRecords+5)
+	records := make([]Record, MaxRecords()+5)
 	for index := range records {
 		records[index] = record(fmt.Sprintf("c%03d", index), "", int64(index+1))
 	}
@@ -432,7 +432,7 @@ func TestLoadRejectsDuplicatePositions(t *testing.T) {
 // repeats a commit, the result holds it once, at the top.
 func TestVisitDropsARepeatedCommit(t *testing.T) {
 	records := []Record{record("b", "", 3), record("a", "", 2), record("b", "", 1)}
-	got := Visit(records, record("b", "latest", 4))
+	got := Visit(records, record("b", "latest", 4), MaxRecords())
 	want := []Record{record("b", "latest", 4), record("a", "", 2)}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Visit = %+v, want %+v", got, want)
@@ -445,7 +445,7 @@ func TestVisitDropsARepeatedCommit(t *testing.T) {
 // because the stack is ordered newest first.
 func TestVisitDropsDuplicatesAmongTheSurvivors(t *testing.T) {
 	records := []Record{record("b", "", 3), record("a", "", 2), record("a", "", 1), record("x", "", 0)}
-	got := Visit(records, record("b", "latest", 4))
+	got := Visit(records, record("b", "latest", 4), MaxRecords())
 	want := []Record{record("b", "latest", 4), record("a", "", 2), record("x", "", 0)}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("Visit = %+v, want %+v", got, want)

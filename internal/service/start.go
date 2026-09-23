@@ -59,34 +59,27 @@ func (s *Service) startLocked(ctx context.Context) (StartResult, error) {
 		return StartResult{}, err
 	}
 	if verdict == adoptFailed {
-		return StartResult{}, exitcode.New(exitcode.Preflight,
-			"检测到上次启动遗留的服务 (pid=%d)，但无法恢复运行记录;请手动结束它后重试",
-			observed.status.ListenerPID)
+		return StartResult{}, exitcode.New(exitcode.Preflight, "a service left over from an interrupted start was found (pid=%d), but its runtime record could not be rebuilt; end it by hand and retry", observed.status.ListenerPID)
 	}
 	if verdict == adoptDone {
-		s.narrate(fmt.Sprintf("检测到上次启动被中断后仍存活的服务，已恢复管理: %s (pid=%d)", s.Settings.URL(), observed.status.ListenerPID))
+		s.narrate(fmt.Sprintf("a survivor of an interrupted start was found and is managed again: %s (pid=%d)", s.Settings.URL(), observed.status.ListenerPID))
 		return StartResult{Status: observed.status, AlreadyRunning: true}, nil
 	}
 	switch observed.status.State {
 	case domain.StateRunning:
-		s.narrate(fmt.Sprintf("DSH Web 已在运行: %s (pid=%d)", s.Settings.URL(), observed.status.ListenerPID))
+		s.narrate(fmt.Sprintf("DSH Web is already running: %s (pid=%d)", s.Settings.URL(), observed.status.ListenerPID))
 		s.reconcileRunningCheckout(observed)
 		return StartResult{Status: observed.status, AlreadyRunning: true}, nil
 	case domain.StateStarting:
-		s.narrate(fmt.Sprintf("DSH Web 正在启动中: %s (pid=%d)", s.Settings.URL(), observed.status.ListenerPID))
+		s.narrate(fmt.Sprintf("DSH Web is starting: %s (pid=%d)", s.Settings.URL(), observed.status.ListenerPID))
 		return StartResult{Status: observed.status}, nil
 	case domain.StateForeign:
-		return StartResult{}, exitcode.New(exitcode.Preflight,
-			"端口 %d 被其他程序占用 (pid=%d: %s);请先停止它,或用 --port 换一个端口",
-			s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
+		return StartResult{}, exitcode.New(exitcode.Preflight, "port %d is held by another program (pid=%d: %s); stop it first, or use another port with --port", s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
 	case domain.StateOrphan:
 		// A survivor was already adopted above, so what is left is a process
 		// whose ownership nothing can establish: telling the operator to end it
 		// by hand is the only safe answer.
-		return StartResult{}, exitcode.New(exitcode.Preflight,
-			"端口 %d 上的进程 (pid=%d) 无法确认是不是 dshctl 启动的服务: %s\n"+
-				"提示: 确认它可以安全停止后手动结束它,再重新启动;dshctl 不会主动结束无法确认归属的进程",
-			s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
+		return StartResult{}, exitcode.New(exitcode.Preflight, "the process on port %d (pid=%d) cannot be confirmed as one dshctl started: %s\nhint: confirm it is safe to stop, end it by hand, and start again; dshctl never ends a process whose ownership it cannot establish", s.boundPort(), observed.status.ListenerPID, observed.status.ListenerCommand)
 	}
 
 	if observed.hasRecord {
@@ -94,10 +87,7 @@ func (s *Service) startLocked(ctx context.Context) (StartResult, error) {
 			// The record names a live server dshctl started, and that server is
 			// not on this port. Starting a second one would leave two servers
 			// with one record, so this is reported instead of done.
-			return StartResult{}, exitcode.New(exitcode.Preflight,
-				"运行记录中的服务 (pid=%d) 仍然存活，但它没有监听端口 %d\n"+
-					"提示: 先运行 dshctl stop(会按记录结束它),或确认该进程可以安全结束后手动处理",
-				observed.status.RecordedPID, s.boundPort())
+			return StartResult{}, exitcode.New(exitcode.Preflight, "the service in the runtime record (pid=%d) is still alive, but it is not listening on port %d\nhint: run dshctl stop first (it ends that process by the record), or confirm the process is safe to end and handle it by hand", observed.status.RecordedPID, s.boundPort())
 		}
 		// The record names a pid that is gone or has been recycled: clear it so
 		// it cannot describe the server this call is about to start.
@@ -150,7 +140,7 @@ func (s *Service) adoptSurvivor(ctx context.Context, observed observed) (domain.
 		adopted.URL = record.URL
 	}
 	if err := s.Record.Save(adopted); err != nil {
-		s.warning(fmt.Sprintf("无法收养上次启动遗留的服务 (pid=%d): %v", observed.status.ListenerPID, err))
+		s.warning(fmt.Sprintf("a service left over from an interrupted start was found (pid=%d), but its runtime record could not be rebuilt: %v", observed.status.ListenerPID, err))
 		return domain.Record{}, false
 	}
 	return adopted, true
@@ -166,7 +156,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
 	} else if rotated {
-		s.narrate(fmt.Sprintf("日志已轮转: %s", s.LogFile.BackupPath()))
+		s.narrate(fmt.Sprintf("the log was rotated: %s", s.LogFile.BackupPath()))
 	}
 	if err := s.LogFile.Section(sectionStart); err != nil {
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
@@ -179,15 +169,15 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	if err != nil {
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
 	}
-	s.narrate(fmt.Sprintf("正在后台启动 DSH Web ... (日志: %s)", s.Settings.LogPath))
+	s.narrate(fmt.Sprintf("starting DSH Web in the background ... (log: %s)", s.Settings.LogPath))
 	pid, exited, spawnErr := s.spawn(pnpm, installation, handle)
 	closeErr := handle.Close()
 	if spawnErr != nil {
-		s.note("start 失败: " + spawnErr.Error())
+		s.note("start failed" + ": " + spawnErr.Error())
 		return StartResult{}, exitcode.Wrap(exitcode.Failure, spawnErr)
 	}
 	if closeErr != nil {
-		s.warning(fmt.Sprintf("关闭日志句柄时出错: %v", closeErr))
+		s.warning(fmt.Sprintf("closing the log handle failed: %v", closeErr))
 	}
 
 	// A record is written as soon as the wrapper exists, before the port answers.
@@ -208,7 +198,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		NodePath:    installation.NodePath,
 		RepoDir:     s.Settings.RepoDir,
 	}); err != nil {
-		s.warning(fmt.Sprintf("无法记录启动的进程 (pid=%d): %v", pid, err))
+		s.warning(fmt.Sprintf("the started process could not be recorded (pid=%d): %v", pid, err))
 	}
 
 	listenerPID, err := s.waitForListening(ctx, pid, exited, s.Settings.StartTimeout)
@@ -231,15 +221,15 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	// what makes the window the readiness check closed stay closed.
 	startedAt := s.processStartTime(ctx, listenerPID, exited)
 	if startedAt == 0 {
-		s.warning(fmt.Sprintf("无法读取 DSH Web (pid=%d) 的进程启动时间，本次运行将只依据端口归属判断;"+
-			"若系统复用了该 pid，dshctl 可能拒绝结束它(检查是否有安全策略限制读取进程信息)", listenerPID))
+		s.warning(fmt.Sprintf("the start time of DSH Web (pid=%d) could not be read, so this run relies on port ownership alone", listenerPID) + ";" +
+			"if the system reuses that pid, dshctl may refuse to end it (check whether a security policy forbids reading process information)")
 	}
 	if !s.listenerStillOurs(ctx, pid, listenerPID) {
 		// The server died before its fingerprint could be taken. Recording it
 		// now would name whatever process inherited the pid, and every later
 		// ownership check would confirm that stranger.
 		return StartResult{}, s.cleanupFailedStart(ctx, pid,
-			fmt.Errorf("服务进程 (pid=%d) 在记录其启动时间之前退出了", listenerPID))
+			fmt.Errorf("the service process (pid=%d) exited before its start time could be recorded", listenerPID))
 	}
 	record := domain.Record{
 		PID:         listenerPID,
@@ -253,7 +243,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		RepoDir:     s.Settings.RepoDir,
 	}
 	if err := s.Record.Save(record); err != nil {
-		s.warning(fmt.Sprintf("无法更新运行记录: %v", err))
+		s.warning(fmt.Sprintf("the runtime record could not be updated: %v", err))
 	}
 	s.recordRuntime(installation)
 	final, observeErr := s.observe(ctx)
@@ -266,11 +256,11 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		// that ended while it was being recorded is a failed start, not a
 		// success with a strange status.
 		return StartResult{}, s.cleanupFailedStart(ctx, pid,
-			fmt.Errorf("服务进程 (pid=%d) 在启动完成后没有继续运行", status.ListenerPID))
+			fmt.Errorf("the service process (pid=%d) was no longer running when the start finished", status.ListenerPID))
 	}
-	s.narrate(fmt.Sprintf("启动成功: %s (pid=%d)", status.URL, status.ListenerPID))
+	s.narrate(fmt.Sprintf("start succeeded: %s (pid=%d)", status.URL, status.ListenerPID))
 	if record.URL != "" {
-		s.narrate(fmt.Sprintf("访问地址: %s", record.URL))
+		s.narrate(fmt.Sprintf("address: %s", record.URL))
 	}
 	return StartResult{Status: status, SpawnedPID: pid}, nil
 }
@@ -336,16 +326,16 @@ func (s *Service) writeBack(repoDir, nodeVersion string) {
 	}
 	wrote, err := s.Settings.RecordRuntime(repoDir, nodeVersion)
 	if err != nil {
-		s.warning(fmt.Sprintf("无法把本次运行的信息写入配置 %s: %v(以后仍会按既有设置重新解析)", s.Settings.ConfigPath, err))
+		s.warning(fmt.Sprintf("the settings document %s could not be written: %v (later runs resolve from the settings it already has)", s.Settings.ConfigPath, err))
 		return
 	}
 	if wrote.RepoDir {
-		message := fmt.Sprintf("已将仓库目录 %s 写入配置: %s", repoDir, s.Settings.ConfigPath)
+		message := fmt.Sprintf("the checkout %s was written into the settings document: %s", repoDir, s.Settings.ConfigPath)
 		s.narrate(message)
 		s.note(message)
 	}
 	if wrote.NodeVersion {
-		message := fmt.Sprintf("已将 Node %s 写入配置: %s", nodeVersion, s.Settings.ConfigPath)
+		message := fmt.Sprintf("Node %s was written into the settings document: %s", nodeVersion, s.Settings.ConfigPath)
 		s.narrate(message)
 		s.note(message)
 	}
@@ -395,7 +385,7 @@ func (s *Service) warnRunningCheckoutMismatch(observed observed) {
 	if running == "" || running == s.Settings.RepoDir {
 		return
 	}
-	s.warning(fmt.Sprintf("运行中的服务 (pid=%d) 来自 %s，配置中的 repoDir 是 %s；两者操作的不是同一份 checkout", observed.status.ListenerPID, running, s.Settings.RepoDir))
+	s.warning(fmt.Sprintf("the running service (pid=%d) comes from %s while the configured repoDir is %s; the two operate on different checkouts", observed.status.ListenerPID, running, s.Settings.RepoDir))
 }
 
 // namesCheckoutItself reports whether this invocation names a checkout of its
@@ -426,7 +416,7 @@ func (s *Service) reportRepoOverride() {
 	if s.Settings.Sources.RepoDir != "flag" {
 		return
 	}
-	s.narrate(fmt.Sprintf("本次使用仓库 %s(配置中为 %s；如需固定请修改 %s)", s.Settings.RepoDir, configured, s.Settings.ConfigPath))
+	s.narrate(fmt.Sprintf("using the checkout %s (configured as %s; edit %s to make it permanent)", s.Settings.RepoDir, configured, s.Settings.ConfigPath))
 }
 
 // warnOverriddenRepoDir reports a settings document whose checkout this run does
@@ -444,7 +434,7 @@ func (s *Service) warnOverriddenRepoDir() {
 	if configured == "" || configured == s.Settings.RepoDir {
 		return
 	}
-	s.warning(fmt.Sprintf("环境变量 %s=%s 覆盖了配置里的 repoDir=%s，本次运行使用 %s", paths.EnvRepoDir, s.Settings.RepoDir, configured, s.Settings.RepoDir))
+	s.warning(fmt.Sprintf("the environment variable %s=%s overrides the configured repoDir=%s; this run uses %s", paths.EnvRepoDir, s.Settings.RepoDir, configured, s.Settings.RepoDir))
 }
 
 // reportNodeOverride tells the operator when this run uses a release other than
@@ -459,7 +449,7 @@ func (s *Service) reportNodeOverride(installation nodejs.Installation) {
 	if configured == "" || nodejs.Matches(installation.Version, configured) {
 		return
 	}
-	s.narrate(fmt.Sprintf("本次使用 Node %s(配置中为 %s；如需固定请修改 %s)", installation.Version, configured, s.Settings.ConfigPath))
+	s.narrate(fmt.Sprintf("using Node %s (configured as %s; edit %s to make it permanent)", installation.Version, configured, s.Settings.ConfigPath))
 }
 
 // spawn starts the detached server with the log as its output.
@@ -499,8 +489,8 @@ func spawnDetached(path string, args []string, dir string, env []string, log *os
 // nothing able to manage it. The port is checked afterwards — the cleanup is
 // only reported as done once the port is actually free.
 func (s *Service) cleanupFailedStart(ctx context.Context, pid int, cause error) error {
-	s.failure("启动失败或超时，正在清理本次启动的进程 ...")
-	s.note("start 失败")
+	s.failure("the start failed or timed out; cleaning up the processes this run started ...")
+	s.note("start failed")
 
 	if err := s.endGroup(ctx, pid); err != nil {
 		s.warning(fmt.Sprintf("%v", err))
@@ -518,12 +508,12 @@ func (s *Service) cleanupFailedStart(ctx context.Context, pid int, cause error) 
 	if err := s.waitForStopped(ctx, s.Settings.StopTimeout); err != nil {
 		// The port is still held, so nothing was really cleaned up. Saying so is
 		// the difference between a recoverable state and a mystery.
-		s.failure(fmt.Sprintf("端口 %d 仍被占用，本次启动的进程没有全部退出: %v", s.boundPort(), err))
+		s.failure(fmt.Sprintf("port %d is still occupied; not every process this start created has exited: %v", s.boundPort(), err))
 	}
 
-	s.failure("已清理。日志尾部:")
+	s.failure("cleaned up. The tail of the log:")
 	_, _ = logfile.Tail(s.Settings.LogPath, startTailLines, s.emitter().Diagnostics())
-	return exitcode.Wrap(exitcode.Failure, fmt.Errorf("%w(日志: %s)", cause, s.Settings.LogPath))
+	return exitcode.Wrap(exitcode.Failure, fmt.Errorf("%w (log: %s)", cause, s.Settings.LogPath))
 }
 
 // endGroup asks every process this start created to exit, then forces what is
@@ -551,7 +541,7 @@ func (s *Service) endGroup(ctx context.Context, pid int) error {
 		return err
 	}
 	if !s.waitForGroupExit(ctx, pid, s.grace) {
-		return fmt.Errorf("本次启动的进程树 (组长 %d) 在强制结束后仍然存在", pid)
+		return fmt.Errorf("the process group this start created (leader %d) still exists after a forced end", pid)
 	}
 	return nil
 }
@@ -583,14 +573,10 @@ func (s *Service) waitForGroupExit(ctx context.Context, pid int, timeout time.Du
 // preflight verifies every precondition before anything is spawned.
 func (s *Service) preflight(ctx context.Context) (nodejs.Installation, string, error) {
 	if !s.Repo.Exists() {
-		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight,
-			"仓库目录不存在: %s\n提示: 用 --repo 或环境变量 %s 指定仓库路径",
-			s.Settings.RepoDir, paths.EnvRepoDir)
+		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight, "the checkout does not exist: %s\nhint: name it with --repo or the %s environment variable", s.Settings.RepoDir, paths.EnvRepoDir)
 	}
 	if !s.Repo.IsServerCheckout() {
-		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight,
-			"%s 看起来不是 DeepSeek Harness 仓库(缺少 %s 或 %s)\n提示: 用 --repo 指向正确的 checkout",
-			s.Settings.RepoDir, config.ServerManifestRel, config.WorkspaceManifestRel)
+		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight, "%s does not look like a DeepSeek Harness checkout (no %s or %s)\nhint: point --repo at the right checkout", s.Settings.RepoDir, config.ServerManifestRel, config.WorkspaceManifestRel)
 	}
 	installation, err := s.resolveNode(ctx)
 	if err != nil {
@@ -601,9 +587,7 @@ func (s *Service) preflight(ctx context.Context) (nodejs.Installation, string, e
 		return nodejs.Installation{}, "", err
 	}
 	if !s.Repo.BuildReady() {
-		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight,
-			"仓库尚未构建(缺少 %s 或 node_modules)\n提示: 先运行 dshctl build, 再执行 dshctl start",
-			s.Repo.BuildRecordPath())
+		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight, "the checkout has not been built (no %s or node_modules)\nhint: run dshctl build first, then dshctl start", s.Repo.BuildRecordPath())
 	}
 	return installation, pnpm, nil
 }
@@ -660,7 +644,7 @@ func (s *Service) warnOverriddenNodeVersion(installation nodejs.Installation) {
 	if configured == "" || nodejs.Matches(installation.Version, configured) {
 		return
 	}
-	s.warning(fmt.Sprintf("环境变量 %s=%s 覆盖了配置里的 nodeVersion=%s，本次运行使用 %s", paths.EnvNodeVersion, s.Settings.NodeVersion, configured, installation.Version))
+	s.warning(fmt.Sprintf("the environment variable %s=%s overrides the configured nodeVersion=%s; this run uses %s", paths.EnvNodeVersion, s.Settings.NodeVersion, configured, installation.Version))
 }
 
 // pnpmPath resolves the pnpm executable.
@@ -671,7 +655,7 @@ func (s *Service) pnpmPath() (string, error) {
 	}
 	path, err := lookPath("pnpm")
 	if err != nil {
-		return "", exitcode.New(exitcode.Preflight, "找不到 pnpm，请先安装并确保它在 PATH 中")
+		return "", exitcode.New(exitcode.Preflight, "pnpm was not found; install it and make sure it is on PATH")
 	}
 	return path, nil
 }
@@ -724,7 +708,7 @@ func (s *Service) urlFromLog(ctx context.Context) string {
 	}
 	address, truncated := announcedURL(s.Settings.LogPath, s.boundPort())
 	if address == "" && truncated {
-		s.warning(fmt.Sprintf("日志过大，未能在其中找到本次启动公布的访问地址;可用 dshctl logs 查看或等待服务输出"))
+		s.warning("the log is too large to find the address this start announced; dshctl logs shows it, or wait for the service to write it")
 	}
 	return address
 }

@@ -73,10 +73,10 @@ func FuzzVisitKeepsTheStackASubsequence(f *testing.F) {
 			records = append(records, Record{Commit: string(commit), At: at})
 		}
 		position := Record{Commit: top, Selector: "latest", At: at}
-		got := Visit(records, position)
+		got := Visit(records, position, MaxRecords())
 
-		if len(got) > MaxRecords {
-			t.Fatalf("stack length = %d, want at most %d", len(got), MaxRecords)
+		if len(got) > MaxRecords() {
+			t.Fatalf("stack length = %d, want at most %d", len(got), MaxRecords())
 		}
 		if len(got) == 0 || got[0] != position {
 			t.Fatalf("stack top = %+v, want the new position", got)
@@ -177,7 +177,7 @@ func FuzzSaveLoadRoundTrips(f *testing.F) {
 			// Save may refuse a document its reader would reject — too large,
 			// or carrying a position without a commit or a time. Any other
 			// error is a bug.
-			if !strings.Contains(err.Error(), "过大") && !strings.Contains(err.Error(), "拒绝写入") {
+			if !strings.Contains(err.Error(), "is too large (") && !strings.Contains(err.Error(), "refusing to write an invalid deployment history") {
 				t.Fatalf("Save: %v", err)
 			}
 			return

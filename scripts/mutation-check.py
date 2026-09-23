@@ -170,7 +170,7 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "a configured timeout is not range-checked before it becomes a duration",
         "internal/config/config.go",
-        "\tif seconds > MaxTimeoutSeconds {\n\t\treturn 0, usagef(\"%s 不能超过 %d 秒: %d\", name, MaxTimeoutSeconds, seconds)\n\t}",
+        "\tif seconds > MaxTimeoutSeconds {\n\t\treturn 0, usagef(\"%s cannot exceed %d seconds: %d\", name, MaxTimeoutSeconds, seconds)\n\t}",
         "\tif false {\n\t\treturn 0, usagef(\"%s 不能超过 %d 秒: %d\", name, MaxTimeoutSeconds, seconds)\n\t}",
         ["./internal/config/"],
     ),
@@ -275,7 +275,7 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "the doctor row hides why a release is unverified",
         "internal/service/doctor.go",
-        "add(\"Node\", CheckWarn, detail+\"；\"+verdict.Reason)",
+        "add(\"Node\", CheckWarn, detail+\"; \"+verdict.Reason)",
         "add(\"Node\", CheckWarn, detail)",
         ["./internal/service/"],
     ),
@@ -450,8 +450,8 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "fetch prunes remote-tracking refs the remote no longer has",
         "internal/repo/release.go",
-        '"fetch", originRemote, "--tags"',
-        '"fetch", originRemote, "--tags", "--prune"',
+        '"fetch", r.remote(), "--tags"',
+        '"fetch", r.remote(), "--tags", "--prune"',
         ["./internal/repo/"],
     ),
     (
@@ -467,20 +467,6 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         "\tif selector != \"HEAD\" {",
         "\tif true {",
         ["./internal/repo/"],
-    ),
-    (
-        "a language nobody speaks is rendered instead of falling back to English",
-        "internal/i18n/i18n.go",
-        "\t// \"C\" and \"POSIX\" are the absence of a locale, not a language.\n\treturn EN",
-        "\t// \"C\" and \"POSIX\" are the absence of a locale, not a language.\n\treturn ZH",
-        ["./internal/i18n/"],
-    ),
-    (
-        "two layers may claim the same message id",
-        "internal/i18n/catalog.go",
-        "\t\t\tif _, exists := merged[id]; exists {",
-        "\t\t\tif _, exists := merged[id]; false && exists {",
-        ["./internal/i18n/"],
     ),
     (
         "another port's unreadable record is read as no service at all",

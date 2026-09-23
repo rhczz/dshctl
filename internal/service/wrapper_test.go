@@ -142,7 +142,7 @@ func TestStartRefusesWhenALiveRecordIsNotListening(t *testing.T) {
 
 	_, err := f.Start(context.Background())
 	wantCode(t, err, exitcode.Preflight)
-	if !contains(err.Error(), "仍然存活") {
+	if !contains(err.Error(), "is still alive") {
 		t.Fatalf("error = %v, want it to say the recorded server is still alive", err)
 	}
 	f.wantNoSpawn(t)

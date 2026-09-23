@@ -13,7 +13,6 @@
 | `run` | 外部命令执行：进程树结束、输出上限、退出码分类、PATH 前缀 |
 | `detach` | 脱离终端的子进程与收割（僵尸进程不算存活） |
 | `host` | 操作系统事实与端口归属：探测、解析、发信号 |
-| `i18n` | 语言解析、目录类型、合并（重复 id 报错）、审计 |
 | `paths` | 路径校验与展开（绝对路径、`~`、`~user` 拒绝） |
 
 ## 资源与策略（定义在拥有契约的层）
@@ -50,7 +49,6 @@
 - `internal/service/print.go` 与 `timeline.go` 的 `Print*`：只读命令的表格渲染。
   它们是 CLI 的参考渲染器，与 `ServeExitCode` 一起应当搬进 `internal/cli`；
   搬动会触及 8-10 个 Go 文件与账本约 46 行，因此单独提交。
-- `internal/repo` 的 remote/branch（`origin`/`master`）与 prune 布局、
-  `internal/history` 的 `MaxRecords` 与 schema：按 reference 的资源清单它们是资源值；
-  目前仍写在包内，分类上把它们记为**资源包**（同 `config`/`paths`），
-  提取留到有第二个产品时再做。
+- `internal/repo`：**已提取**——remote/branch（`Repo.Remote`/`Repo.Branch`）与 prune
+  布局（`Repo.Residue`/`Repo.Areas`）由服务层的 `checkoutLayout` 给出；
+  `history.Store.MaxRecords` 同样由调用方声明。

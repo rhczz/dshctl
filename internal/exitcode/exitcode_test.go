@@ -16,7 +16,7 @@ func TestOfClassifiesErrors(t *testing.T) {
 	}{
 		{"nil", nil, OK},
 		{"plain", errors.New("boom"), Failure},
-		{"coded", New(Preflight, "缺少 pnpm"), Preflight},
+		{"coded", New(Preflight, "pnpm was not found"), Preflight},
 		{"wrapped coded", fmt.Errorf("start: %w", New(LockTimeout, "busy")), LockTimeout},
 		{"silent", SilentExit(NotRunning), NotRunning},
 		{"wrapped silent", fmt.Errorf("status: %w", SilentExit(NotRunning)), NotRunning},
@@ -33,7 +33,7 @@ func TestOfClassifiesErrors(t *testing.T) {
 // TestWrapKeepsTheInnermostClassification pins that an outer wrap cannot
 // reclassify an already-classified failure.
 func TestWrapKeepsTheInnermostClassification(t *testing.T) {
-	err := Wrap(Failure, New(Preflight, "缺少 pnpm"))
+	err := Wrap(Failure, New(Preflight, "pnpm was not found"))
 	if got := Of(err); got != Preflight {
 		t.Fatalf("Of = %d, want the preflight classification to survive", got)
 	}
@@ -48,8 +48,8 @@ func TestWrapKeepsTheInnermostClassification(t *testing.T) {
 
 // TestErrorKeepsTheMessageAndTheCode pins that the message reaches the operator.
 func TestErrorKeepsTheMessageAndTheCode(t *testing.T) {
-	err := New(Usage, "未知命令 %q", "nope")
-	if err.Error() != `未知命令 "nope"` {
+	err := New(Usage, "unknown command %q", "nope")
+	if err.Error() != `unknown command "nope"` {
 		t.Fatalf("Error() = %q", err.Error())
 	}
 	if Of(fmt.Errorf("cli: %w", err)) != Usage {

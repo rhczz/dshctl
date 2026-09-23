@@ -573,24 +573,6 @@
     "status": "ported"
   },
   {
-    "name": "a language nobody speaks is rendered instead of falling back to English",
-    "old_path": "internal/i18n/i18n.go",
-    "packages": [
-      "./internal/i18n/"
-    ],
-    "new_path": "internal/i18n/i18n.go",
-    "status": "ported"
-  },
-  {
-    "name": "two layers may claim the same message id",
-    "old_path": "internal/i18n/catalog.go",
-    "packages": [
-      "./internal/i18n/"
-    ],
-    "new_path": "internal/i18n/catalog.go",
-    "status": "ported"
-  },
-  {
     "name": "another port's unreadable record is read as no service at all",
     "old_path": "internal/service/build.go",
     "packages": [

@@ -26,10 +26,14 @@ import (
 	"github.com/rhczz/dshctl/internal/state"
 )
 
-// MaxRecords bounds one checkout's stack. The oldest positions fall off: the
-// file stays small enough to read during an incident, and an operator who needs
-// something older can still name it explicitly with `dshctl update <sha>`.
-const MaxRecords = 50
+// MaxRecords is the bound a caller that states none gets.
+func MaxRecords() int { return maxRecordsDefault }
+
+// maxRecordsDefault is the bound a caller that states none gets: the oldest
+// positions fall off so the file stays small enough to read during an incident,
+// and an operator who needs something older can name it with `dshctl update
+// <sha>`. A product with a different appetite passes Store.s.maxRecords().
+const maxRecordsDefault = 50
 
 // maxFileBytes bounds the history file. A document larger than this is not one,
 // and reading it whole would let a corrupt file allocate without limit.
@@ -37,7 +41,7 @@ const maxFileBytes = 64 << 10
 
 // ErrCorrupt reports a history file that exists but cannot be understood.
 // Callers treat it as "refuse to guess", never as "there is no history".
-var ErrCorrupt = errors.New("更新历史无法解析")
+var ErrCorrupt = errors.New("the deployment history cannot be parsed")
 
 // Record is one position dshctl deployed a checkout at.
 type Record struct {
@@ -83,29 +87,29 @@ func (s Store) Load() (File, bool, error) {
 	case errors.Is(err, fs.ErrNotExist):
 		return File{}, false, nil
 	case err != nil:
-		return File{}, false, fmt.Errorf("无法读取更新历史 %s: %w", s.Path, err)
+		return File{}, false, fmt.Errorf("the deployment history %s could not be read: %w", s.Path, err)
 	case !info.Mode().IsRegular():
 		// A directory or device at the history path is residue, not a history.
 		// Reading it would either fail forever or follow something outside the
 		// state directory.
-		return File{}, false, fmt.Errorf("%w: %s 不是普通文件", ErrCorrupt, s.Path)
+		return File{}, false, fmt.Errorf("%w: %s is not a regular file", ErrCorrupt, s.Path)
 	case info.Size() > maxFileBytes:
-		return File{}, false, fmt.Errorf("%w: %s 过大 (%d 字节)", ErrCorrupt, s.Path, info.Size())
+		return File{}, false, fmt.Errorf("%w: %s is too large (%d bytes)", ErrCorrupt, s.Path, info.Size())
 	}
 
 	data, err := state.ReadDocument(s.Path)
 	if err != nil {
-		return File{}, false, fmt.Errorf("无法读取更新历史 %s: %w", s.Path, err)
+		return File{}, false, fmt.Errorf("the deployment history %s could not be read: %w", s.Path, err)
 	}
 	trimmed := bytes.TrimSpace(data)
 	if len(trimmed) == 0 {
-		return File{}, false, fmt.Errorf("%w: %s 内容为空", ErrCorrupt, s.Path)
+		return File{}, false, fmt.Errorf("%w: %s is empty", ErrCorrupt, s.Path)
 	}
 	// The document is an object. A top-level null decodes into an empty value
 	// without an error, which would turn a mangled file into "no history" —
 	// exactly the answer that lets a rollback guess.
 	if trimmed[0] != '{' {
-		return File{}, false, fmt.Errorf("%w: %s 不是 JSON 对象", ErrCorrupt, s.Path)
+		return File{}, false, fmt.Errorf("%w: %s is not a JSON object", ErrCorrupt, s.Path)
 	}
 	// Unknown fields are accepted on purpose. The file is written by one build
 	// of dshctl and read by another — after an upgrade or a downgrade — so a
@@ -127,32 +131,32 @@ func validate(file File) error {
 	seen := make(map[string]struct{}, len(file.Repos))
 	for _, group := range file.Repos {
 		if group.Repo == "" {
-			return fmt.Errorf("有一组没有仓库路径")
+			return fmt.Errorf("one group has no checkout path")
 		}
 		if _, duplicate := seen[group.Repo]; duplicate {
 			// Two groups for one checkout would make "where can it roll back
 			// to" depend on which group a caller happened to read.
-			return fmt.Errorf("仓库 %s 出现了两组", group.Repo)
+			return fmt.Errorf("the checkout %s appears in two groups", group.Repo)
 		}
 		seen[group.Repo] = struct{}{}
 		if len(group.Records) == 0 {
-			return fmt.Errorf("仓库 %s 的组没有任何位置", group.Repo)
+			return fmt.Errorf("the group for %s has no positions", group.Repo)
 		}
 		positions := make(map[string]struct{}, len(group.Records))
 		for _, record := range group.Records {
 			if record.Commit == "" {
-				return fmt.Errorf("仓库 %s 有一条没有 commit 的位置", group.Repo)
+				return fmt.Errorf("the group for %s has a position without a commit", group.Repo)
 			}
 			if record.At <= 0 {
 				// A position without a time cannot be read back as one: the
 				// view would print 1970 and the record would claim a move that
 				// never happened.
-				return fmt.Errorf("仓库 %s 的位置 %s 没有时间戳", group.Repo, record.Commit)
+				return fmt.Errorf("the position %s of %s has no timestamp", group.Repo, record.Commit)
 			}
 			if _, duplicate := positions[record.Commit]; duplicate {
 				// Two entries for one position would make the step arithmetic
 				// ambiguous, and a valid stack never repeats a commit.
-				return fmt.Errorf("仓库 %s 的位置 %s 出现了两次", group.Repo, record.Commit)
+				return fmt.Errorf("the position %s of %s appears twice", group.Repo, record.Commit)
 			}
 			positions[record.Commit] = struct{}{}
 		}
@@ -167,15 +171,15 @@ func validate(file File) error {
 // because it is too large or because a position is malformed.
 func (s Store) Save(file File) error {
 	if err := validate(file); err != nil {
-		return fmt.Errorf("拒绝写入更新历史: %w", err)
+		return fmt.Errorf("refusing to write an invalid deployment history: %w", err)
 	}
 	data, err := json.MarshalIndent(file, "", "  ")
 	if err != nil {
-		return fmt.Errorf("无法序列化更新历史: %w", err)
+		return fmt.Errorf("the deployment history could not be encoded: %w", err)
 	}
 	payload := append(data, '\n')
 	if len(payload) > maxFileBytes {
-		return fmt.Errorf("更新历史过大 (%d 字节)，拒绝写入 %s", len(payload), s.Path)
+		return fmt.Errorf("the deployment history is too large (%d bytes); refusing to write %s", len(payload), s.Path)
 	}
 	return atomically.WriteFile(s.Path, payload, 0o600)
 }
@@ -213,8 +217,8 @@ func (f File) With(repo string, records []Record) File {
 // Visit returns the stack with position on top. A position the stack already
 // holds truncates everything newer than it; a new one is prepended. The result
 // never repeats a commit — a stack that (through hand editing) does is
-// deduplicated — and is capped at MaxRecords.
-func Visit(records []Record, position Record) []Record {
+// deduplicated — and is capped at limit, which the caller states.
+func Visit(records []Record, position Record, limit int) []Record {
 	index := -1
 	for at, existing := range records {
 		if existing.Commit == position.Commit {
@@ -235,8 +239,8 @@ func Visit(records []Record, position Record) []Record {
 		seen[existing.Commit] = struct{}{}
 		kept = append(kept, existing)
 	}
-	if len(kept) > MaxRecords {
-		kept = kept[:MaxRecords]
+	if len(kept) > limit {
+		kept = kept[:limit]
 	}
 	return kept
 }
@@ -244,9 +248,9 @@ func Visit(records []Record, position Record) []Record {
 // Step returns the n-th position back from current, counting current as step
 // zero: n=1 is where the previous move started.
 //
-// The virtual stack is Visit(records, current), so a current position the stack
-// already holds makes everything newer than it unreachable — those positions
-// are not "before" where the operator is now.
+// The virtual stack is Visit(records, current, MaxRecords()): a current position
+// the stack already holds makes everything newer than it unreachable — those
+// positions are not "before" where the operator is now.
 //
 // Returns false when n is not a positive step or the stack is shorter than n+1
 // entries.
@@ -254,7 +258,7 @@ func Step(records []Record, current Record, n int) (Record, bool) {
 	if n < 1 {
 		return Record{}, false
 	}
-	virtual := Visit(records, current)
+	virtual := Visit(records, current, MaxRecords())
 	if n >= len(virtual) {
 		return Record{}, false
 	}

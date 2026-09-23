@@ -149,13 +149,13 @@ func New(settings config.Settings, deps Dependencies) *Service {
 		Settings: settings,
 		Exec:     deps.Exec,
 		Host:     host.New(hostTools),
-		Repo: repo.Repo{
+		Repo: checkoutLayout(repo.Repo{
 			Dir:                  settings.RepoDir,
 			Ex:                   deps.Exec,
 			ManifestRel:          config.ServerManifestRel,
 			WorkspaceManifestRel: config.WorkspaceManifestRel,
 			BuildRecordRel:       buildRecordRel,
-		},
+		}),
 		Node:      nodejs.NewResolver(),
 		LogFile:   logFile,
 		Log:       logging.New(logFile, level),

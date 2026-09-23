@@ -1,4 +1,4 @@
-package service
+package cli
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/host"
+	"github.com/rhczz/dshctl/internal/service"
 )
 
 // hostFacts builds process facts for the rendering tests.
@@ -33,7 +34,7 @@ func TestTheStatusReportNamesOnlyInstancesThatMatter(t *testing.T) {
 		{State: domain.StateOrphan, Port: 3082, ListenerPID: 42},
 		{State: domain.StateRunning, Port: 3083},
 	}
-	report := NewStatusReport(statuses)
+	report := service.NewStatusReport(statuses)
 
 	if report.Status.Port != 3080 {
 		t.Fatalf("report.Status.Port = %d, want the first instance", report.Status.Port)
@@ -43,7 +44,7 @@ func TestTheStatusReportNamesOnlyInstancesThatMatter(t *testing.T) {
 	for _, status := range report.Others {
 		got = append(got, status.Port)
 	}
-	if !equalInts(got, want) {
+	if !equalPorts(got, want) {
 		t.Fatalf("the notes name ports %v, want %v", got, want)
 	}
 	if len(report.Ports) != len(statuses) {
@@ -60,33 +61,33 @@ func TestPrintStatusNamesTheState(t *testing.T) {
 		{
 			name:   "running",
 			status: domain.Status{State: domain.StateRunning, URL: "http://127.0.0.1:3080", ListenerPID: 42, URLFromRecord: "http://127.0.0.1:3080/?token=x", RepoDir: "/repo", LogPath: "/log"},
-			want:   []string{"运行中", "http://127.0.0.1:3080", "42", "token=x", "/repo", "/log"},
+			want:   []string{"running", "http://127.0.0.1:3080", "42", "token=x", "/repo", "/log"},
 		},
 		{
 			name:   "starting",
 			status: domain.Status{State: domain.StateStarting, RecordedPID: 42, LogPath: "/log"},
-			want:   []string{"启动中", "42", "/log"},
+			want:   []string{"starting", "42", "/log"},
 		},
 		{
 			name:   "foreign",
 			status: domain.Status{State: domain.StateForeign, URL: "http://127.0.0.1:3080", ListenerCommand: "nginx", LogPath: "/log"},
-			want:   []string{"端口被占用", "nginx", "/log"},
+			want:   []string{"state: the port is held by a process dshctl did not start", "nginx", "/log"},
 		},
 		{
 			name:   "unmanaged",
 			status: domain.Status{State: domain.StateOrphan, URL: "http://127.0.0.1:3080", ListenerCommand: "python3", Port: 3080, ListenerPID: 9},
-			want:   []string{"无法确认归属", "python3", "手动处理"},
+			want:   []string{"state: the port is held by a process dshctl cannot claim", "python3", "hint: dshctl will not end it; confirm it is safe to stop and handle it yourself"},
 		},
 		{
 			name:   "stopped",
 			status: domain.Status{State: domain.StateStopped, LogPath: "/log"},
-			want:   []string{"未运行", "/log"},
+			want:   []string{"not running", "/log"},
 		},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			var buffer bytes.Buffer
-			if err := PrintStatus(&buffer, testCase.status); err != nil {
+			if err := printStatus(&buffer, testCase.status); err != nil {
 				t.Fatalf("PrintStatus: %v", err)
 			}
 			for _, want := range testCase.want {
@@ -113,8 +114,8 @@ func TestServeExitCode(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		status := domain.Status{State: testCase.state}
-		if got := ServeExitCode(status); got != testCase.want {
-			t.Fatalf("ServeExitCode(%q) = %d, want %d", testCase.state, got, testCase.want)
+		if got := serveExitCode(status); got != testCase.want {
+			t.Fatalf("serveExitCode(%q) = %d, want %d", testCase.state, got, testCase.want)
 		}
 		if status.Owning() != (testCase.want == exitcode.OK) {
 			t.Fatalf("Owning(%q) disagrees with ServeExitCode", testCase.state)
@@ -126,15 +127,15 @@ func TestServeExitCode(t *testing.T) {
 // distinct.
 func TestPrintChecksLabelsEveryStatus(t *testing.T) {
 	var buffer bytes.Buffer
-	err := PrintChecks(&buffer, []Check{
-		{Name: "端口", Status: CheckOK, Detail: "3080 空闲"},
-		{Name: "Node", Status: CheckWarn, Detail: "版本偏低"},
-		{Name: "依赖", Status: CheckFail, Detail: "node_modules 不存在"},
+	err := printChecks(&buffer, []service.Check{
+		{Name: "port", Status: service.CheckOK, Detail: "3080 is free"},
+		{Name: "Node", Status: service.CheckWarn, Detail: "version too low"},
+		{Name: "dependencies", Status: service.CheckFail, Detail: "/node_modules does not exist; run pnpm install in the checkout first"},
 	})
 	if err != nil {
 		t.Fatalf("PrintChecks: %v", err)
 	}
-	for _, want := range []string{"[OK  ] 端口", "[警告] Node", "[失败] 依赖"} {
+	for _, want := range []string{"[OK  ] port", "[warn] Node", "[fail] dependencies"} {
 		if !strings.Contains(buffer.String(), want) {
 			t.Fatalf("output missing %q:\n%s", want, buffer.String())
 		}
@@ -143,13 +144,13 @@ func TestPrintChecksLabelsEveryStatus(t *testing.T) {
 
 // TestChecksFailed pins that only failures block.
 func TestChecksFailed(t *testing.T) {
-	if ChecksFailed([]Check{{Name: "a", Status: CheckOK}, {Name: "b", Status: CheckWarn}}) {
+	if service.ChecksFailed([]service.Check{{Name: "a", Status: service.CheckOK}, {Name: "b", Status: service.CheckWarn}}) {
 		t.Fatal("warnings must not fail the diagnosis")
 	}
-	if !ChecksFailed([]Check{{Name: "a", Status: CheckOK}, {Name: "b", Status: CheckFail}}) {
+	if !service.ChecksFailed([]service.Check{{Name: "a", Status: service.CheckOK}, {Name: "b", Status: service.CheckFail}}) {
 		t.Fatal("a failure must fail the diagnosis")
 	}
-	if ChecksFailed(nil) {
+	if service.ChecksFailed(nil) {
 		t.Fatal("an empty diagnosis must not fail")
 	}
 }
@@ -164,21 +165,21 @@ func TestHumanBytes(t *testing.T) {
 		3 * 1024 * 1024 * 1024: "3.0 GB",
 	}
 	for size, want := range cases {
-		if got := humanBytes(size); got != want {
-			t.Fatalf("humanBytes(%d) = %q, want %q", size, got, want)
+		if got := service.HumanBytes(size); got != want {
+			t.Fatalf("HumanBytes(%d) = %q, want %q", size, got, want)
 		}
 	}
 }
 
-// TestDescribeFacts pins the diagnostic rendering of a process.
-func TestDescribeFacts(t *testing.T) {
-	if got := describeFacts(hostFacts("node server.js", "ps")); got != "node server.js" {
-		t.Fatalf("describeFacts = %q", got)
+// equalPorts compares two port lists.
+func equalPorts(got, want []int) bool {
+	if len(got) != len(want) {
+		return false
 	}
-	if got := describeFacts(hostFacts("", "signal")); !strings.Contains(got, "signal") {
-		t.Fatalf("describeFacts = %q, want the source named", got)
+	for index := range got {
+		if got[index] != want[index] {
+			return false
+		}
 	}
-	if got := describeFacts(hostFacts("", "")); got != "未知进程" {
-		t.Fatalf("describeFacts = %q", got)
-	}
+	return true
 }

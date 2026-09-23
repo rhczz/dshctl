@@ -76,7 +76,7 @@ func FuzzSaveLoadRoundTrip(f *testing.F) {
 	f.Add(1, 2, int64(1_700_000_000), 3080, "running", "http://127.0.0.1:3080/?token=abc", "24.20.0", "/opt/node/bin/node", "/srv/deepseek-harness")
 	f.Add(48737, 48736, int64(0), 65535, "", "", "", "", "")
 	f.Add(2, 0, int64(-1), 1, "stopping", "\n", "24.12.0", "/usr/bin/node", "/tmp/repo")
-	f.Add(3, 3, int64(9_999_999_999), -1, "running", "标题", "25.0.0", "C:\\node\\node.exe", "C:\\repo")
+	f.Add(3, 3, int64(9_999_999_999), -1, "running", "title", "25.0.0", "C:\node\node.exe", "C:\\repo")
 
 	f.Fuzz(func(t *testing.T, pid, spawnedPID int, startedAt int64, port int, phase, url, nodeVersion, nodePath, repoDir string) {
 		// JSON strings are Unicode: encoding/json replaces an invalid byte

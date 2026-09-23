@@ -42,7 +42,7 @@ func TestStartReportsAServerThatIsStillStarting(t *testing.T) {
 	if result.Status.State != domain.StateStarting {
 		t.Fatalf("state = %q, want %q", result.Status.State, domain.StateStarting)
 	}
-	want := fmt.Sprintf("DSH Web 正在启动中: %s (pid=%d)\n", f.Settings.URL(), 4321)
+	want := fmt.Sprintf("DSH Web is starting: %s (pid=%d)\n", f.Settings.URL(), 4321)
 	if f.out.String() != want {
 		t.Fatalf("output = %q, want %q", f.out.String(), want)
 	}
@@ -65,7 +65,7 @@ var startPreflightCases = []struct {
 			f.Settings.RepoDir = filepath.Join(f.root, "no-such-repo")
 			f.Repo.Dir = f.Settings.RepoDir
 		},
-		phrase: "仓库目录不存在",
+		phrase: "the checkout does not exist",
 	},
 	{
 		name: "not a checkout",
@@ -74,7 +74,7 @@ var startPreflightCases = []struct {
 				t.Fatalf("remove workspace manifest: %v", err)
 			}
 		},
-		phrase: "看起来不是 DeepSeek Harness 仓库",
+		phrase: "does not look like a DeepSeek Harness checkout (no",
 	},
 	{
 		name: "build not ready",
@@ -83,7 +83,7 @@ var startPreflightCases = []struct {
 				t.Fatalf("remove build record: %v", err)
 			}
 		},
-		phrase: "仓库尚未构建",
+		phrase: "the checkout has not been built (no",
 	},
 	{
 		name: "pnpm is not on PATH",
@@ -95,7 +95,7 @@ var startPreflightCases = []struct {
 				return "/fake/bin/" + name, nil
 			}
 		},
-		phrase: "找不到 pnpm",
+		phrase: "pnpm was not found; install it and make sure it is on PATH",
 	},
 	{
 		name: "pinned Node release is not installed",
@@ -106,7 +106,7 @@ var startPreflightCases = []struct {
 			f.seedNodeInstallation(t, "25.1.1")
 			f.Settings.NodeVersion = config.TestedNodeVersion
 		},
-		phrase: "找不到 Node " + config.TestedNodeVersion,
+		phrase: "Node " + config.TestedNodeVersion,
 	},
 }
 
@@ -144,12 +144,12 @@ func TestStartReportsASpawnFailure(t *testing.T) {
 	wantContains(t, err, "resource temporarily unavailable")
 	f.wantNoRecordOnDisk(t)
 	f.wantNoSignals(t)
-	if !strings.Contains(f.out.String(), "正在后台启动 DSH Web") {
+	if !strings.Contains(f.out.String(), "starting DSH Web in the background ... (log") {
 		t.Fatalf("stdout = %q, want the launch attempt reported", f.out.String())
 	}
 	// A spawn that never happened has nothing to clean up, so the failure is
 	// reported on its own terms.
-	if strings.Contains(f.errOut.String(), "正在清理本次启动的进程") {
+	if strings.Contains(f.errOut.String(), "the start failed or timed out; cleaning up the processes this run started") {
 		t.Fatalf("stderr = %q, want no cleanup message for a child that never ran", f.errOut.String())
 	}
 }
@@ -217,13 +217,13 @@ func TestStartPrintsTheAnnouncedAddress(t *testing.T) {
 	if _, err := f.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	if !strings.Contains(f.out.String(), "访问地址: "+announced+"\n") {
+	if !strings.Contains(f.out.String(), "address: "+announced+"\n") {
 		t.Fatalf("stdout = %q, want the access address line", f.out.String())
 	}
 }
 
 // TestStartSaysNothingAboutAnAddressItDoesNotKnow pins the other half: a server
-// that announced no address must not produce an empty "访问地址:" line, which
+// that announced no address must not produce an empty "address" line, which
 // reads like a broken start.
 func TestStartSaysNothingAboutAnAddressItDoesNotKnow(t *testing.T) {
 	f := newFixture(t)
@@ -232,7 +232,7 @@ func TestStartSaysNothingAboutAnAddressItDoesNotKnow(t *testing.T) {
 	if _, err := f.Start(context.Background()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	if strings.Contains(f.out.String(), "访问地址") {
+	if strings.Contains(f.out.String(), "address") {
 		t.Fatalf("stdout = %q, want no address line for an unknown address", f.out.String())
 	}
 }

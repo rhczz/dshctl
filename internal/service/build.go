@@ -21,22 +21,17 @@ func (s *Service) RunBuild(ctx context.Context) error {
 // buildLocked performs the build while the caller holds the lock.
 func (s *Service) buildLocked(ctx context.Context) error {
 	if !s.Repo.Exists() {
-		return exitcode.New(exitcode.Preflight,
-			"仓库目录不存在: %s\n提示: 用 --repo 或环境变量 %s 指定仓库路径",
-			s.Settings.RepoDir, paths.EnvRepoDir)
+		return exitcode.New(exitcode.Preflight, "the checkout does not exist: %s\nhint: name it with --repo or the %s environment variable", s.Settings.RepoDir, paths.EnvRepoDir)
 	}
 	if !s.Repo.IsServerCheckout() {
-		return exitcode.New(exitcode.Preflight,
-			"%s 看起来不是 DeepSeek Harness 仓库(缺少 %s 或 %s)\n提示: 用 --repo 指向正确的 checkout",
-			s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
+		return exitcode.New(exitcode.Preflight, "%s does not look like a DeepSeek Harness checkout (no %s or %s)\nhint: point --repo at the right checkout", s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
 	}
 	pnpm, err := s.pnpmPath()
 	if err != nil {
 		return err
 	}
 	if !s.Repo.NodeModulesPresent() {
-		return exitcode.New(exitcode.Preflight,
-			"%s/node_modules 不存在，请先在仓库内执行 pnpm install", s.Settings.RepoDir)
+		return exitcode.New(exitcode.Preflight, "%s/node_modules does not exist; run pnpm install in the checkout first", s.Settings.RepoDir)
 	}
 	installation, err := s.resolveNode(ctx)
 	if err != nil {
@@ -47,7 +42,7 @@ func (s *Service) buildLocked(ctx context.Context) error {
 	// server of ours is serving. update stops this port's server because it
 	// restarts it; build cannot do that on the operator's behalf, so it refuses
 	// as long as any of them is running — the same rule, one step stricter.
-	if err := s.refuseWhileServing(ctx, "构建"); err != nil {
+	if err := s.refuseWhileServing(ctx, "build"); err != nil {
 		return err
 	}
 	if err := s.prune(ctx); err != nil {
@@ -58,25 +53,26 @@ func (s *Service) buildLocked(ctx context.Context) error {
 	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	} else if rotated {
-		s.narrate(fmt.Sprintf("日志已轮转: %s", s.LogFile.BackupPath()))
+		s.narrate(fmt.Sprintf("the log was rotated: %s", s.LogFile.BackupPath()))
 	}
 	if err := s.LogFile.Section(sectionBuild); err != nil {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 	s.note("--- pnpm run build ---")
 
-	s.narrate(fmt.Sprintf("正在构建仓库 %s ... (输出实时显示，同时写入日志)", s.Settings.RepoDir))
+	s.narrate(fmt.Sprintf("building the checkout %s ... (output is shown live and written to the log)", s.Settings.RepoDir))
 	if err := s.stream(ctx, run.Command{
 		Name: pnpm,
 		Args: []string{"run", "build"},
 		Dir:  s.Settings.RepoDir,
 		Env:  run.WithPathPrefix(installation.BinDir),
 	}); err != nil {
-		s.note("build 失败")
-		return exitcode.Wrap(exitcode.Failure, fmt.Errorf("构建失败: %w\n详见日志: %s", err, s.Settings.LogPath))
+		s.note("pnpm run build failed")
+		return exitcode.Wrap(exitcode.Failure,
+			fmt.Errorf("the build failed: %w\nsee the log: %s", err, s.Settings.LogPath))
 	}
-	s.note("build 成功")
-	s.narrate("构建完成")
+	s.note("pnpm run build succeeded")
+	s.narrate("build succeeded")
 	// A build proves the checkout is usable, which is exactly what a document
 	// that decides nothing is missing: recording it is what makes the next plain
 	// command operate on the tree that was just built instead of on a default
@@ -95,7 +91,7 @@ func (s *Service) buildLocked(ctx context.Context) error {
 // restart (build) refuses instead.
 //
 // Parameters:
-//   - action: the command's name, for the message ("构建" / "更新").
+//   - action: the command's name, for the message.
 func (s *Service) refuseWhileServing(ctx context.Context, action string) error {
 	observed, err := s.observe(ctx)
 	if err != nil {
@@ -108,10 +104,7 @@ func (s *Service) refuseWhileServing(ctx context.Context, action string) error {
 	if len(serving) == 0 {
 		return nil
 	}
-	return exitcode.New(exitcode.Preflight,
-		"仓库 %s 正被 dshctl 管理的服务使用 (端口 %v, pid %v),%s 会替换它正在使用的产物\n"+
-			"提示: 先停止这些服务(用对应的 --port 执行 dshctl stop),%s 完成后再启动",
-		s.Settings.RepoDir, serving.ports(), serving.pids(), action, action)
+	return exitcode.New(exitcode.Preflight, "the checkout %s is in use by services dshctl manages (ports %v, pids %v); %s would replace artifacts they are using\nhint: stop them first (dshctl stop --port <port>), then %s and start again", s.Settings.RepoDir, serving.ports(), serving.pids(), action, action)
 }
 
 // servingPorts describes servers this state directory manages on other ports.
@@ -146,8 +139,8 @@ func (s *Service) otherPortsServing(ctx context.Context) (servingPorts, error) {
 			// exists to protect a running server's artifacts, and "cannot look"
 			// has to leave it as strict as it was. The build is refused instead
 			// of replacing artifacts under a server this build cannot see.
-			return nil, exitcode.Wrap(exitcode.Preflight, fmt.Errorf(
-				"无法读取 %s 的运行记录，无法确认它是否在使用 %s: %w", path, s.Settings.RepoDir, err))
+			return nil, exitcode.Wrap(exitcode.Preflight,
+				fmt.Errorf("the runtime record %s could not be read, so whether it is using %s cannot be confirmed: %w", path, s.Settings.RepoDir, err))
 		}
 		if !ok || record.Port == s.Settings.Port {
 			continue
@@ -157,8 +150,8 @@ func (s *Service) otherPortsServing(ctx context.Context) (servingPorts, error) {
 		}
 		serves, err := s.recordServesOrFails(ctx, record)
 		if err != nil {
-			return nil, exitcode.Wrap(exitcode.Preflight, fmt.Errorf(
-				"无法确认端口 %d 上的服务是否在使用 %s: %w", record.Port, s.Settings.RepoDir, err))
+			return nil, exitcode.Wrap(exitcode.Preflight,
+				fmt.Errorf("whether the service on port %d is using %s could not be confirmed: %w", record.Port, s.Settings.RepoDir, err))
 		}
 		if serves {
 			serving = append(serving, servingPort{port: record.Port, pid: record.PID})
@@ -177,9 +170,9 @@ func (s *Service) prune(ctx context.Context) error {
 		return exitcode.Wrap(exitcode.Failure, err)
 	}
 	if len(result.Removed) > 0 {
-		message := fmt.Sprintf("已清理 %d 个残留目录", len(result.Removed))
+		message := fmt.Sprintf("removed %d residue directories", len(result.Removed))
 		s.narrate(message)
-		s.note("prune 完成: " + message)
+		s.note("prune finished: " + message)
 	}
 	return nil
 }

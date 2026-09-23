@@ -39,7 +39,7 @@ const (
 	// The table API rejects AF_UNSPEC (0) with ERROR_INVALID_PARAMETER — asking
 	// for "both families at once" is not a thing this call does; the two tables
 	// have to be requested by name. Passing 0 made every port probe fail on
-	// Windows with "GetExtendedTcpTable 失败: 87", so `status`, `start` and
+	// Windows with a GetExtendedTcpTable failure, so `status`, `start` and
 	// `stop` all reported that the port state was unknown instead of answering.
 	addressFamilyINET = 2
 	// addressFamilyINET6 is Winsock's AF_INET6, the IPv6 table selector.
@@ -107,7 +107,7 @@ type mibTCP6Table struct {
 func (h *Host) Listening(_ context.Context, port int) (PortResult, error) {
 	rows, err := listenTable()
 	if err != nil {
-		return PortResult{}, fmt.Errorf("无法判断端口 %d 的占用情况: %w", port, err)
+		return PortResult{}, fmt.Errorf("the state of port %d cannot be decided: %w", port, err)
 	}
 	for _, row := range rows {
 		if portOf(row.localPort) == port {
@@ -150,7 +150,7 @@ func listenTableForFamily(family uint32) ([]tcpRow, error) {
 		0, // reserved
 	)
 	if status != errorInsufficientBuffer && status != 0 {
-		return nil, fmt.Errorf("GetExtendedTcpTable 失败: %d", status)
+		return nil, fmt.Errorf("GetExtendedTcpTable failed: %d", status)
 	}
 	if size == 0 {
 		return nil, nil
@@ -165,7 +165,7 @@ func listenTableForFamily(family uint32) ([]tcpRow, error) {
 		0,
 	)
 	if status != 0 {
-		return nil, fmt.Errorf("GetExtendedTcpTable 失败: %d", status)
+		return nil, fmt.Errorf("GetExtendedTcpTable failed: %d", status)
 	}
 	rows := make([]tcpRow, 0, 8)
 	if family == addressFamilyINET6 {
@@ -210,7 +210,7 @@ func (h *Host) Inspect(_ context.Context, pid int) Facts {
 	handle, err := openProcess(pid)
 	if err != nil {
 		facts.Alive = processAccessDenied(err)
-		facts.Source = "OpenProcess(拒绝访问)"
+		facts.Source = "OpenProcess(access denied)"
 		return facts
 	}
 	defer procCloseHandle.Call(handle)
@@ -278,15 +278,15 @@ func processAccessDenied(err error) bool {
 // dshctl only ever calls this on a process whose identity it verified.
 func (h *Host) Signal(pid int, _ Request) error {
 	if pid <= 0 {
-		return fmt.Errorf("拒绝向 pid %d 发送信号", pid)
+		return fmt.Errorf("refusing to signal pid %d", pid)
 	}
 	handle, err := openProcessAccess(pid, processTerminate)
 	if err != nil {
-		return fmt.Errorf("无法打开 pid %d: %w", pid, err)
+		return fmt.Errorf("pid %d was not found: %w", pid, err)
 	}
 	defer procCloseHandle.Call(handle)
 	if err := syscall.TerminateProcess(syscall.Handle(handle), 1); err != nil {
-		return fmt.Errorf("无法结束 pid %d: %w", pid, err)
+		return fmt.Errorf("pid %d could not be sent %v: %w", pid, "kill", err)
 	}
 	return nil
 }
@@ -307,7 +307,7 @@ func openProcessAccess(pid int, access uint32) (uintptr, error) {
 	)
 	if handle == 0 {
 		if callErr == nil {
-			callErr = errors.New("OpenProcess 返回空句柄")
+			callErr = errors.New("OpenProcess returned an empty handle")
 		}
 		return 0, callErr
 	}

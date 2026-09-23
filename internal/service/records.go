@@ -38,7 +38,7 @@ func recordStore(path string) state.Store[domain.Record] {
 // what keeps "no record" and "a record nobody can use" apart.
 func validateRecord(record domain.Record) error {
 	if record.PID <= 0 {
-		return fmt.Errorf("记录的 pid 无效: %d", record.PID)
+		return fmt.Errorf("the record's pid is invalid: %d", record.PID)
 	}
 	return nil
 }

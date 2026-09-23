@@ -254,7 +254,7 @@ func TestRunCaptureReportsAToolThatCannotBeExecuted(t *testing.T) {
 	if status != -1 {
 		t.Fatalf("runCapture status = %d, want -1: no exit status exists for a tool that never ran", status)
 	}
-	if !strings.Contains(err.Error(), "无法执行") {
+	if !strings.Contains(err.Error(), "could not be executed") {
 		t.Errorf("error = %q, want it to name the failure to execute", err)
 	}
 
@@ -401,7 +401,7 @@ func TestListeningReportsEveryFailingProbe(t *testing.T) {
 		t.Fatal("two probes that could not look must not be reported as a free port")
 	}
 	message := err.Error()
-	for _, want := range []string{"lsof 退出状态 2", "ss 退出状态 2", "3080"} {
+	for _, want := range []string{"lsof exited with status 2", "ss exited with status 2", "3080"} {
 		if !strings.Contains(message, want) {
 			t.Errorf("error = %q, want it to contain %q", message, want)
 		}
@@ -432,7 +432,7 @@ func TestListenViaNetstatReportsItsExitStatus(t *testing.T) {
 	if handled {
 		t.Fatal("a probe that could not read the table must not give a final answer")
 	}
-	if !strings.Contains(err.Error(), "netstat 退出状态 2") {
+	if !strings.Contains(err.Error(), "netstat exited with status 2") {
 		t.Errorf("error = %q, want it to report the exit status", err)
 	}
 }

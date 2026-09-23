@@ -67,10 +67,10 @@ func TestStopSucceedsWhenAStrangerTakesThePort(t *testing.T) {
 	if _, err := f.Stop(context.Background()); err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
-	if !strings.Contains(f.errOut.String(), "现由其他进程") {
+	if !strings.Contains(f.errOut.String(), "is now held by another process (pid=") {
 		t.Fatalf("stderr = %q, want a note about the stranger on the port", f.errOut.String())
 	}
-	if !strings.Contains(f.out.String(), "已停止") {
+	if !strings.Contains(f.out.String(), "stopped") {
 		t.Fatalf("stdout = %q, want the stop reported as done", f.out.String())
 	}
 	if _, ok := f.stateRecord(t); ok {
@@ -104,18 +104,12 @@ func TestStatusReportsALiveRecordAsNotStale(t *testing.T) {
 	if status.RecordStale || status.StaleRecord != nil {
 		t.Fatalf("a live record was reported as stale: %+v", status)
 	}
-	if !strings.Contains(StatusSummary(status), "仍然存活") {
+	if !strings.Contains(StatusSummary(status), "is still alive)") {
 		t.Fatalf("summary = %q, want it to say the recorded process is alive", StatusSummary(status))
 	}
 
-	// The human report says the same thing, and names the command that ends it.
-	var out strings.Builder
-	if err := PrintStatus(&out, status); err != nil {
-		t.Fatalf("PrintStatus: %v", err)
-	}
-	if !strings.Contains(out.String(), "dshctl stop") {
-		t.Fatalf("status output = %q, want it to name dshctl stop", out.String())
-	}
+	// The rendered line — including the command that ends the process — is the
+	// shell's business and is pinned in internal/cli's render tests.
 }
 
 // TestBuildRefusesWhileThisPortServes pins that build applies the same rule
@@ -126,7 +120,7 @@ func TestBuildRefusesWhileThisPortServes(t *testing.T) {
 
 	err := f.RunBuild(context.Background())
 	wantCode(t, err, exitcode.Preflight)
-	if !strings.Contains(err.Error(), "正被 dshctl 管理的服务使用") {
+	if !strings.Contains(err.Error(), "is in use by services dshctl manages (ports") {
 		t.Fatalf("error = %v, want the checkout-in-use report", err)
 	}
 	if strings.Contains(f.describeCommands(), "run build") {
@@ -216,17 +210,17 @@ func TestDoctorAgreesWithStatusOnASurvivor(t *testing.T) {
 	var port, record string
 	for _, check := range checks {
 		switch check.Name {
-		case "端口":
+		case "port":
 			port = check.Detail
-		case "运行记录":
+		case "runtime record":
 			record = check.Detail
 		}
 	}
-	if !strings.Contains(port, "上次启动") || !strings.Contains(port, "恢复管理") {
-		t.Fatalf("端口 check = %q, want the survivor and how to recover it", port)
+	if !strings.Contains(port, "is served by a survivor of an interrupted start (pid=") || !strings.Contains(port, "manages it again") {
+		t.Fatalf("port check = %q, want the survivor and how to recover it", port)
 	}
 	if !strings.Contains(record, "pid=8000") {
-		t.Fatalf("运行记录 check = %q, want the record the survivor left behind", record)
+		t.Fatalf("runtime record check = %q, want the record the survivor left behind", record)
 	}
 }
 
@@ -247,7 +241,7 @@ func TestWebURLExplainsASurvivor(t *testing.T) {
 	if got != address {
 		t.Fatalf("WebURL = %q, want %q", got, address)
 	}
-	if !strings.Contains(f.errOut.String(), "恢复管理") {
+	if !strings.Contains(f.errOut.String(), "manages it again") {
 		t.Fatalf("stderr = %q, want the recovery hint", f.errOut.String())
 	}
 }
@@ -269,7 +263,7 @@ func TestUpdateRefusesWhenItCannotVerifyTheRunningServer(t *testing.T) {
 
 	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Preflight)
-	if !strings.Contains(err.Error(), "无法验证") {
+	if !strings.Contains(err.Error(), ") cannot be verified as this run's own (the platform cannot read its start time), so it cannot be ended safely") {
 		t.Fatalf("error = %v, want the unverifiable-identity report", err)
 	}
 	if strings.Contains(f.describeCommands(), "git fetch") {

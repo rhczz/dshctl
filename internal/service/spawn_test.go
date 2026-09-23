@@ -83,7 +83,7 @@ func TestStartFailsFastWhenTheRealChildExitsImmediately(t *testing.T) {
 	if _, ok := f.stateRecord(t); ok {
 		t.Fatal("a failed start left its runtime record behind")
 	}
-	if !contains(err.Error(), "已退出") {
+	if !contains(err.Error(), ") exited and port") {
 		t.Fatalf("error = %v, want it to say the process exited", err)
 	}
 }

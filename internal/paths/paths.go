@@ -50,17 +50,15 @@ const (
 	// EnvLogLevel overrides how much detail is recorded in the log file.
 	EnvLogLevel = "DSHCTL_LOG_LEVEL"
 
-	// EnvLang overrides the language operator-facing text is rendered in. It
-	// outranks the shell's locale variables, so an operator can ask for English
-	// on a Chinese machine and the other way around.
-	EnvLang = "DSHCTL_LANG"
 	// EnvLogFile overrides the log file location.
 	EnvLogFile = "DSH_LOG_FILE"
 )
 
 // ErrNotAbsolute reports a path that would be resolved against the current
 // directory of whichever process happens to run dshctl next.
-var ErrNotAbsolute = errors.New("路径必须是绝对路径或 ~ 开头的路径")
+// ErrNotAbsolute reports a relative path, which would move dshctl's state and
+// its operation lock wherever the current directory happens to point.
+var ErrNotAbsolute = errors.New("a path must be absolute or start with ~")
 
 // Getenv is the environment lookup every resolver takes, injected for tests.
 type Getenv func(string) string
@@ -69,13 +67,13 @@ type Getenv func(string) string
 func Home() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("无法确定用户主目录: %w", err)
+		return "", fmt.Errorf("the home directory could not be determined: %w", err)
 	}
 	if strings.TrimSpace(home) == "" {
-		return "", errors.New("无法确定用户主目录: 运行环境未提供")
+		return "", errors.New("the home directory cannot be determined")
 	}
 	if !filepath.IsAbs(home) {
-		return "", fmt.Errorf("主目录不是绝对路径: %q", home)
+		return "", fmt.Errorf("the home directory is not an absolute path: %q", home)
 	}
 	return filepath.Clean(home), nil
 }
@@ -137,7 +135,7 @@ func expandHome(value string) (string, error) {
 	if value == "~" {
 		home, err := Home()
 		if err != nil {
-			return "", fmt.Errorf("无法展开 %q: %w", value, err)
+			return "", fmt.Errorf("%q could not be expanded: %w", value, err)
 		}
 		return home, nil
 	}
@@ -146,7 +144,7 @@ func expandHome(value string) (string, error) {
 	}
 	home, err := Home()
 	if err != nil {
-		return "", fmt.Errorf("无法展开 %q: %w", value, err)
+		return "", fmt.Errorf("%q could not be expanded: %w", value, err)
 	}
 	rest := strings.TrimLeft(value[1:], `/\`)
 	if rest == "" {
@@ -178,7 +176,7 @@ func IsRegularFile(path string) bool {
 // EnsureDir creates dir and every missing parent with owner-only permissions.
 func EnsureDir(dir string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("无法创建目录 %s: %w", dir, err)
+		return fmt.Errorf("the directory %s could not be created: %w", dir, err)
 	}
 	return nil
 }

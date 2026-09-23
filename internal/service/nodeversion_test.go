@@ -70,7 +70,7 @@ func testWriteBackW1RecordsTheDiscoveredRelease(t *testing.T) {
 		t.Fatalf("resolved = %+v, want the release discovered on PATH", resolved)
 	}
 	f.wantNodeBinDir(t, resolved.BinDir)
-	if !strings.Contains(f.out.String(), "已将 Node "+config.TestedNodeVersion+" 写入配置") {
+	if !strings.Contains(f.out.String(), "Node "+config.TestedNodeVersion+" was written into the settings document") {
 		t.Fatalf("stdout = %q, want the recorded release reported", f.out.String())
 	}
 	// The record explains which runtime this instance is running, which is the
@@ -174,7 +174,7 @@ func testWriteBackW6KeepsAConfiguredReleaseWhenAFlagOverridesIt(t *testing.T) {
 	f.wantRecordedNodeVersion(t, config.TestedNodeVersion)
 	f.wantNodeBinDir(t, f.seedNodeBinDir(t, "24.19.0"))
 	stdout := f.out.String()
-	for _, want := range []string{"本次使用 Node 24.19.0", config.TestedNodeVersion, f.Settings.ConfigPath} {
+	for _, want := range []string{"using Node 24.19.0", config.TestedNodeVersion, f.Settings.ConfigPath} {
 		if !strings.Contains(stdout, want) {
 			t.Fatalf("stdout = %q, want it to contain %q", stdout, want)
 		}
@@ -227,7 +227,7 @@ func testWriteBackW8RecordsAnUnverifiedMajorVersion(t *testing.T) {
 	f.startSucceeds(t)
 
 	f.wantRecordedNodeVersion(t, "26.1.0")
-	if !strings.Contains(f.errOut.String(), "不在 dshctl 的验证范围内") {
+	if !strings.Contains(f.errOut.String(), "is outside what dshctl has verified (verified") {
 		t.Fatalf("stderr = %q, want the unverified release reported", f.errOut.String())
 	}
 }
@@ -321,10 +321,10 @@ func testWriteBackW11ReportsADocumentItCannotWrite(t *testing.T) {
 	if result.SpawnedPID == 0 {
 		t.Fatal("the server must be running even though the document could not be written")
 	}
-	if !strings.Contains(f.errOut.String(), "无法") {
+	if !strings.Contains(f.errOut.String(), "could not be written") {
 		t.Fatalf("stderr = %q, want the failure to write the document reported", f.errOut.String())
 	}
-	if strings.Contains(f.out.String(), "已将 Node") {
+	if strings.Contains(f.out.String(), "Node") {
 		t.Fatalf("stdout = %q, want no success claim about the document", f.out.String())
 	}
 }
@@ -354,7 +354,7 @@ func testGateE1RefusesTooOldAReleaseForStart(t *testing.T) {
 
 	_, err := f.Start(context.Background())
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "低于最低要求 "+config.MinNodeVersion)
+	wantContains(t, err, "is below the minimum "+config.MinNodeVersion)
 	wantContains(t, err, "nvm install 24")
 	f.wantNoSpawn(t)
 	f.wantNoRecordedNodeVersion(t)
@@ -368,7 +368,7 @@ func testGateE2RefusesTooOldAReleaseForUpdate(t *testing.T) {
 
 	err := f.RunUpdate(context.Background(), "latest")
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "低于最低要求")
+	wantContains(t, err, "is below the minimum")
 	f.wantNoCheckoutUpdate(t)
 }
 
@@ -379,7 +379,7 @@ func testGateE3RefusesTooOldAReleaseForBuild(t *testing.T) {
 
 	err := f.RunBuild(context.Background())
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "低于最低要求")
+	wantContains(t, err, "is below the minimum")
 }
 
 // testGateE4ReportsTooOldAReleaseInDoctor pins that the diagnostic reports the
@@ -392,7 +392,7 @@ func testGateE4ReportsTooOldAReleaseInDoctor(t *testing.T) {
 	if row.Status != CheckFail {
 		t.Fatalf("Node row = %+v, want a failure", row)
 	}
-	if !strings.Contains(row.Detail, "低于最低要求") || !strings.Contains(row.Detail, "nvm install 24") {
+	if !strings.Contains(row.Detail, "is below the minimum") || !strings.Contains(row.Detail, "nvm install 24") {
 		t.Fatalf("Node row detail = %q, want the reason and the remedy", row.Detail)
 	}
 }
@@ -419,7 +419,7 @@ func testGateE5ReportsAnUnverifiedMajorVersionEverywhere(t *testing.T) {
 			if err := entry.run(f); err != nil {
 				t.Fatalf("%s: %v", entry.name, err)
 			}
-			if !strings.Contains(f.errOut.String(), "不在 dshctl 的验证范围内") {
+			if !strings.Contains(f.errOut.String(), "is outside what dshctl has verified (verified") {
 				t.Fatalf("stderr = %q, want the unverified release reported", f.errOut.String())
 			}
 		})
@@ -475,23 +475,23 @@ func TestServiceNodeTablesAreComplete(t *testing.T) {
 func assertTableRows(t *testing.T, prefix string, frozen []string, cases map[string]func(*testing.T)) {
 	t.Helper()
 	if len(frozen) != len(cases) {
-		t.Fatalf("%s 行数 = %d(冻结)%d(用例), want the same", prefix, len(frozen), len(cases))
+		t.Fatalf("%s rows = %d (frozen) %d (cases), want the same", prefix, len(frozen), len(cases))
 	}
 	seen := map[string]bool{}
 	for _, id := range frozen {
 		if seen[id] {
-			t.Fatalf("冻结列表里 %s 重复", id)
+			t.Fatalf("frozen list repeats %s", id)
 		}
 		seen[id] = true
 		if fn, ok := cases[id]; !ok {
-			t.Errorf("决策表第 %s 行没有对应用例", id)
+			t.Errorf("decision table row %s has no case", id)
 		} else if fn == nil {
-			t.Errorf("决策表第 %s 行的用例是空的", id)
+			t.Errorf("decision table row %s has an empty case", id)
 		}
 	}
 	for id := range cases {
 		if !seen[id] {
-			t.Errorf("用例 %s 没有登记在冻结的决策表里", id)
+			t.Errorf("case %s is not registered in the frozen decision table", id)
 		}
 	}
 }
@@ -560,7 +560,7 @@ func TestTheRecordNamesTheRuntimeTheInstanceUses(t *testing.T) {
 
 	// The diagnostic repeats it, so an operator reading the running record sees
 	// the runtime without opening the JSON.
-	row := checkNamed(t, f.Doctor(context.Background()), "运行记录")
+	row := checkNamed(t, f.Doctor(context.Background()), "runtime record")
 	if !strings.Contains(row.Detail, "node=24.19.0") {
 		t.Fatalf("runtime record row = %q, want the release of the running server", row.Detail)
 	}
@@ -638,7 +638,7 @@ func TestResolvingWithoutAPlatformHomeIsRefused(t *testing.T) {
 
 	_, err := f.resolveNode(context.Background())
 	wantCode(t, err, exitcode.Preflight)
-	wantContains(t, err, "主目录")
+	wantContains(t, err, "the home directory could not be determined")
 }
 
 // TestDoctorReportsARuntimeResolvedThroughAForwarder pins what the row says when
@@ -653,7 +653,7 @@ func TestDoctorReportsARuntimeResolvedThroughAForwarder(t *testing.T) {
 	if row.Status != CheckOK {
 		t.Fatalf("Node row = %+v, want it healthy", row)
 	}
-	for _, want := range []string{real, config.TestedNodeVersion, "经转发条目解析"} {
+	for _, want := range []string{real, config.TestedNodeVersion, "resolved through a shim"} {
 		if !strings.Contains(row.Detail, want) {
 			t.Fatalf("Node row detail = %q, want it to contain %q", row.Detail, want)
 		}
