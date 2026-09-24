@@ -26,13 +26,10 @@ import (
 	"github.com/rhczz/dshctl/internal/state"
 )
 
-// MaxRecords is the bound a caller that states none gets.
-func MaxRecords() int { return maxRecordsDefault }
-
 // maxRecordsDefault is the bound a caller that states none gets: the oldest
 // positions fall off so the file stays small enough to read during an incident,
 // and an operator who needs something older can name it with `dshctl update
-// <sha>`. A product with a different appetite passes Store.s.maxRecords().
+// <sha>`. A product with a different appetite sets Store.MaxRecords.
 const maxRecordsDefault = 50
 
 // maxFileBytes bounds the history file. A document larger than this is not one,
@@ -73,6 +70,20 @@ type File struct {
 type Store struct {
 	// Path is the file location.
 	Path string
+	// MaxRecords bounds one checkout's stack: the oldest positions fall off so
+	// the file stays small enough to read during an incident, and an operator
+	// who needs something older can still name it explicitly with
+	// `dshctl update <sha>`. Zero means the built-in default; the product that
+	// owns the history states a different appetite here.
+	MaxRecords int
+}
+
+// maxRecords is the bound this store applies.
+func (s Store) maxRecords() int {
+	if s.MaxRecords > 0 {
+		return s.MaxRecords
+	}
+	return maxRecordsDefault
 }
 
 // Load reads the history.
@@ -254,11 +265,11 @@ func Visit(records []Record, position Record, limit int) []Record {
 //
 // Returns false when n is not a positive step or the stack is shorter than n+1
 // entries.
-func Step(records []Record, current Record, n int) (Record, bool) {
+func Step(records []Record, current Record, n, limit int) (Record, bool) {
 	if n < 1 {
 		return Record{}, false
 	}
-	virtual := Visit(records, current, MaxRecords())
+	virtual := Visit(records, current, limit)
 	if n >= len(virtual) {
 		return Record{}, false
 	}

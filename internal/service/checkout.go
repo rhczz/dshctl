@@ -9,6 +9,12 @@ import "github.com/rhczz/dshctl/internal/repo"
 // are this product's values. They live here so another product can use the same
 // mechanism with its own layout.
 
+// historyMaxRecords is how much deployment history this product keeps: the
+// oldest positions fall off so the file stays small enough to read during an
+// incident, and an operator who needs something older can still name it
+// explicitly with `dshctl update <sha>`.
+const historyMaxRecords = 50
+
 // checkoutLayout is how dshctl's checkout is shaped.
 //
 // The deployment contract is origin/master — not "whatever the checked-out

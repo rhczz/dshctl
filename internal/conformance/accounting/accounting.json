@@ -1071,6 +1071,24 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/cli/timeline_honesty_test.go::TestTimelineGapNeverSaysUpToDateWithoutAConfirmedFetch",
+    "file": "internal/cli/timeline_honesty_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "钉住 README 的诚实规则：fetch 未确认时，差距行在无差距/落后/领先/分叉四种形态下都不得出现 up to date，且必须带 not confirmed 限定语",
+    "note": ""
+  },
+  {
+    "test": "internal/cli/timeline_honesty_test.go::TestPrintTimelineMarksAnUnconfirmedRemoteNamesTheFetchReason",
+    "file": "internal/cli/timeline_honesty_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "钉住远程行：fetch 失败时说明原因（unavailable (<git 的诊断>)），差距行标注 not confirmed",
+    "note": ""
+  },
+  {
     "test": "internal/cli/twoport_test.go::TestTwoPortsShareOneStateDirectoryWithoutOrphaningEachOther",
     "file": "internal/cli/twoport_test.go",
     "package": "internal/cli",
@@ -2023,6 +2041,15 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/history/history_test.go::TestStoreCarriesItsOwnBound",
+    "file": "internal/history/history_test.go",
+    "package": "internal/history",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "钉住 Store.MaxRecords 参数化：小上限截断、零值回退内置默认",
+    "note": ""
   },
   {
     "test": "internal/history/history_unix_test.go::TestSaveUsesOwnerOnlyPermissions",

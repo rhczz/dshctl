@@ -331,7 +331,7 @@ func (s *Service) rollbackTarget(ctx context.Context, steps int) (domain.Target,
 	if err != nil {
 		return domain.Target{}, exitcode.Wrap(exitcode.Preflight, err)
 	}
-	store := history.Store{Path: filepath.Join(s.Settings.StateDir, historyFileName)}
+	store := history.Store{Path: filepath.Join(s.Settings.StateDir, historyFileName), MaxRecords: historyMaxRecords}
 	file, ok, err := store.Load()
 	if err != nil {
 		return domain.Target{}, exitcode.New(exitcode.Preflight, "the deployment history cannot be read: %v\nhint: delete %s and switch to a named version with dshctl update <version>", err, store.Path)
@@ -341,9 +341,9 @@ func (s *Service) rollbackTarget(ctx context.Context, steps int) (domain.Target,
 	}
 	records := file.Records(s.Settings.RepoDir)
 	now := history.Record{Commit: current, At: time.Now().Unix()}
-	position, ok := history.Step(records, now, steps)
+	position, ok := history.Step(records, now, steps, historyMaxRecords)
 	if !ok {
-		return domain.Target{}, exitcode.New(exitcode.Preflight, "nothing to roll back to: the history has at most %d steps left", len(history.Visit(records, now, history.MaxRecords()))-1)
+		return domain.Target{}, exitcode.New(exitcode.Preflight, "nothing to roll back to: the history has at most %d steps left", len(history.Visit(records, now, historyMaxRecords))-1)
 	}
 	name := "recorded position"
 	if tags, err := s.Repo.Tags(ctx); err == nil {
@@ -397,7 +397,7 @@ func (s *Service) warnWhenOutsideOrigin(ctx context.Context, target domain.Targe
 // and where it went. A corrupt history is rebuilt from the move itself rather
 // than blocking a deployment, and the caller is told.
 func (s *Service) recordDeploy(ctx context.Context, before string, target domain.Target) error {
-	store := history.Store{Path: filepath.Join(s.Settings.StateDir, historyFileName)}
+	store := history.Store{Path: filepath.Join(s.Settings.StateDir, historyFileName), MaxRecords: historyMaxRecords}
 	file, _, err := store.Load()
 	if err != nil {
 		s.warning(fmt.Sprintf("the deployment history cannot be read (%v); rebuilding from the current version", err))
@@ -408,11 +408,11 @@ func (s *Service) recordDeploy(ctx context.Context, before string, target domain
 	if before != "" && (len(records) == 0 || records[0].Commit != before) {
 		// The starting point is recorded only when the stack does not already
 		// name it: it is what a bare rollback returns to.
-		records = history.Visit(records, history.Record{Commit: before, At: now}, history.MaxRecords())
+		records = history.Visit(records, history.Record{Commit: before, At: now}, historyMaxRecords)
 	}
 	records = history.Visit(records, history.Record{
 		Commit: target.Commit, Selector: target.Selector, At: now,
-	}, history.MaxRecords())
+	}, historyMaxRecords)
 	if err := store.Save(file.With(s.Settings.RepoDir, records)); err != nil {
 		return fmt.Errorf("the deployment history could not be written: %w", err)
 	}

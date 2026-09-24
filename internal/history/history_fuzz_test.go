@@ -73,10 +73,10 @@ func FuzzVisitKeepsTheStackASubsequence(f *testing.F) {
 			records = append(records, Record{Commit: string(commit), At: at})
 		}
 		position := Record{Commit: top, Selector: "latest", At: at}
-		got := Visit(records, position, MaxRecords())
+		got := Visit(records, position, maxRecordsDefault)
 
-		if len(got) > MaxRecords() {
-			t.Fatalf("stack length = %d, want at most %d", len(got), MaxRecords())
+		if len(got) > maxRecordsDefault {
+			t.Fatalf("stack length = %d, want at most %d", len(got), maxRecordsDefault)
 		}
 		if len(got) == 0 || got[0] != position {
 			t.Fatalf("stack top = %+v, want the new position", got)
@@ -117,7 +117,7 @@ func FuzzStepNeverReturnsTheCurrentPosition(f *testing.F) {
 			records = append(records, Record{Commit: string(commit), At: 1})
 		}
 		now := Record{Commit: current, At: 2}
-		got, ok := Step(records, now, steps)
+		got, ok := Step(records, now, steps, maxRecordsDefault)
 		if steps < 1 {
 			if ok {
 				t.Fatalf("Step accepted %d steps", steps)
@@ -138,7 +138,7 @@ func FuzzStepNeverReturnsTheCurrentPosition(f *testing.F) {
 			t.Fatalf("Step returned %q, which was never in the history", got.Commit)
 		}
 		if steps > 1 {
-			shorter, ok := Step(records, now, steps-1)
+			shorter, ok := Step(records, now, steps-1, maxRecordsDefault)
 			if !ok {
 				t.Fatalf("Step(%d) was accepted but Step(%d) was not", steps, steps-1)
 			}
