@@ -62,13 +62,9 @@ type Command struct {
 // globals holds the flags accepted before the command name.
 type globals struct {
 	configPath  string
-	configSet   bool
 	repoDir     string
-	repoSet     bool
 	nodeVersion string
-	nodeSet     bool
 	logLevel    string
-	logLevelSet bool
 	port        *int
 	verbose     bool
 	help        bool
@@ -182,21 +178,46 @@ func runHelp(stdout, stderr io.Writer, commands []Command, rest []string) int {
 
 // parseGlobals extracts the flags accepted before a command name.
 //
+// Accept and store share one switch on purpose: each case both accepts the
+// flag and carries its value out, so an accepted flag cannot silently lose its
+// value — the failure mode where two hand-kept lists drift apart and an
+// operator's flag is heard by nobody.
+//
 // Returns:
 //   - the parsed global values.
 //   - the remaining arguments, starting at the command name.
 //   - an error naming an unknown or malformed global flag.
 func parseGlobals(args []string) (globals, []string, error) {
 	var parsed globals
-	for index := 0; index < len(args); index++ {
-		arg := args[index]
+	at := 0
+	// take returns the value the current argument carries, whether it came
+	// inline (`--config=/x`) or as the following argument. An empty value is
+	// refused here: an empty flag would otherwise look set while deciding
+	// nothing, and the layered sources below it go unreported.
+	take := func(name string) (string, error) {
+		arg := args[at]
+		_, value, hasValue := strings.Cut(arg, "=")
+		if !hasValue {
+			if at+1 >= len(args) {
+				return "", fmt.Errorf("flag %s needs a value", name)
+			}
+			at++
+			value = args[at]
+		}
+		if strings.TrimSpace(value) == "" {
+			return "", fmt.Errorf("flag %s cannot be empty", name)
+		}
+		return value, nil
+	}
+	for ; at < len(args); at++ {
+		arg := args[at]
 		if arg == "--" {
-			return parsed, args[index+1:], nil
+			return parsed, args[at+1:], nil
 		}
 		if !strings.HasPrefix(arg, "-") {
-			return parsed, args[index:], nil
+			return parsed, args[at:], nil
 		}
-		name, value, hasValue := strings.Cut(arg, "=")
+		name, _, _ := strings.Cut(arg, "=")
 		switch name {
 		case "-h", "--help":
 			parsed.help = true
@@ -204,37 +225,40 @@ func parseGlobals(args []string) (globals, []string, error) {
 			parsed.version = true
 		case "-v", "--verbose":
 			parsed.verbose = true
-		case "--config", "--repo", "--node", "--port", "--log-level":
-			if !hasValue {
-				if index+1 >= len(args) {
-					return parsed, nil, fmt.Errorf("flag %s needs a value", name)
-				}
-				index++
-				value = args[index]
+		case "--config":
+			value, err := take(name)
+			if err != nil {
+				return parsed, nil, err
 			}
-			if strings.TrimSpace(value) == "" {
-				return parsed, nil, fmt.Errorf("flag %s cannot be empty", name)
+			parsed.configPath = value
+		case "--repo":
+			value, err := take(name)
+			if err != nil {
+				return parsed, nil, err
 			}
-			switch name {
-			case "--config":
-				parsed.configPath = value
-				parsed.configSet = true
-			case "--repo":
-				parsed.repoDir = value
-				parsed.repoSet = true
-			case "--node":
-				parsed.nodeVersion = value
-				parsed.nodeSet = true
-			case "--port":
-				port, err := strconv.Atoi(value)
-				if err != nil {
-					return parsed, nil, fmt.Errorf("flag --port is not a number: %q", value)
-				}
-				parsed.port = &port
-			case "--log-level":
-				parsed.logLevel = value
-				parsed.logLevelSet = true
+			parsed.repoDir = value
+		case "--node":
+			value, err := take(name)
+			if err != nil {
+				return parsed, nil, err
 			}
+			parsed.nodeVersion = value
+		case "--port":
+			value, err := take(name)
+			if err != nil {
+				return parsed, nil, err
+			}
+			port, err := strconv.Atoi(value)
+			if err != nil {
+				return parsed, nil, fmt.Errorf("flag --port is not a number: %q", value)
+			}
+			parsed.port = &port
+		case "--log-level":
+			value, err := take(name)
+			if err != nil {
+				return parsed, nil, err
+			}
+			parsed.logLevel = value
 		default:
 			return parsed, nil, fmt.Errorf("unknown global flag: %s", arg)
 		}
@@ -244,21 +268,25 @@ func parseGlobals(args []string) (globals, []string, error) {
 
 // loadSettings resolves the effective settings with the global flags layered on
 // top of the environment and the config file.
+//
+// A non-empty parsed value is the whole story of "the flag was set": the parser
+// refuses empty values at the boundary, so an empty field means "not passed",
+// not "passed empty".
 func loadSettings(parsed globals, getenv func(string) string) (config.Settings, error) {
 	overrides := config.Overrides{Port: parsed.port}
-	if parsed.configSet {
+	if parsed.configPath != "" {
 		configPath := parsed.configPath
 		overrides.ConfigPath = &configPath
 	}
-	if parsed.repoSet {
+	if parsed.repoDir != "" {
 		repoDir := parsed.repoDir
 		overrides.RepoDir = &repoDir
 	}
-	if parsed.nodeSet {
+	if parsed.nodeVersion != "" {
 		nodeVersion := parsed.nodeVersion
 		overrides.NodeVersion = &nodeVersion
 	}
-	if parsed.logLevelSet {
+	if parsed.logLevel != "" {
 		logLevel := parsed.logLevel
 		overrides.LogLevel = &logLevel
 	}

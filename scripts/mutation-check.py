@@ -520,8 +520,15 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "the log level flag is ignored, so only the file and environment decide",
         "internal/cli/cli.go",
-        "\tif parsed.logLevelSet {",
+        "\tif parsed.logLevel != \"\" {",
         "\tif false {",
+        ["./internal/cli/"],
+    ),
+    (
+        "a global flag's value is silently dropped",
+        "internal/cli/cli.go",
+        "\t\t\tparsed.configPath = value",
+        "\t\t\t_ = value",
         ["./internal/cli/"],
     ),
     (

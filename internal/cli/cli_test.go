@@ -433,6 +433,10 @@ func TestAllCommandsAreComplete(t *testing.T) {
 }
 
 // TestParseGlobals pins the global flag parser directly.
+//
+// Every value-taking global flag appears here: a flag that is accepted but
+// whose value is never stored is exactly the silent swallow this parser must
+// not allow, and each row makes one such swallow red.
 func TestParseGlobals(t *testing.T) {
 	parsed, rest, err := parseGlobals([]string{"--port", "4000", "--repo=/tmp/repo", "--node", "24.20.0", "-v", "status", "--json"})
 	if err != nil {
@@ -441,17 +445,34 @@ func TestParseGlobals(t *testing.T) {
 	if parsed.port == nil || *parsed.port != 4000 {
 		t.Fatalf("port = %v", parsed.port)
 	}
-	if parsed.repoDir != "/tmp/repo" || !parsed.repoSet {
-		t.Fatalf("repo = %q set=%v", parsed.repoDir, parsed.repoSet)
+	if parsed.repoDir != "/tmp/repo" {
+		t.Fatalf("repo = %q", parsed.repoDir)
 	}
-	if parsed.nodeVersion != "24.20.0" || !parsed.nodeSet {
-		t.Fatalf("node = %q set=%v", parsed.nodeVersion, parsed.nodeSet)
+	if parsed.nodeVersion != "24.20.0" {
+		t.Fatalf("node = %q", parsed.nodeVersion)
 	}
 	if !parsed.verbose {
 		t.Fatal("verbose was not parsed")
 	}
 	if strings.Join(rest, " ") != "status --json" {
 		t.Fatalf("rest = %v", rest)
+	}
+}
+
+// TestParseGlobalsConsumesEveryValueFlag pins the accept-implies-store rule for
+// the two flags the table above does not cover: a global flag the parser
+// accepts must carry its value out, or the flag is a lie the operator types and
+// nothing hears.
+func TestParseGlobalsConsumesEveryValueFlag(t *testing.T) {
+	parsed, _, err := parseGlobals([]string{"--config", "/tmp/dsh.json", "--log-level", "debug", "status"})
+	if err != nil {
+		t.Fatalf("parseGlobals: %v", err)
+	}
+	if parsed.configPath != "/tmp/dsh.json" {
+		t.Fatalf("configPath = %q, want the flag's value", parsed.configPath)
+	}
+	if parsed.logLevel != "debug" {
+		t.Fatalf("logLevel = %q, want the flag's value", parsed.logLevel)
 	}
 }
 
