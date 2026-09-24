@@ -192,7 +192,7 @@ func testWriteBackW7UsesTheEnvironmentAndKeepsTheConfiguredRelease(t *testing.T)
 	f.installNodeTree(t, "26.1.0")
 	f.Settings.NodeVersion = "26.1.0"
 	f.Settings.Sources.NodeVersion = "env"
-	f.Getenv = func(key string) string {
+	f.getenv = func(key string) string {
 		if key == paths.EnvNodeVersion {
 			return "26.1.0"
 		}

@@ -7,7 +7,6 @@ import (
 	"os"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/rhczz/dshctl/internal/config"
@@ -720,14 +719,6 @@ func addressPort(address string) int {
 		return 0
 	}
 	return port
-}
-
-// fallback returns value when set, otherwise alternative.
-func fallback(value, alternative string) string {
-	if strings.TrimSpace(value) == "" {
-		return alternative
-	}
-	return value
 }
 
 // startTailLines is how much of the log a failed start prints for diagnosis.

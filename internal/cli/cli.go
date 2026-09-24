@@ -426,6 +426,5 @@ func newApp(env *Env) *service.Service {
 	// The command line owns the process-wide lookups, so they are injected here
 	// rather than read from the environment inside the app.
 	application.LookPath = env.LookPath
-	application.Getenv = env.Getenv
 	return application
 }

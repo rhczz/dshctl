@@ -653,6 +653,11 @@ func (u unknownFingerprint) KillGroup(pid int) error { return u.inner.KillGroup(
 // fixture is one service under test plus the machine it runs against.
 type fixture struct {
 	*Service
+	// getenv is the fixture's own environment lookup: the settings resolution
+	// in this package's tests reads the environment, and a sequence can make
+	// one variable visible for one call. It is fixture state, not a service
+	// dependency — production resolves settings before the app exists.
+	getenv func(string) string
 	host   *fakeHost
 	root   string
 	repo   string
@@ -750,7 +755,6 @@ func newFixture(t *testing.T) *fixture {
 			Version: "test", Platform: "test/arch",
 			GoVersion: "go1.test", Module: "github.com/rhczz/dshctl",
 		},
-		Getenv: envLookup,
 		LookPath: func(name string) (string, error) {
 			return "/fake/bin/" + name, nil
 		},
@@ -781,7 +785,7 @@ func newFixture(t *testing.T) *fixture {
 		// TestFingerprintTimeoutIsGenerous.
 		fingerprint: 20 * time.Millisecond,
 	}
-	return &fixture{Service: svc, host: h, root: root, repo: repoDir, state: stateDir, out: out, errOut: errOut}
+	return &fixture{Service: svc, getenv: envLookup, host: h, root: root, repo: repoDir, state: stateDir, out: out, errOut: errOut}
 }
 
 // attemptSpawn records a launch request in the command log and then answers it.
@@ -1481,7 +1485,7 @@ func (f *fixture) servedNodePath(t *testing.T) string {
 // sequence of calls shares one document, one record and one port.
 func (f *fixture) run(t *testing.T, overrides config.Overrides) config.Settings {
 	t.Helper()
-	loaded, err := config.Load(f.Getenv, overrides)
+	loaded, err := config.Load(f.getenv, overrides)
 	if err != nil {
 		t.Fatalf("resolve the settings: %v", err)
 	}

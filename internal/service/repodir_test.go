@@ -633,8 +633,8 @@ func (f *fixture) writeDocument(t *testing.T, document map[string]any) {
 // performs, which is how a sequence can carry DSH_REPO_DIR for one call.
 func (f *fixture) withEnv(t *testing.T, key, value string) {
 	t.Helper()
-	previous := f.Getenv
-	f.Getenv = func(name string) string {
+	previous := f.getenv
+	f.getenv = func(name string) string {
 		if name == key {
 			return value
 		}
