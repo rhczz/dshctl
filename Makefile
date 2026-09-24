@@ -43,8 +43,8 @@ hermetic:
 
 ## coverage: the hermetic run plus the coverage gate, as the pipeline runs them
 coverage:
-	@./scripts/hermetic-check.sh -coverprofile=/tmp/dshctl-coverage.out
-	@python3 scripts/check-coverage.py /tmp/dshctl-coverage.out \
+	@./scripts/hermetic-check.sh -v -coverprofile=/tmp/coverage.out
+	@python3 scripts/check-coverage.py /tmp/coverage.out \
 		--require internal/nodejs=100 \
 		--report internal/config \
 		--report internal/service

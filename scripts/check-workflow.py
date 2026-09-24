@@ -367,19 +367,26 @@ def check_makefile_parity(text: str) -> None:
     The Makefile is documented as the single entry point for the gates, but the
     workflow runs the commands inline — so the two can drift, and a gate that
     stays in `make ci` while disappearing from the pipeline is exactly the
-    failure this whole file exists to prevent. Each gate command the Makefile
-    defines must appear in ci.yml; `$(TEST_TIMEOUT)` is expanded with the
-    Makefile's own default so the comparison is literal.
+    failure this whole file exists to prevent. Every gate command the Makefile
+    defines must appear in ci.yml, so the enforcement covers the whole gate set,
+    not only the test commands: formatting, vet, the two test regimes, the
+    hermetic run, coverage, the three convention scanners and the workflow
+    check itself. Recipe lines are normalized the way make runs them (`@`
+    stripped, `$$` unescaped, `$(TEST_TIMEOUT)` expanded to the Makefile's own
+    default, line continuations joined away), so the comparison is literal.
     """
     makefile = Path("Makefile").read_text(encoding="utf-8")
     default_timeout = re.search(r"^TEST_TIMEOUT\s*\?=\s*(\S+)", makefile, re.MULTILINE)
     timeout = default_timeout.group(1) if default_timeout else "600s"
-    for target in ("vet", "test", "test-race"):
+    for target in ("fmt-check", "vet", "test", "test-race", "hermetic",
+                   "coverage", "conventions", "workflow-check"):
         recipe = re.search(rf"^{re.escape(target)}:\n((?:\t.*\n)+)", makefile, re.MULTILINE)
         if not recipe:
             fail(f"the Makefile no longer defines a `{target}` gate")
         for raw in recipe.group(1).splitlines():
-            command = raw.strip().replace("$(TEST_TIMEOUT)", timeout)
+            command = raw.strip().lstrip("@")
+            command = command.replace("$(TEST_TIMEOUT)", timeout).replace("$$", "$")
+            command = re.sub(r"\\\s*$", "", command).strip()
             if command and command not in text:
                 fail(
                     f"ci.yml does not run `{command}`, which the Makefile defines as the "
