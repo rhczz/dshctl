@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/rhczz/dshctl/internal/domain"
-	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/host"
 	"github.com/rhczz/dshctl/internal/service"
 )
@@ -96,30 +95,6 @@ func TestPrintStatusNamesTheState(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-// TestServeExitCode pins the mapping scripts branch on: starting counts as
-// success because the service exists and is managed.
-func TestServeExitCode(t *testing.T) {
-	cases := []struct {
-		state domain.State
-		want  int
-	}{
-		{domain.StateRunning, exitcode.OK},
-		{domain.StateStarting, exitcode.OK},
-		{domain.StateStopped, exitcode.NotRunning},
-		{domain.StateForeign, exitcode.NotRunning},
-		{domain.StateOrphan, exitcode.NotRunning},
-	}
-	for _, testCase := range cases {
-		status := domain.Status{State: testCase.state}
-		if got := serveExitCode(status); got != testCase.want {
-			t.Fatalf("serveExitCode(%q) = %d, want %d", testCase.state, got, testCase.want)
-		}
-		if status.Owning() != (testCase.want == exitcode.OK) {
-			t.Fatalf("Owning(%q) disagrees with ServeExitCode", testCase.state)
-		}
 	}
 }
 

@@ -214,8 +214,10 @@ func runStatus(ctx context.Context, env *Env, args []string) error {
 	}
 	// The exit code answers the question the command was asked: the port the
 	// configuration names, or the one that was named on the command line. Other
-	// instances are reported beside it, never instead of it.
-	if serveExitCode(report.Status) != exitcode.OK {
+	// instances are reported beside it, never instead of it. Running and
+	// starting both report success — the service exists and is being managed;
+	// everything else is "not running" (exit code 3, which scripts branch on).
+	if !report.Status.Owning() {
 		return exitcode.SilentExit(exitcode.NotRunning)
 	}
 	return nil

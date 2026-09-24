@@ -38,7 +38,7 @@ import (
 //   - an error only when the configured port itself cannot be observed, or when
 //     discovery cannot search the state directory.
 func (s *Service) Statuses(ctx context.Context) ([]domain.Status, error) {
-	selection, err := s.selection()
+	selection, err := s.Settings.StateSelection()
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ type StopAllResult struct {
 //   - the error of the instance that could not be ended.
 func (s *Service) StopAll(ctx context.Context) (StopAllResult, error) {
 	return withLockValue(ctx, s, func() (StopAllResult, error) {
-		selection, err := s.selection()
+		selection, err := s.Settings.StateSelection()
 		if err != nil {
 			return StopAllResult{}, err
 		}
@@ -142,7 +142,7 @@ func (s *Service) stopOneLocked(ctx context.Context, port int) (StopResult, erro
 //   - the error that stopped the sequence.
 func (s *Service) RestartAll(ctx context.Context) ([]StartResult, error) {
 	return withLockValue(ctx, s, func() ([]StartResult, error) {
-		selection, err := s.selection()
+		selection, err := s.Settings.StateSelection()
 		if err != nil {
 			return nil, err
 		}

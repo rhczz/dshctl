@@ -240,7 +240,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	if err := s.Record.Save(record); err != nil {
 		s.warning(fmt.Sprintf("the runtime record could not be updated: %v", err))
 	}
-	s.recordRuntime(installation)
+	s.writeBack(s.Settings.RepoDir, installation.Version)
 	final, observeErr := s.observe(ctx)
 	if observeErr != nil {
 		return StartResult{}, observeErr
@@ -291,11 +291,13 @@ func (s *Service) listenerStillOurs(ctx context.Context, wrapper, listenerPID in
 	return result.PID == listenerPID
 }
 
-// recordRuntime writes the facts this start established into the settings
-// document: the checkout the server was started from and the Node release it
-// started with. Each key is written only when the document decides nothing, so a
-// document that names a checkout or a release belongs to the operator and is
-// never rewritten from underneath them.
+// writeBack records what a command established into the settings document: the
+// checkout the server was started from and the Node release it started with.
+// Each key is written only when the document decides nothing, so a document that
+// names a checkout or a release belongs to the operator and is never rewritten
+// from underneath them. An empty value means "nothing to record for this key":
+// the Node release is only ever written by a start, so a build records the
+// checkout alone.
 //
 // The rule is what lets the first successful start decide the rest. Without it
 // the checkout would be honoured for one invocation only: every later command
@@ -307,14 +309,6 @@ func (s *Service) listenerStillOurs(ctx context.Context, wrapper, listenerPID in
 // The server is already serving by the time this runs, so a document that cannot
 // be written is a warning: stopping a working server because its configuration
 // could not be updated would be worse than the missing line.
-func (s *Service) recordRuntime(installation nodejs.Installation) {
-	s.writeBack(s.Settings.RepoDir, installation.Version)
-}
-
-// writeBack records what a command established and reports each key it wrote.
-//
-// An empty value means "nothing to record for this key": the Node release is
-// only ever written by a start, so a build records the checkout alone.
 func (s *Service) writeBack(repoDir, nodeVersion string) {
 	if repoDir == "" && nodeVersion == "" {
 		return

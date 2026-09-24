@@ -209,11 +209,6 @@ func (s *Service) atPort(port int) *Service {
 	return &bound
 }
 
-// selection resolves the instances a command acts on.
-func (s *Service) selection() (config.StateSelection, error) {
-	return s.Settings.StateSelection()
-}
-
 // buildRecordRel mirrors config's build marker for the repo package.
 const buildRecordRel = ".dsh-build/client-build-environment.json"
 
