@@ -538,6 +538,13 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         "\tif false {",
         ["./internal/cli/"],
     ),
+    (
+        "eviction may drop every group, including the one being written",
+        "internal/history/history.go",
+        "for len(payload) > maxFileBytes && len(file.Repos) > 1 {",
+        "for len(payload) > maxFileBytes {",
+        ["./internal/history/", "./internal/service/"],
+    ),
 ]
 
 

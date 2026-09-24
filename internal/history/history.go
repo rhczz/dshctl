@@ -178,21 +178,75 @@ func validate(file File) error {
 // Save writes the history atomically with owner-only permissions.
 //
 // A document the reader would reject is refused rather than written: a caller
-// must not be able to produce a file its own Load reports as corrupt, whether
-// because it is too large or because a position is malformed.
+// must not be able to produce a file its own Load reports as corrupt. A
+// document that has outgrown maxFileBytes is not refused outright: the bound
+// exists so the file stays small enough to read during an incident, and
+// checkouts an operator deleted or moved years ago would otherwise keep their
+// group forever and turn every later deployment into a permanent save failure.
+// The groups whose most recent position is the oldest fall off — the same rule
+// one checkout's oldest positions follow — until the document fits. One group
+// that alone exceeds the bound is still refused: that is not accumulation,
+// that is a record that cannot be read at any size.
 func (s Store) Save(file File) error {
 	if err := validate(file); err != nil {
 		return fmt.Errorf("refusing to write an invalid deployment history: %w", err)
 	}
-	data, err := json.MarshalIndent(file, "", "  ")
+	payload, err := marshal(file)
 	if err != nil {
 		return fmt.Errorf("the deployment history could not be encoded: %w", err)
 	}
-	payload := append(data, '\n')
+	for len(payload) > maxFileBytes && len(file.Repos) > 1 {
+		file = dropStalestGroup(file)
+		payload, err = marshal(file)
+		if err != nil {
+			return fmt.Errorf("the deployment history could not be encoded: %w", err)
+		}
+	}
 	if len(payload) > maxFileBytes {
 		return fmt.Errorf("the deployment history is too large (%d bytes); refusing to write %s", len(payload), s.Path)
 	}
 	return atomically.WriteFile(s.Path, payload, 0o600)
+}
+
+// marshal encodes a history document the way Save writes it.
+func marshal(file File) ([]byte, error) {
+	data, err := json.MarshalIndent(file, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(data, '\n'), nil
+}
+
+// dropStalestGroup returns the document without the group whose most recent
+// position is the oldest — the checkout a rollback is least likely to walk. A
+// tie falls to the lexicographically last path, so the choice is deterministic.
+func dropStalestGroup(file File) File {
+	stalest := 0
+	for index := 1; index < len(file.Repos); index++ {
+		candidate, kept := file.Repos[index], file.Repos[stalest]
+		switch {
+		case latestAt(candidate) < latestAt(kept):
+			stalest = index
+		case latestAt(candidate) == latestAt(kept) && candidate.Repo > kept.Repo:
+			stalest = index
+		}
+	}
+	next := File{Repos: make([]Group, 0, len(file.Repos)-1)}
+	next.Repos = append(next.Repos, file.Repos[:stalest]...)
+	next.Repos = append(next.Repos, file.Repos[stalest+1:]...)
+	return next
+}
+
+// latestAt reports the newest time in a group, independent of record order: a
+// hand-edited stack may not be sorted, and eviction must not depend on it.
+func latestAt(group Group) int64 {
+	latest := int64(0)
+	for _, record := range group.Records {
+		if record.At > latest {
+			latest = record.At
+		}
+	}
+	return latest
 }
 
 // Records returns one checkout's positions, newest first, or nil when this

@@ -1845,6 +1845,15 @@
     "note": ""
   },
   {
+    "test": "internal/history/eviction_test.go::TestSaveEvictsTheStalestCheckoutsToStayUnderItsBound",
+    "file": "internal/history/eviction_test.go",
+    "package": "internal/history",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "钉住 history 文档自身的长期积累上限：组数无界触 64KiB 后 Save 永久失败的饱和死角（先红后绿）；最久未部署的组被淘汰、刚部署的组完整保留",
+    "note": ""
+  },
+  {
     "test": "internal/history/history_bench_test.go::BenchmarkVisitAtTheBound",
     "file": "internal/history/history_bench_test.go",
     "package": "internal/history",
