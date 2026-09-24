@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,16 +24,6 @@ func lookPath(name string) (string, error) { return run.LookPath(name) }
 // exclude everything else, so a test never picks up a tool by accident, while
 // the probes can still answer.
 const systemToolPath = "/usr/bin:/bin:/usr/sbin:/sbin"
-
-// contains reports whether a string holds a substring.
-func contains(haystack, needle string) bool {
-	for index := 0; index+len(needle) <= len(haystack); index++ {
-		if haystack[index:index+len(needle)] == needle {
-			return true
-		}
-	}
-	return false
-}
 
 // TestStartFailsFastWhenTheRealChildExitsImmediately is the regression test for
 // a wait loop that never noticed the child was gone.
@@ -83,7 +74,7 @@ func TestStartFailsFastWhenTheRealChildExitsImmediately(t *testing.T) {
 	if _, ok := f.stateRecord(t); ok {
 		t.Fatal("a failed start left its runtime record behind")
 	}
-	if !contains(err.Error(), ") exited and port") {
+	if !strings.Contains(err.Error(), ") exited and port") {
 		t.Fatalf("error = %v, want it to say the process exited", err)
 	}
 }
