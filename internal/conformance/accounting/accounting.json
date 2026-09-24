@@ -6754,8 +6754,8 @@
     "file": "internal/service/stop_probe_test.go",
     "package": "internal/service",
     "behavior": "",
-    "disposition": "todo",
-    "evidence": "",
+    "disposition": "kept",
+    "evidence": "stop 的第一条探测失败分支的会红反向用例（dshctl-testing 第 15 条点名的必须项）：探测不了的端口不被读成『没有要停的东西』，信号一个不发",
     "note": ""
   },
   {
@@ -6763,8 +6763,8 @@
     "file": "internal/service/stop_probe_test.go",
     "package": "internal/service",
     "behavior": "",
-    "disposition": "todo",
-    "evidence": "",
+    "disposition": "kept",
+    "evidence": "停止等待期间的探测失败保持为拒绝而非『已静止』：记录不被退役，操作者下一次还能看到同一台服务器",
     "note": ""
   },
   {
@@ -7303,8 +7303,8 @@
     "file": "internal/state/save_bound_test.go",
     "package": "internal/state",
     "behavior": "",
-    "disposition": "todo",
-    "evidence": "",
+    "disposition": "kept",
+    "evidence": "写读两侧的大小界对称（history 同款规则的第二份拷贝不再丢）：Save 拒写读者会拒读的文档（先红后绿），超限文档不落盘",
     "note": ""
   },
   {
