@@ -205,8 +205,9 @@ func (s *Service) atPort(port int) *Service {
 	return &bound
 }
 
-// buildRecordRel mirrors config's build marker for the repo package.
-const buildRecordRel = ".dsh-build/client-build-environment.json"
+// buildRecordRel is the relative path of the build marker, injected into the
+// repo layer. The literal lives once, in config.BuildRecordRel.
+const buildRecordRel = config.BuildRecordRel
 
 // note appends a line to the log, ignoring a log failure that would otherwise
 // mask the operation's own result.

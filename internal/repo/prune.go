@@ -30,8 +30,6 @@ type Candidate struct {
 type PruneReport struct {
 	// Removed are the directories that were deleted.
 	Removed []string
-	// Failed are the directories that could not be deleted.
-	Failed []string
 }
 
 // PruneCandidates lists package directories that git no longer tracks and that
@@ -251,7 +249,6 @@ func (r Repo) Prune(ctx context.Context, report func(string)) (PruneReport, erro
 			report(fmt.Sprintf("removing residue: %s (only %s)", candidate.Path, strings.Join(candidate.Entries, ", ")))
 		}
 		if err := os.RemoveAll(candidate.Path); err != nil {
-			result.Failed = append(result.Failed, candidate.Path)
 			if report != nil {
 				report(fmt.Sprintf("warning: %s could not be removed; the build continues, run pnpm run clean by hand later", candidate.Path))
 			}

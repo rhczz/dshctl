@@ -76,6 +76,10 @@ const (
 	ServerManifestRel = "package.json"
 	// WorkspaceManifestRel names the pnpm workspace marker.
 	WorkspaceManifestRel = "pnpm-workspace.yaml"
+	// BuildRecordRel names the marker pnpm run build writes last, relative to
+	// the checkout. It is the one home of that path: the repo layer builds the
+	// absolute location from it, and the conformance contract pins it.
+	BuildRecordRel = ".dsh-build/client-build-environment.json"
 )
 
 // Bounds that keep a configured number from silently misbehaving.
@@ -598,19 +602,6 @@ func (s Settings) LockFile() string { return filepath.Join(s.StateDir, LockFileN
 
 // URL is the address the Web server answers on, without a token.
 func (s Settings) URL() string { return "http://127.0.0.1:" + strconv.Itoa(s.Port) }
-
-// RepoManifest is the root marker that identifies the managed checkout.
-func (s Settings) RepoManifest() string { return filepath.Join(s.RepoDir, ServerManifestRel) }
-
-// RepoWorkspaceManifest is the pnpm workspace marker of the managed checkout.
-func (s Settings) RepoWorkspaceManifest() string {
-	return filepath.Join(s.RepoDir, WorkspaceManifestRel)
-}
-
-// BuildRecordPath is the marker pnpm run build writes last.
-func (s Settings) BuildRecordPath() string {
-	return filepath.Join(s.RepoDir, ".dsh-build", "client-build-environment.json")
-}
 
 // nodeVersionDisplay renders the release for verbose output. An undetermined
 // release is said to be undetermined rather than shown as an empty value, so the
