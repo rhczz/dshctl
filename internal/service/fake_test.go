@@ -737,7 +737,7 @@ func newFixture(t *testing.T) *fixture {
 			BuildRecordRel:       buildRecordRel,
 		}),
 		Node: &nodejs.Resolver{
-			Output: run.NewCollector(h),
+			Output: run.Collector(h),
 			LookPath: func(name string) (string, error) {
 				if name == "node" {
 					return signature, nil
