@@ -66,7 +66,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 1. 定位真源（包文档、pinning 测试、README、`.agents/notes`），定夺固定/可配与所属层，再写失败测试。
 3. 按改动选门禁：本地只跑快检与定点复现，全量交给 CI。
-4. 提交信息 `<type>: <小写英文句子描述行为变化>`，type 用 feat/fix/test/docs/ci；PR 面向 main 且 CI 三平台必绿，一个 PR 只做一件事、大功能按子系统拆成堆叠 PR；发布只打 `v*` tag，版本由 ldflags 注入。
+4. 提交信息 `<type>: <小写英文句子描述行为变化>`，type 用 feat/fix/test/docs/ci；任意分支的 push 都触发完整 CI，main 受分支保护：除 `goldens` 外全绿才许合并 PR；一个 PR 只做一件事、大功能按子系统拆成堆叠 PR；发布只打 `v*` tag，版本由 ldflags 注入。
 
 ## 完成定义
 

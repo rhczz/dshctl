@@ -12,9 +12,10 @@ this repository can actually get wrong and would not notice:
   - a syntax error, a job that no longer exists, or a dependency on a job that
     was renamed away;
   - a build step that lost its gate on the tests;
-  - a push to main that no longer triggers anything, or a test matrix that
-    stopped covering one of the three platforms this tool supports — including
-    a matrix that no longer compiles the module at all;
+  - a push to main that no longer triggers anything, a branch push that no
+    longer triggers the full pipeline, or a test matrix that stopped covering
+    one of the three platforms this tool supports — including a matrix that no
+    longer compiles the module at all;
   - a release that no longer runs on tags, publishes without the tests having
     run first, drops a platform, or stops attaching the artifacts;
   - an unquoted word where an expression needs a string literal, which makes
@@ -398,6 +399,11 @@ def check_ci(text: str) -> None:
     branches = [entry.strip().strip("'\"") for entry in match.group(1).split(",")]
     if "main" not in branches:
         fail(f"{CI}: pushes to main no longer trigger the pipeline (push branches: {branches})")
+    if "**" not in branches:
+        fail(
+            f"{CI}: pushes to branches other than main no longer trigger the pipeline "
+            f"(push branches: {branches}); every branch push runs the same full pipeline"
+        )
 
     jobs = parse_jobs(text)
     if not jobs:

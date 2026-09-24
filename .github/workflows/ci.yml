@@ -30,23 +30,28 @@ name: CI
 #   * vulncheck: the toolchain's own advisories, with the tool pinned so an
 #     unchanged commit cannot turn red because a scanner was released.
 #
-# Trigger policy: every commit that lands on main is verified, and every pull
-# request aimed at main is verified before it can be merged. A branch nobody has
-# proposed against main runs nothing, which keeps the pipeline focused on the
-# history that is meant to stay green.
+# Trigger policy: every push to any branch runs this whole pipeline — a branch
+# gets exactly the gates its merge to main would be judged by, so "works on my
+# branch" is always a claim CI has already checked. Every pull request aimed at
+# main is verified before it can be merged, and the repository's branch
+# protection on main requires these checks green before a merge is allowed
+# (that rule lives in the repository settings, not in this file). The branch of
+# a pull request therefore may run the pipeline twice — its push and its
+# pull_request event — which the concurrency group below keeps bounded.
 on:
   push:
-    branches: [main]
+    branches: [main, "**"]
   pull_request:
     branches: [main]
   workflow_dispatch:
 
-# Superseded runs of one pull request are cancelled — only its newest commit is
-# worth verifying. Runs on main are never cancelled, so every commit that lands
-# keeps a complete record of what was checked.
+# Superseded runs of one branch are cancelled — only the newest commit is worth
+# verifying, and a branch pushed several times in a row would otherwise queue a
+# full pipeline per intermediate commit. Runs on main are never cancelled, so
+# every commit that lands keeps a complete record of what was checked.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read

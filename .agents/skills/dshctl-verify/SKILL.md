@@ -40,7 +40,7 @@ description: 决定 dshctl 一次改动该跑哪些门禁（本地只跑快检�
 
 ### 5. 提交、PR 与发布
 
-- 提交信息 `<type>: <小写英文句子描述行为变化>`，type 用 feat/fix/test/docs/ci；PR 面向 main，三平台 + hermetic + mutation + 6 个构建目标 + govulncheck 必须全绿。
+- 提交信息 `<type>: <小写英文句子描述行为变化>`，type 用 feat/fix/test/docs/ci；任意分支的 push 都触发同一套完整 CI（没有"分支快速版"），分支开发也以 Actions 的结论为准；main 受分支保护：除 `goldens`（只在手动触发时录制金标）外的全部检查绿了才允许合并 PR。
 - 发布只通过打 `v*` tag：release 先在三个平台验证再发布 6 个产物；版本、提交、构建时间由 ldflags 注入 `internal/version`，代码里不写版本号。
 
 ### 6. 报告纪律
