@@ -1,10 +1,6 @@
 package service
 
-import (
-	"context"
-
-	"github.com/rhczz/dshctl/internal/domain"
-)
+import "context"
 
 // This file is the one place a mutating verb decides what an observed state
 // means for it.
@@ -57,7 +53,9 @@ func (s *Service) admitSurvivor(ctx context.Context, observed observed) (adoptio
 // on: another program, or a process whose ownership it cannot establish. A
 // survivor is not an occupant — it is ours, and the verb adopts it first, so by
 // the time this is asked the only orphans left are ones nobody can claim.
+//
+// The rule itself lives once, in domain.State.Occupant: the answer must not
+// depend on which verb asked.
 func (o observed) occupant() bool {
-	return o.status.State == domain.StateForeign ||
-		(o.status.State == domain.StateOrphan && !o.status.Survivor)
+	return o.status.State.Occupant(o.status.Survivor)
 }
