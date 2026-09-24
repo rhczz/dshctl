@@ -20,10 +20,13 @@ import (
 	"time"
 )
 
-// update rewrites the golden files from the candidate binary. The conformance
-// job runs it against a build of the reference tag and fails on any diff, which
-// is what keeps a golden from being edited into agreement with a behavior
-// change.
+// update rewrites the golden files from the candidate binary.
+//
+// The goldens are committed, and every suite run compares against them byte
+// for byte on its own platform, which is what keeps a golden from being edited
+// into agreement with a behavior change. Rewriting one is a deliberate act:
+// the -update flag here, or the CI goldens job (manual trigger), which records
+// fresh files and uploads them for a human to commit.
 var update = flag.Bool("update", false, "rewrite the golden files from this run")
 
 var (

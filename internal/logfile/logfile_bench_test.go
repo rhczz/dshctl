@@ -1,7 +1,6 @@
 package logfile
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,29 +17,28 @@ func benchmarkLog(b *testing.B, size int) string {
 	line := strings.Repeat("x", 128) + "\n"
 	count := size / len(line)
 	body := strings.Repeat(line, count)
-	if err := writeBytes(path, []byte(body)); err != nil {
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
 		b.Fatalf("seed log: %v", err)
 	}
 	return path
 }
 
-func writeBytes(path string, data []byte) error {
-	return os.WriteFile(path, data, 0o600)
-}
-
-// BenchmarkTailFullFileReadsTheLastLines pins what `dshctl logs -n 200` pays on
-// a log that has grown to the rotation threshold: the tail is bounded by
-// maxTailBytes, so this stays constant instead of growing with the file.
-func BenchmarkTailFullFileRead(b *testing.B) {
-	path := benchmarkLog(b, maxTailBytes)
-	sink := &bytes.Buffer{}
+// BenchmarkTailReadsABoundedWindow pins what `dshctl logs` pays on a log that
+// has grown far past the tail window: the read walks at most maxTailBytes back
+// from the end, so the cost stays constant while the file itself grows for
+// months. The requested line count exceeds what even the window holds, which is
+// what forces the walk all the way to the byte bound.
+func BenchmarkTailReadsABoundedWindow(b *testing.B) {
+	path := benchmarkLog(b, 10*maxTailBytes)
 	b.ResetTimer()
 	for b.Loop() {
-		_, _, err := readTailLines(path, 200, maxTailBytes)
+		data, _, err := readTailLines(path, 100_000, maxTailBytes)
 		if err != nil {
 			b.Fatalf("readTailLines: %v", err)
 		}
-		sink.Reset()
+		if len(data) > maxTailBytes+512 {
+			b.Fatalf("the tail read %d bytes, want the window bound", len(data))
+		}
 	}
 }
 
@@ -55,21 +53,6 @@ func BenchmarkSectionWrites(b *testing.B) {
 	for index := 0; b.Loop(); index++ {
 		if err := logger.Line(fmt.Sprintf("line %d: %s", index, strings.Repeat("x", 96))); err != nil {
 			b.Fatalf("Line: %v", err)
-		}
-	}
-}
-
-// BenchmarkWriteFileAndReplace pins the cost of one atomic state write — the
-// settings document and the runtime record are rewritten on every mutating
-// command, so this is the per-operation floor.
-func BenchmarkWriteFileAndReplace(b *testing.B) {
-	dir := b.TempDir()
-	path := filepath.Join(dir, "dsh-web-3080.state.json")
-	payload := fmt.Appendf(nil, `{"pid":%d,"port":3080,"startedAt":1234567890,"url":"http://127.0.0.1:3080/?token=x"}`, 1234)
-	b.ResetTimer()
-	for b.Loop() {
-		if err := os.WriteFile(path, payload, 0o600); err != nil {
-			b.Fatalf("write: %v", err)
 		}
 	}
 }

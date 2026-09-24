@@ -663,5 +663,53 @@
     ],
     "new_path": "internal/cli/commands.go",
     "status": "ported"
+  },
+  {
+    "name": "eviction may drop every group, including the one being written",
+    "old_path": "internal/history/history.go",
+    "packages": [
+      "./internal/history/",
+      "./internal/service/"
+    ],
+    "new_path": "internal/history/history.go",
+    "status": "ported"
+  },
+  {
+    "name": "the store writes a document its reader would call too large",
+    "old_path": "internal/state/state.go",
+    "packages": [
+      "./internal/state/",
+      "./internal/service/"
+    ],
+    "new_path": "internal/state/state.go",
+    "status": "ported"
+  },
+  {
+    "name": "a stop reads a port it cannot probe as free",
+    "old_path": "internal/service/observe.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": "internal/service/observe.go",
+    "status": "ported"
+  },
+  {
+    "name": "a stop claims a port is free when the wait cannot watch it",
+    "old_path": "internal/service/observe.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": "internal/service/observe.go",
+    "status": "ported"
+  },
+  {
+    "name": "the lock timeout code drifts from the documented five",
+    "old_path": "internal/exitcode/exitcode.go",
+    "packages": [
+      "./internal/exitcode/",
+      "./internal/cli/"
+    ],
+    "new_path": "internal/exitcode/exitcode.go",
+    "status": "ported"
   }
 ]

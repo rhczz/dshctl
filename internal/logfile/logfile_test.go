@@ -219,6 +219,21 @@ func TestParseSectionIsStrict(t *testing.T) {
 	}
 }
 
+// TestSectionReadsAByteExactForgeryAsABoundary pins the marker contract's known
+// limit: the format carries no writer identity, so a line that is byte for byte
+// a valid marker is a section boundary whoever wrote it — the child process's
+// output goes through the same file. The strict parse exists for lines that
+// only look like a marker; telling the writers of an append-only log apart is
+// not something a line can answer, and this pins the limit so a future
+// hardening argues with the record instead of discovering it.
+func TestSectionReadsAByteExactForgeryAsABoundary(t *testing.T) {
+	marker := strings.TrimSpace(testFormat.Marker("build", time.Date(2026, 2, 3, 4, 5, 6, 0, time.UTC)))
+	title, ok := testFormat.Section(marker)
+	if !ok || title != "build" {
+		t.Fatalf("Section(%q) = (%q, %v), want the exact marker read as a boundary", marker, title, ok)
+	}
+}
+
 // TestParseSectionToleratesCarriageReturns pins Windows-written logs.
 func TestParseSectionToleratesCarriageReturns(t *testing.T) {
 	title, ok := testFormat.Section("===== 2026-02-03 04:05:06 dshctl build =====\r")

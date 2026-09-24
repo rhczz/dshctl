@@ -96,7 +96,7 @@ func TestEveryCommandAnswersItsOwnHelp(t *testing.T) {
 	}
 }
 
-// TestEveryCommandHelpShowsItsUsage pins that `dshctl <命令> -h` answers "how
+// TestEveryCommandHelpShowsItsUsage pins that `dshctl <command> -h` answers "how
 // do I call this" first, with the same invocation the top-level help lists.
 func TestEveryCommandHelpShowsItsUsage(t *testing.T) {
 	for _, command := range Commands() {

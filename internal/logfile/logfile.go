@@ -51,7 +51,10 @@ func (f Format) Marker(title string, at time.Time) string {
 //
 // The timestamp is validated by round-tripping it through the layout, so an
 // ordinary log line that happens to have the right number of fields can never be
-// mistaken for a section boundary.
+// mistaken for a section boundary. The format carries no writer identity, so the
+// known limit is the opposite side: a byte-exact marker printed by the child
+// process is a boundary too, and telling the writers of an append-only file
+// apart is not a question a line can answer.
 func (f Format) Section(line string) (string, bool) {
 	layoutFields := strings.Fields(f.Layout)
 	fields := strings.Fields(strings.TrimRight(line, "\r"))

@@ -36,6 +36,15 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/atomically/atomically_bench_test.go::BenchmarkWriteFileAndReplace",
+    "file": "internal/atomically/atomically_bench_test.go",
+    "package": "internal/atomically",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "一次原子状态写（temp+chmod+sync+rename+目录 sync）的真实成本 ~10ms/op：旧基准用 os.WriteFile 量到的是假路径（64µs），任何『快路径』省掉持久性都会在这里现形",
+    "note": ""
+  },
+  {
     "test": "internal/atomically/atomically_test.go::TestWriteFileCreatesTheDocument",
     "file": "internal/atomically/atomically_test.go",
     "package": "internal/atomically",
@@ -738,6 +747,24 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/cli/documentation_test.go::TestTheHelpExitCodesMatchTheConstants",
+    "file": "internal/cli/documentation_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "帮助文案的退出码表与类型常量逐位一致：常量漂移时帮助与二进制不会各说各话",
+    "note": ""
+  },
+  {
+    "test": "internal/cli/documentation_test.go::TestTheReadmeDocumentsTheInterruptedCode",
+    "file": "internal/cli/documentation_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "README 的 |130| 行有专属存在性断言（helpExitCodes 不含 130，删行不再无人看见）",
+    "note": ""
+  },
+  {
     "test": "internal/cli/documentation_test.go::TestTheReadmeDocumentsTheDefaultLogLines",
     "file": "internal/cli/documentation_test.go",
     "package": "internal/cli",
@@ -925,6 +952,15 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/cli/release_test.go::TestRollbackToANamedVersionThroughTheRealBinary",
+    "file": "internal/cli/release_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "README 承诺的定点回退在真实二进制上闭环：update 到 tag 后 rollback <commit> 回到命名位置并像其他移动一样被记录",
+    "note": ""
   },
   {
     "test": "internal/cli/release_test.go::TestUpdateHEADIsANoOpThroughTheRealBinary",
@@ -1220,7 +1256,7 @@
     "package": "internal/config",
     "behavior": "",
     "disposition": "kept",
-    "evidence": "config.Load 暖路径基线：8 个字段齐全时的解析开销",
+    "evidence": "config.Load 暖路径基线：文档写在解析真正查找的位置（EnvStateDir），每次运行付出读文件+JSON 解码+字段分层（35µs/op，冷路径 3.2µs——此前假 warm 与 cold 同值，量错对象）",
     "note": ""
   },
   {
@@ -1836,12 +1872,30 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/exitcode/exitcode_test.go::TestExitCodesKeepTheirScriptedValues",
+    "file": "internal/exitcode/exitcode_test.go",
+    "package": "internal/exitcode",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "退出码的数值本身被钉住（0-5 与 130）：README 与帮助是脚本分支的依据，常量漂移是契约变化（先红后绿经变异证明）",
+    "note": ""
+  },
+  {
     "test": "internal/history/alternating_test.go::TestAlternatingCheckoutsKeepTheirOwnBounds",
     "file": "internal/history/alternating_test.go",
     "package": "internal/history",
     "behavior": "",
     "disposition": "kept",
     "evidence": "多 checkout 交替部署的积累上限：两组各自截断、互不放大、真实 Save/Load 闭环",
+    "note": ""
+  },
+  {
+    "test": "internal/history/eviction_test.go::TestSaveEvictsTheStalestCheckoutsToStayUnderItsBound",
+    "file": "internal/history/eviction_test.go",
+    "package": "internal/history",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "钉住 history 文档自身的长期积累上限：组数无界触 64KiB 后 Save 永久失败的饱和死角（先红后绿）；最久未部署的组被淘汰、刚部署的组完整保留",
     "note": ""
   },
   {
@@ -3231,12 +3285,12 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
-    "test": "internal/logfile/logfile_bench_test.go::BenchmarkTailFullFileRead",
+    "test": "internal/logfile/logfile_bench_test.go::BenchmarkTailReadsABoundedWindow",
     "file": "internal/logfile/logfile_bench_test.go",
     "package": "internal/logfile",
     "behavior": "",
     "disposition": "kept",
-    "evidence": "8MiB 上限下 logs -n 200 的尾读基线：跟随不随文件大小增长",
+    "evidence": "日志远超尾读窗口时的基线：请求行数大于窗口能容纳的行数，读走到 maxTailBytes 字节界为止——80MiB 文件只读 8MiB 窗口，随文件增长保持常数",
     "note": ""
   },
   {
@@ -3246,15 +3300,6 @@
     "behavior": "",
     "disposition": "kept",
     "evidence": "日志逐行追加的基线：常驻服务每秒一行时的写入成本",
-    "note": ""
-  },
-  {
-    "test": "internal/logfile/logfile_bench_test.go::BenchmarkWriteFileAndReplace",
-    "file": "internal/logfile/logfile_bench_test.go",
-    "package": "internal/logfile",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "状态文档原子替换的每次操作下限",
     "note": ""
   },
   {
@@ -3337,6 +3382,15 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/logfile/logfile_test.go::TestSectionReadsAByteExactForgeryAsABoundary",
+    "file": "internal/logfile/logfile_test.go",
+    "package": "internal/logfile",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "把『接受字节级伪造的 marker』钉成显式决定：marker 不带作者身份，追加式日志区分不了写入者——加固前先与记录争论",
+    "note": ""
   },
   {
     "test": "internal/logfile/logfile_test.go::TestParseSectionToleratesCarriageReturns",
@@ -6741,6 +6795,24 @@
     "note": ""
   },
   {
+    "test": "internal/service/stop_probe_test.go::TestStopRefusesWhenThePortCannotBeProbed",
+    "file": "internal/service/stop_probe_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "stop 的第一条探测失败分支的会红反向用例（dshctl-testing 第 15 条点名的必须项）：探测不了的端口不被读成『没有要停的东西』，信号一个不发",
+    "note": ""
+  },
+  {
+    "test": "internal/service/stop_probe_test.go::TestStopRefusesWhenTheWaitCannotSeeThePort",
+    "file": "internal/service/stop_probe_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "停止等待期间的探测失败保持为拒绝而非『已静止』：记录不被退役，操作者下一次还能看到同一台服务器",
+    "note": ""
+  },
+  {
     "test": "internal/service/stop_test.go::TestStopClearsTheRecordOfARecycledPID",
     "file": "internal/service/stop_test.go",
     "package": "internal/service",
@@ -7270,6 +7342,15 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/state/save_bound_test.go::TestSaveRefusesADocumentTooLargeToRead",
+    "file": "internal/state/save_bound_test.go",
+    "package": "internal/state",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "写读两侧的大小界对称（history 同款规则的第二份拷贝不再丢）：Save 拒写读者会拒读的文档（先红后绿），超限文档不落盘",
+    "note": ""
   },
   {
     "test": "internal/state/state_extra_test.go::TestLoadRejectsASymlinkAtTheRecordPath",

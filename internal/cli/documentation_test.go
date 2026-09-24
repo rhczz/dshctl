@@ -5,10 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/rhczz/dshctl/internal/config"
+	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/service"
 )
@@ -88,6 +90,39 @@ func TestTheReadmeDocumentsEveryExitCode(t *testing.T) {
 		if code := fields[0]; !strings.Contains(documented, "| "+code+" |") {
 			t.Errorf("exit code %s is missing from the README exit-code table", code)
 		}
+	}
+}
+
+// TestTheHelpExitCodesMatchTheConstants pins that the help's exit-code line and
+// the typed constants name the same numbers: a constant that drifts from the
+// documented table is exactly what a branching script trips over, and no test
+// below the help text can see it happen.
+func TestTheHelpExitCodesMatchTheConstants(t *testing.T) {
+	documented := strings.Split(helpExitCodes, ",")
+	want := []int{exitcode.OK, exitcode.Failure, exitcode.Usage, exitcode.NotRunning,
+		exitcode.Preflight, exitcode.LockTimeout}
+	if len(documented) != len(want) {
+		t.Fatalf("helpExitCodes = %q, want one entry per coded exit (%d)", helpExitCodes, len(want))
+	}
+	for index, entry := range documented {
+		got, err := strconv.Atoi(strings.TrimSpace(entry))
+		if err != nil {
+			t.Fatalf("helpExitCodes entry %q is not a number", entry)
+		}
+		if got != want[index] {
+			t.Fatalf("helpExitCodes entry %d = %d, want the constant's value %d", index, got, want[index])
+		}
+	}
+}
+
+// TestTheReadmeDocumentsTheInterruptedCode pins the row the help table does not
+// carry: SIGINT's 130 is not part of helpExitCodes, so the check above never
+// asks for it, and a deleted README row would go unnoticed everywhere else.
+func TestTheReadmeDocumentsTheInterruptedCode(t *testing.T) {
+	documented := readReadme(t)
+	code := strconv.Itoa(exitcode.Interrupted)
+	if !strings.Contains(documented, "| "+code+" |") {
+		t.Errorf("exit code %s is missing from the README exit-code table", code)
 	}
 }
 

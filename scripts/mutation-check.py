@@ -538,6 +538,41 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         "\tif false {",
         ["./internal/cli/"],
     ),
+    (
+        "eviction may drop every group, including the one being written",
+        "internal/history/history.go",
+        "for len(payload) > maxFileBytes && len(file.Repos) > 1 {",
+        "for len(payload) > maxFileBytes {",
+        ["./internal/history/", "./internal/service/"],
+    ),
+    (
+        "the store writes a document its reader would call too large",
+        "internal/state/state.go",
+        "\tif int64(len(payload)) > s.MaxBytes {",
+        "\tif false {",
+        ["./internal/state/", "./internal/service/"],
+    ),
+    (
+        "a stop reads a port it cannot probe as free",
+        "internal/service/observe.go",
+        "\t\treturn readiness{}, exitcode.Wrap(exitcode.Preflight, err)",
+        "\t\treturn readiness{}, nil",
+        ["./internal/service/"],
+    ),
+    (
+        "a stop claims a port is free when the wait cannot watch it",
+        "internal/service/observe.go",
+        "\t\t\treturn exitcode.Wrap(exitcode.Preflight, err)",
+        "\t\t\treturn nil",
+        ["./internal/service/"],
+    ),
+    (
+        "the lock timeout code drifts from the documented five",
+        "internal/exitcode/exitcode.go",
+        "LockTimeout = 5",
+        "LockTimeout = 6",
+        ["./internal/exitcode/", "./internal/cli/"],
+    ),
 ]
 
 

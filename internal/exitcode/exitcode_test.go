@@ -88,3 +88,28 @@ func TestCancellationSurvivesACodedWrap(t *testing.T) {
 		t.Fatal("cancellation must not be confused with a deadline")
 	}
 }
+
+// TestExitCodesKeepTheirScriptedValues pins the numbers themselves. The README
+// and the help text document them, and a shell branches on the number it read
+// there — so a constant that drifts is a contract change even when every Go
+// caller keeps compiling.
+func TestExitCodesKeepTheirScriptedValues(t *testing.T) {
+	cases := []struct {
+		name string
+		code int
+		want int
+	}{
+		{"ok is zero", OK, 0},
+		{"failure is one", Failure, 1},
+		{"usage is two", Usage, 2},
+		{"not running is three", NotRunning, 3},
+		{"preflight is four", Preflight, 4},
+		{"lock timeout is five", LockTimeout, 5},
+		{"interrupted is the conventional 128+SIGINT", Interrupted, 130},
+	}
+	for _, testCase := range cases {
+		if testCase.code != testCase.want {
+			t.Fatalf("%s: code = %d, want %d", testCase.name, testCase.code, testCase.want)
+		}
+	}
+}
