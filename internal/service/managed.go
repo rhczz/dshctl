@@ -39,8 +39,8 @@ func (s servingPorts) pids() []int {
 	return pids
 }
 
-// recordServes reports whether the server a record describes is running now,
-// whatever pid the record happens to name.
+// recordServesOrFails reports whether the server a record describes is running
+// now, whatever pid the record happens to name, and keeps the failure apart.
 //
 // It is the one predicate behind every "is a service of ours running here"
 // decision, so no two commands can disagree about the same record:
@@ -50,26 +50,13 @@ func (s servingPorts) pids() []int {
 //     carries is served by a process descending from that wrapper — the
 //     survivor of a start that was interrupted before it could record the
 //     listener.
-func (s *Service) recordServes(ctx context.Context, record domain.Record) bool {
-	if record.PID > 0 && s.RecordMatches(ctx, record, record.PID) {
-		return true
-	}
-	if record.SpawnedPID > 0 && record.Port > 0 {
-		result, err := s.Host.Listening(ctx, record.Port)
-		if err == nil && result.Listening && result.PID > 0 {
-			return s.descendsFromSpawned(record.SpawnedPID, result.PID)
-		}
-	}
-	return false
-}
-
-// recordServesOrFails is recordServes with the failure kept.
 //
-// The guard that protects another port's artifacts needs the difference between
-// "that record describes nothing" and "that record could not be looked at": the
-// first is safe to build through, the second is not. The plain predicate answers
-// the reporting question, where "cannot look" may be read as "not serving"; this
-// one answers the refusal question, where it may not.
+// The failure is kept because the guard that protects another port's artifacts
+// needs the difference between "that record describes nothing" and "that record
+// could not be looked at": the first is safe to build through, the second is
+// not. The plain predicate answers the reporting question, where "cannot look"
+// may be read as "not serving"; this one answers the refusal question, where it
+// may not.
 func (s *Service) recordServesOrFails(ctx context.Context, record domain.Record) (bool, error) {
 	if record.PID > 0 && s.RecordMatches(ctx, record, record.PID) {
 		return true, nil
@@ -86,6 +73,12 @@ func (s *Service) recordServesOrFails(ctx context.Context, record domain.Record)
 	return false, nil
 }
 
+// recordServes is the reporting question: "cannot look" reads as "not serving".
+func (s *Service) recordServes(ctx context.Context, record domain.Record) bool {
+	serves, _ := s.recordServesOrFails(ctx, record)
+	return serves
+}
+
 // runningPID reports the pid of the server this port's observation describes,
 // when one is running. It reads the same facts the state machine does, so a
 // caller cannot act on a server the reported state does not mention.
@@ -95,12 +88,14 @@ func (s *Service) recordServesOrFails(ctx context.Context, record domain.Record)
 // confirmed. Deciding whether that process may be signalled is a stricter
 // question; see stopTarget.
 func (s *Service) runningPID(ctx context.Context, observed observed) (int, bool) {
-	switch {
-	case observed.status.Owning():
+	// The first two answers are shared with stopTarget: when the observation
+	// itself establishes ownership, the listener's pid is the answer. Only the
+	// record-based answer differs — runningPID is the lenient question (see
+	// below), stopTarget the strict one.
+	if observed.status.Owning() || observed.status.Survivor {
 		return observed.status.ListenerPID, true
-	case observed.status.Survivor:
-		return observed.status.ListenerPID, true
-	case observed.hasRecord && s.recordServes(ctx, observed.record):
+	}
+	if observed.hasRecord && s.recordServes(ctx, observed.record) {
 		return observed.record.PID, true
 	}
 	return 0, false
@@ -123,12 +118,14 @@ func (s *Service) runningPID(ctx context.Context, observed observed) (int, bool)
 // start time does not authorize a signal: on such a host the port check is the
 // only evidence, and a recorded pid that is not the listener is left alone.
 func (s *Service) stopTarget(ctx context.Context, observed observed) (pid int, ok bool) {
-	switch {
-	case observed.status.Owning():
+	// The first two answers are shared with runningPID: when the observation
+	// itself establishes ownership, the listener's pid is the answer. The third
+	// is deliberately narrower — lenient above, strict here — because a signal
+	// can only rest on verified identity.
+	if observed.status.Owning() || observed.status.Survivor {
 		return observed.status.ListenerPID, true
-	case observed.status.Survivor:
-		return observed.status.ListenerPID, true
-	case observed.hasRecord && s.recordIdentityVerified(ctx, observed.record):
+	}
+	if observed.hasRecord && s.recordIdentityVerified(ctx, observed.record) {
 		return observed.record.PID, true
 	}
 	return 0, false
