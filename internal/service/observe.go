@@ -102,12 +102,7 @@ func (s *Service) observe(ctx context.Context) (observed, error) {
 		}
 	}
 	if hasRecord {
-		status.RecordedPID = record.PID
-		status.RecordedPhase = string(record.Phase)
-		status.RecordedNodeVersion = record.NodeVersion
-		status.RecordedNodePath = record.NodePath
-		status.RecordedRepoDir = record.RepoDir
-		status.URLFromRecord = record.URL
+		applyRecord(&status, record)
 	}
 
 	// The record's own liveness is one question, asked at most once: on some
@@ -300,6 +295,18 @@ func describeFacts(facts host.Facts) string {
 		return "pid=" + strconv.Itoa(facts.PID) + " (source: " + facts.Source + ")"
 	}
 	return "unknown process"
+}
+
+// applyRecord carries the record's operator-facing facts into a status. It is
+// the one place a record's shape maps onto a status, so a new record field
+// becomes a report by changing one function.
+func applyRecord(status *domain.Status, record domain.Record) {
+	status.RecordedPID = record.PID
+	status.RecordedPhase = string(record.Phase)
+	status.RecordedNodeVersion = record.NodeVersion
+	status.RecordedNodePath = record.NodePath
+	status.RecordedRepoDir = record.RepoDir
+	status.URLFromRecord = record.URL
 }
 
 // waitPoll is how often the deadline waits below re-ask their question. It is

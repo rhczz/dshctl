@@ -69,12 +69,7 @@ func (s *Service) unobservable(port int, cause error) domain.Status {
 	// started here, and a report that hid it would leave the operator with a
 	// port number and nothing else.
 	if record, ok, err := s.atPort(port).Record.Load(); err == nil && ok {
-		status.RecordedPID = record.PID
-		status.RecordedPhase = string(record.Phase)
-		status.RecordedNodeVersion = record.NodeVersion
-		status.RecordedNodePath = record.NodePath
-		status.RecordedRepoDir = record.RepoDir
-		status.URLFromRecord = record.URL
+		applyRecord(&status, record)
 	}
 	return status
 }
