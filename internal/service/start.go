@@ -554,20 +554,7 @@ func (s *Service) endGroup(ctx context.Context, pid int) error {
 // reaped and would skip the force step with the server still holding the port,
 // so GroupExists asks the kernel directly instead.
 func (s *Service) waitForGroupExit(ctx context.Context, pid int, timeout time.Duration) bool {
-	deadline := time.Now().Add(timeout)
-	for {
-		if !s.Host.GroupExists(pid) {
-			return true
-		}
-		if time.Now().After(deadline) {
-			return false
-		}
-		select {
-		case <-ctx.Done():
-			return false
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
+	return s.waitUntil(ctx, timeout, func() bool { return !s.Host.GroupExists(pid) })
 }
 
 // preflight verifies every precondition before anything is spawned.

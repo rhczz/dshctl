@@ -302,6 +302,32 @@ func describeFacts(facts host.Facts) string {
 	return "unknown process"
 }
 
+// waitPoll is how often the deadline waits below re-ask their question. It is
+// much finer than pollInterval: these waits sit between "sent the signal" and
+// "reported the outcome", and the answer must arrive as soon as the kernel has
+// it.
+const waitPoll = 50 * time.Millisecond
+
+// waitUntil asks a yes/no question until it answers yes or the deadline passes.
+// A cancelled context stops the wait and reports "not yet" — the caller owns
+// turning that into its own outcome.
+func (s *Service) waitUntil(ctx context.Context, timeout time.Duration, yes func() bool) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		if yes() {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(waitPoll):
+		}
+	}
+}
+
 // waitForListening waits until the port is served by the process this start
 // spawned, or until the deadline passes, or until ctx is cancelled.
 //
