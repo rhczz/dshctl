@@ -112,7 +112,7 @@ const usageColumn = 34
 //
 // The first screen has to be enough to use the tool: what each command is
 // called, which arguments it takes, what it does, and the examples for the
-// first run. Details (exit codes, failure modes) stay in `dshctl help <命令>`.
+// first run. Details (exit codes, failure modes) stay in `dshctl help <command>`.
 func Usage(w io.Writer) {
 	fmt.Fprint(w, "dshctl — manage the DeepSeek Harness Web server on this machine\n\nusage:\n  dshctl [global flags] <command> [command flags]\n  dshctl                        the same as dshctl start\n  dshctl help [command]         the full help of one command\n\n  global flags go before the command name.\n\ncommands:\n")
 	for _, command := range Commands() {
@@ -357,7 +357,7 @@ func runUpdate(ctx context.Context, env *Env, args []string) error {
 	return newApp(env).RunUpdate(ctx, target)
 }
 
-// runRollback implements `dshctl rollback [<tag>|<sha>] [-n <步数>]`.
+// runRollback implements `dshctl rollback [<tag>|<sha>] [-n <steps>]`.
 func runRollback(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "rollback")
 	asJSON := jsonFlag(flags)

@@ -11,8 +11,10 @@
 ## 决定
 
 1. **金标 conformance**（`internal/conformance`）：黑盒场景矩阵驱动真实二进制，
-   与 v0.2.5 录下的金标逐字节比对（退出码、stdout、stderr、文件树含权限与内容哈希、
-   git 引用）。金标只能 `-update` 重录，且 CI 会从参照 tag 重新生成并要求零 diff。
+   与提交进树的金标逐字节比对（退出码、stdout、stderr、文件树含权限与内容哈希、
+   git 引用）；每次套件运行在三个平台上各比对一次，金标只能 `-update` 重录——
+   本机或 CI 的手动 `goldens` 作业（重录后上传产物，由人提交）。不存在也不需要
+   "从参照 tag 重新生成"的差分作业：金标就是提交在树里的那个版本。
    归一化只覆盖时间戳、pid、临时路径、耗时；harness 自测"旧 vs 旧零差异"。
 2. **账本**（`internal/conformance/accounting/accounting.json`）：树上每个测试一行，
    `disposition` 取 `todo/kept/new-test/conformance/differential/merged/obsolete`。
@@ -36,7 +38,8 @@
 - 重写期间 mutation job 可能红（锚点随代码移动需要同步），但**合并闸门是严格的**：
   金标 + 账本 + 名册三者同时成立才允许合并。
 - `internal/conformance` 是测试专用包（`check-orphans.py` 的 SUPPORT 里写明理由），
-  它随版本长期保留：参照 tag 可换，差分能力不丢。
+  它随版本长期保留：harness 驱动任意二进制跑同一场景矩阵的能力不丢，换参照
+  只等于重录一次金标。
 - 代价是登记成本：每删一个测试、每改一处表面文案都要写一行账。这是"强度只增"的价钱。
 
 ## 验证

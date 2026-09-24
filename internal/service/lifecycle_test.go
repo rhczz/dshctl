@@ -1196,14 +1196,22 @@ func TestLogsPrintsTheTailAndFollowsWithoutGaps(t *testing.T) {
 		t.Fatalf("seed: %v", err)
 	}
 	f.LogFile.SetPollInterval(5 * time.Millisecond)
+	// The settled hook is the follow's own "the initial tail is done" signal,
+	// so the append below lands after the follow has attached — waiting for
+	// the event rather than guessing at the scheduler.
+	settled := make(chan struct{}, 1)
+	f.LogFile.SetSettledHook(func() { settled <- struct{}{} })
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	done := make(chan error, 1)
 	go func() { done <- f.Logs(ctx, LogsOptions{Lines: 10, Follow: true}) }()
 
-	// Give the follow a moment to attach, then write.
-	time.Sleep(50 * time.Millisecond)
+	select {
+	case <-settled:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the follow never finished its initial tail")
+	}
 	if err := f.LogFile.Line("second"); err != nil {
 		t.Fatalf("append: %v", err)
 	}

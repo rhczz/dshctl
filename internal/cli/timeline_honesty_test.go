@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/service"
 )
 
@@ -102,5 +101,4 @@ func TestPrintTimelineMarksAnUnconfirmedRemoteNamesTheFetchReason(t *testing.T) 
 	if !strings.Contains(out.String(), "not confirmed") {
 		t.Fatalf("output = %q, want the gap marked not confirmed", out.String())
 	}
-	_ = domain.ShortCommit("c")
 }
