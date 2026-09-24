@@ -36,6 +36,15 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/atomically/atomically_bench_test.go::BenchmarkWriteFileAndReplace",
+    "file": "internal/atomically/atomically_bench_test.go",
+    "package": "internal/atomically",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "一次原子状态写（temp+chmod+sync+rename+目录 sync）的真实成本 ~10ms/op：旧基准用 os.WriteFile 量到的是假路径（64µs），任何『快路径』省掉持久性都会在这里现形",
+    "note": ""
+  },
+  {
     "test": "internal/atomically/atomically_test.go::TestWriteFileCreatesTheDocument",
     "file": "internal/atomically/atomically_test.go",
     "package": "internal/atomically",
@@ -1247,7 +1256,7 @@
     "package": "internal/config",
     "behavior": "",
     "disposition": "kept",
-    "evidence": "config.Load 暖路径基线：8 个字段齐全时的解析开销",
+    "evidence": "config.Load 暖路径基线：文档写在解析真正查找的位置（EnvStateDir），每次运行付出读文件+JSON 解码+字段分层（35µs/op，冷路径 3.2µs——此前假 warm 与 cold 同值，量错对象）",
     "note": ""
   },
   {
@@ -3276,12 +3285,12 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
-    "test": "internal/logfile/logfile_bench_test.go::BenchmarkTailFullFileRead",
+    "test": "internal/logfile/logfile_bench_test.go::BenchmarkTailReadsABoundedWindow",
     "file": "internal/logfile/logfile_bench_test.go",
     "package": "internal/logfile",
     "behavior": "",
     "disposition": "kept",
-    "evidence": "8MiB 上限下 logs -n 200 的尾读基线：跟随不随文件大小增长",
+    "evidence": "日志远超尾读窗口时的基线：请求行数大于窗口能容纳的行数，读走到 maxTailBytes 字节界为止——80MiB 文件只读 8MiB 窗口，随文件增长保持常数",
     "note": ""
   },
   {
@@ -3291,15 +3300,6 @@
     "behavior": "",
     "disposition": "kept",
     "evidence": "日志逐行追加的基线：常驻服务每秒一行时的写入成本",
-    "note": ""
-  },
-  {
-    "test": "internal/logfile/logfile_bench_test.go::BenchmarkWriteFileAndReplace",
-    "file": "internal/logfile/logfile_bench_test.go",
-    "package": "internal/logfile",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "状态文档原子替换的每次操作下限",
     "note": ""
   },
   {
