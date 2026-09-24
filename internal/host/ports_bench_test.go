@@ -1,3 +1,5 @@
+//go:build unix
+
 package host
 
 import (
@@ -5,6 +7,9 @@ import (
 	"strings"
 	"testing"
 )
+
+// This file rides the unix probe surface: parseNetstatListener is the last
+// resort behind lsof and ss, and Windows resolves the port a different way.
 
 // benchmarkNetstatOutput builds netstat output the way a busy machine answers:
 // hundreds of established connections plus the one listener the probe asks
