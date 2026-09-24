@@ -391,8 +391,8 @@
     "file": "internal/cli/cli_test.go",
     "package": "internal/cli",
     "behavior": "",
-    "disposition": "todo",
-    "evidence": "",
+    "disposition": "new-test",
+    "evidence": "accept-implies-store：--config 与 --log-level 被接受就必须带出值，吞值即红",
     "note": ""
   },
   {
