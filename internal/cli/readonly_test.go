@@ -12,6 +12,30 @@ import (
 	"testing"
 )
 
+// reportingInvocations is the reporting surface both read-only tests sweep.
+// One list, so a new reporting command is added in a single place and both
+// properties — no trace, unchanged tree — are asserted for it together.
+var reportingInvocations = []struct {
+	name string
+	args []string
+	// wantCode is the exact status the command must produce in the
+	// no-config fixture: a fresh home, no repository, no log and a free
+	// port. The tree test does not pin it; the trace test does.
+	wantCode int
+}{
+	{"status", []string{"status"}, 3},
+	{"status json", []string{"status", "--json"}, 3},
+	{"url", []string{"url"}, 3},
+	{"logs", []string{"logs"}, 1},
+	{"logs build", []string{"logs", "--build"}, 0},
+	{"doctor", []string{"doctor"}, 1},
+	{"doctor json", []string{"doctor", "--json"}, 1},
+	{"version", []string{"version"}, 0},
+	{"version json", []string{"version", "--json"}, 0},
+	{"help", []string{"--help"}, 0},
+	{"verbose status", []string{"-v", "status"}, 3},
+}
+
 // TestReportingCommandsLeaveNoTrace runs the real binary for every reporting
 // command and asserts that nothing appears on disk — neither the state
 // directory, nor anything under the throwaway home the binary was handed.
@@ -22,26 +46,7 @@ import (
 // invisible to a unit test that only inspects one path, and that is exactly how
 // a read-only promise was broken before.
 func TestReportingCommandsLeaveNoTrace(t *testing.T) {
-	cases := []struct {
-		name string
-		args []string
-		// wantCode is the exact status the command must produce in this
-		// fixture: a fresh home, no repository, no log and a free port.
-		wantCode int
-	}{
-		{"status", []string{"status"}, 3},
-		{"status json", []string{"status", "--json"}, 3},
-		{"url", []string{"url"}, 3},
-		{"logs", []string{"logs"}, 1},
-		{"logs build", []string{"logs", "--build"}, 0},
-		{"doctor", []string{"doctor"}, 1},
-		{"doctor json", []string{"doctor", "--json"}, 1},
-		{"version", []string{"version"}, 0},
-		{"version json", []string{"version", "--json"}, 0},
-		{"help", []string{"--help"}, 0},
-		{"verbose status", []string{"-v", "status"}, 3},
-	}
-	for _, testCase := range cases {
+	for _, testCase := range reportingInvocations {
 		t.Run(testCase.name, func(t *testing.T) {
 			result, stateDir := runBinary(t, testCase.args...)
 			// The exact status is asserted rather than "not a crash": a
@@ -88,21 +93,9 @@ func TestReportingCommandsLeaveNoTrace(t *testing.T) {
 // leaves the absence checks green, and an in-place rewrite is exactly the shape
 // of a "read-only" regression that survives a smoke test.
 func TestReportingCommandsLeaveTheTreeUnchanged(t *testing.T) {
-	cases := [][]string{
-		{"status"},
-		{"status", "--json"},
-		{"url"},
-		{"logs"},
-		{"logs", "--build"},
-		{"doctor"},
-		{"doctor", "--json"},
-		{"version"},
-		{"version", "--json"},
-		{"--help"},
-		{"-v", "status"},
-	}
-	for _, args := range cases {
-		t.Run(strings.Join(args, " "), func(t *testing.T) {
+	for _, testCase := range reportingInvocations {
+		args := testCase.args
+		t.Run(testCase.name, func(t *testing.T) {
 			root := t.TempDir()
 			stateDir := filepath.Join(root, "state")
 			// The home is created here rather than by the runner helper: it has
