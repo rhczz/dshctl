@@ -15,7 +15,7 @@ description: 在 dshctl 写或改测试：hermetic 隔离、真实入口路径�
 
 2. **helper 进程的子环境要显式拼装。** 测试需要真实子进程时（`internal/host/helperenv_test.go` 是范例），标记环境变量必须**命名父进程 pid**，这样并发的测试不会互相认领对方的子进程；同时必须先把继承来的同名键剥掉，否则父进程自己的标记会让子进程误判身份。真实实现优先于"用 `sh -c` 拼一段假进程"。
 
-3. **只 fake 两个缝，其余用真实实现。** 可 fake 的只有 `service.OsHost`（让整个生命周期跑在虚构机器上）与 `run.Executor`/`Capturer`/`Outputer`（让外部命令可控）。除此之外优先真实实现：真实的 `atomically`、真实的 `lock`、真实的 `logfile`、真实的 `config.Load`。用真实实现买到的是"它和文件系统真的对得上"，用 fake 买到的是"决策逻辑对"——两者都需要，但不要用 fake 去替代后者。只测 mock 的调用序列等于验证自己写的剧本。
+3. **只 fake 三个缝。** 可 fake 的只有 `service.OsHost`（让整个生命周期跑在虚构机器上）、`run.Executor`/`Capturer`/`Outputer`（让外部命令可控）与 `service.Emitter`（`--json` 前端的注入缝，`jsonEmitter` 是它的第二实现）。除此之外优先真实实现：真实的 `atomically`、真实的 `lock`、真实的 `logfile`、真实的 `config.Load`。用真实实现买到的是"它和文件系统真的对得上"，用 fake 买到的是"决策逻辑对"——两者都需要，但不要用 fake 去替代后者。只测 mock 的调用序列等于验证自己写的剧本。
 
 4. **CLI 级承诺要跑真实二进制。** `internal/cli/readonly_test.go` 构建真实二进制、以子进程运行、检查它没有写盘；`documentation_test.go` 读真实 README。理由是"只读"这种承诺在单元层无法证明——只有跑起来才知道它碰了什么。关键工作流还要跑一次真实闭环（`internal/cli/release_test.go` 的 `update → rollback → timeline`），因为单元测试各自通过、接起来不成立是这类功能的典型失败。
 
@@ -27,9 +27,9 @@ description: 在 dshctl 写或改测试：hermetic 隔离、真实入口路径�
 
 8. **只有单独跑才通过 = spec 的缺陷。** 修 spec（补隔离、修资源竞争、去掉对顺序的隐含依赖），不要重跑、不要加 `-p 1` 掩盖、更不要 skip。`make test` 与 `make test -race` 各跑一次就是为了让这类问题暴露。
 
-9. **缺工具时 Skip 还是 Fatal，按测试的性质决定。** 可选真实工具（`lsof`/`ss`/`netstat`/`ps`）不在时允许 skip——这类测试是在问真实工具一个问题，工具缺席时它没有可断言的东西；CI 里允许的 skip 是一个**明确的白名单**（`.github/workflows/ci.yml` 的 "Fail on unexpected skips" 步骤，共 8 个测试名，含子测试），新增 skip 必须同时加进白名单，否则 CI 会红。反过来，覆盖 dshctl 最具破坏性的那一半（清理残留 checkout 目录）的测试在缺 git 时用 `t.Fatalf`：静默跳过会让这段逻辑在绿灯下无人验证。
+9. **缺工具时 Skip 还是 Fatal，按测试的性质决定。** 可选真实工具（`lsof`/`ss`/`netstat`/`ps`）不在时允许 skip——这类测试是在问真实工具一个问题，工具缺席时它没有可断言的东西；CI 里允许的 skip 是一个**明确的白名单**（`.github/workflows/ci.yml` 的 "Fail on unexpected skips" 步骤，测试名以现场清单为准，含子测试），新增 skip 必须同时加进白名单，否则 CI 会红。反过来，覆盖 dshctl 最具破坏性的那一半（清理残留 checkout 目录）的测试在缺 git 时用 `t.Fatalf`：静默跳过会让这段逻辑在绿灯下无人验证。
 
-10. **命名与失败信息要让人一眼看懂。** 测试名是句子（`TestLoadRejectsWrongJSONTypes`、`FuzzParseVersionNeverInventsARelease`），子测试名是被测输入或场景。失败信息用英文（与标识符、注释一致；中文留给面向操作者的产品文案），第一句说清"期望什么、实际什么"，带上关键输入；断言里用 `t.Fatalf("…: got %q, want %q", got, want)` 而不是只打印 `got`。
+10. **命名与失败信息要让人一眼看懂。** 测试名是句子（`TestLoadRejectsWrongJSONTypes`、`FuzzParseVersionNeverInventsARelease`），子测试名是被测输入或场景。失败信息用英文（与标识符、注释、产品文案一致），第一句说清"期望什么、实际什么"，带上关键输入；断言里用 `t.Fatalf("…: got %q, want %q", got, want)` 而不是只打印 `got`。
 
 11. **`t.Helper()` 与表驱动是默认做法。** 两者在树里都是默认形态（数量随代码变，要引用就现场 `grep -rc`，别抄数字）；辅助函数不加 `t.Helper()` 会让失败行号指向辅助函数而不是调用点。
 

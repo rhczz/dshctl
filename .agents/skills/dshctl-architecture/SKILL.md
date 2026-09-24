@@ -96,7 +96,7 @@ v0.3 分支用三件工具保证"功能不变、强度只增"：金标 conforman
 
 ## 相关文件
 
-- `../../../AGENTS.md`：所有会话都生效的规则（包地图、接口政策、语言规则）。
+- `../../../AGENTS.md`：所有会话都生效的规则（包地图、接口政策、文案就地写英文）。
 - `../../../scripts/check-conventions.py`：`LAYERS` 与包图检查。
 - `../../../internal/service/emit.go`：前端端口与事件定义。
 - `../dshctl-decisions/SKILL.md`：新增包/新增边/新增接口的准入判定。

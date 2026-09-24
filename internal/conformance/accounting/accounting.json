@@ -747,6 +747,24 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/cli/jsonmode_kinds_test.go::TestKindNamesEveryEvent",
+    "file": "internal/cli/jsonmode_kinds_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "钉住 --json 文档的 kind 契约：四种事件各有名字，default 不再悄悄把事件吞成 narrative",
+    "note": ""
+  },
+  {
+    "test": "internal/cli/jsonmode_kinds_test.go::TestJSONDocumentNamesWarningsAndErrors",
+    "file": "internal/cli/jsonmode_kinds_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "钉住 warning/error 事件经真实 jsonEmitter 进文档时 kind 与 text 都保真",
+    "note": ""
+  },
+  {
     "test": "internal/cli/multiport_test.go::TestBinaryManagesServersOnSeveralPorts",
     "file": "internal/cli/multiport_test.go",
     "package": "internal/cli",
@@ -1186,6 +1204,24 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/config/config_bench_test.go::BenchmarkLoadCold",
+    "file": "internal/config/config_bench_test.go",
+    "package": "internal/config",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "config.Load 冷路径基线：无文档的每次命令开销，防止解析层长出 O(目录) 的回归",
+    "note": ""
+  },
+  {
+    "test": "internal/config/config_bench_test.go::BenchmarkLoadWarm",
+    "file": "internal/config/config_bench_test.go",
+    "package": "internal/config",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "config.Load 暖路径基线：8 个字段齐全时的解析开销",
+    "note": ""
   },
   {
     "test": "internal/config/config_fuzz_test.go::FuzzLoadClassifiesEveryDocument",
@@ -1728,6 +1764,24 @@
     "note": ""
   },
   {
+    "test": "internal/domain/position_test.go::TestLabelNamesThePositionOrItsName",
+    "file": "internal/domain/position_test.go",
+    "package": "internal/domain",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "钉住 Target.Label 两种形态（无名字=短 sha；有名字=sha (name)），update 的 no-op 行依赖它",
+    "note": ""
+  },
+  {
+    "test": "internal/domain/position_test.go::TestShortCommitTruncatesToSevenPinsTheAbbreviation",
+    "file": "internal/domain/position_test.go",
+    "package": "internal/domain",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "钉住 ShortCommit 的 7 字符缩写契约与短串不截断",
+    "note": ""
+  },
+  {
     "test": "internal/domain/record_test.go::TestDescribe",
     "file": "internal/domain/record_test.go",
     "package": "internal/domain",
@@ -1780,6 +1834,33 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/history/alternating_test.go::TestAlternatingCheckoutsKeepTheirOwnBounds",
+    "file": "internal/history/alternating_test.go",
+    "package": "internal/history",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "多 checkout 交替部署的积累上限：两组各自截断、互不放大、真实 Save/Load 闭环",
+    "note": ""
+  },
+  {
+    "test": "internal/history/history_bench_test.go::BenchmarkVisitAtTheBound",
+    "file": "internal/history/history_bench_test.go",
+    "package": "internal/history",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "Visit 在 50 条上限的基线：栈失去上界（长期积累变 O(n)）时会被发现",
+    "note": ""
+  },
+  {
+    "test": "internal/history/history_bench_test.go::BenchmarkStep",
+    "file": "internal/history/history_bench_test.go",
+    "package": "internal/history",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "rollback 的 Step 步行基线：线性于上限，防二次方/无界回归",
+    "note": ""
   },
   {
     "test": "internal/history/history_fuzz_test.go::FuzzLoadNeverInventsAPosition",
@@ -2410,6 +2491,24 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/host/ports_bench_test.go::BenchmarkParseNetstatListenerOnABusyTable",
+    "file": "internal/host/ports_bench_test.go",
+    "package": "internal/host",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "500 连接表下端口探测解析的基线：status 每次运行都付一次，线性度被钉住",
+    "note": ""
+  },
+  {
+    "test": "internal/host/ports_bench_test.go::BenchmarkParseNetstatListenerOnAQuietTable",
+    "file": "internal/host/ports_bench_test.go",
+    "package": "internal/host",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "空闲机器上同一解析的开销基线",
+    "note": ""
   },
   {
     "test": "internal/host/ports_windows_layout_test.go::TestTCPTableRowSizes",
@@ -3132,6 +3231,33 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/logfile/logfile_bench_test.go::BenchmarkTailFullFileRead",
+    "file": "internal/logfile/logfile_bench_test.go",
+    "package": "internal/logfile",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "8MiB 上限下 logs -n 200 的尾读基线：跟随不随文件大小增长",
+    "note": ""
+  },
+  {
+    "test": "internal/logfile/logfile_bench_test.go::BenchmarkSectionWrites",
+    "file": "internal/logfile/logfile_bench_test.go",
+    "package": "internal/logfile",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "日志逐行追加的基线：常驻服务每秒一行时的写入成本",
+    "note": ""
+  },
+  {
+    "test": "internal/logfile/logfile_bench_test.go::BenchmarkWriteFileAndReplace",
+    "file": "internal/logfile/logfile_bench_test.go",
+    "package": "internal/logfile",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "状态文档原子替换的每次操作下限",
+    "note": ""
+  },
+  {
     "test": "internal/logfile/logfile_fuzz_test.go::FuzzSectionMarkersRoundTrip",
     "file": "internal/logfile/logfile_fuzz_test.go",
     "package": "internal/logfile",
@@ -3463,6 +3589,15 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/logging/level_string_test.go::TestLevelStringRendersTheSetting",
+    "file": "internal/logging/level_string_test.go",
+    "package": "internal/logging",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "钉住 Level.String 的五档渲染（unset/debug/info/warn/error），-v 与文档依赖它",
+    "note": ""
   },
   {
     "test": "internal/logging/logging_test.go::TestParseLevelNames",
@@ -6201,6 +6336,15 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/service/probe_record_test.go::TestRecordServesOrFailsKeepsTheFailure",
+    "file": "internal/service/probe_record_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "钉住跨端口守卫的 fail-closed 面：probe 失败保持为错误，不被读成『该记录什么都没描述』；recordServes（报告侧）与本守卫（拒绝侧）分开",
+    "note": ""
+  },
+  {
     "test": "internal/service/repodir_test.go::TestASuccessfulStartMakesTheNextCommandUseTheSameCheckout",
     "file": "internal/service/repodir_test.go",
     "package": "internal/service",
@@ -6667,6 +6811,15 @@
     "disposition": "kept",
     "evidence": "",
     "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/timeline_bench_test.go::BenchmarkTimelineRowsWithALargeGap",
+    "file": "internal/service/timeline_bench_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "万级 gap 的版本列表构建基线：防 timelineRows 退化为二次方",
+    "note": ""
   },
   {
     "test": "internal/service/timeline_test.go::TestTimelineReportsUpToDate",

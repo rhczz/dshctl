@@ -25,7 +25,7 @@ func TestStopReportsAProcessThatSurvivesTheForceSignal(t *testing.T) {
 
 	_, err := f.Stop(context.Background())
 	wantCode(t, err, exitcode.Failure)
-	if !strings.Contains(err.Error(), "强制结束后仍然存在") {
+	if !strings.Contains(err.Error(), "still exists after a forced end") {
 		t.Fatalf("Stop error = %v, want a still-alive report", err)
 	}
 	f.wantSignals(t, []fakeSignal{{4321, host.Graceful}, {4321, host.Force}})
@@ -82,6 +82,7 @@ func TestStopReportsAProcessThatSurvivesTheForceSignal(t *testing.T) {
 |---|---|---|
 | `service.OsHost` | fake | 系统调用与进程表不可控；fake 让"优雅停不掉"这类路径可测 |
 | `run.Executor`/`Capturer`/`Outputer` | fake | 外部命令的输出形状需要在测试里精确构造 |
+| `service.Emitter` | 两者都要 | `--json` 的注入点：`jsonEmitter` 是真实现，测试里的收集器是同一契约的第二个前端 |
 | `config.Load` | 真实 | 解析与优先级本身就是被测行为 |
 | `atomically` | 真实 | 原子替换与 fsync 只有真跑才能验证 |
 | `lock` | 真实 | 锁的语义在 inode 上，fake 掉就什么都没测 |

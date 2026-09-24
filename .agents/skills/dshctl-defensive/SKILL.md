@@ -16,7 +16,7 @@ description: 改 dshctl 的生命周期、并发、子进程、超时或清理�
    - 为什么：把结论塞进彼此的分支后，调用方必须先否定另一个事实才能到达某个分支，于是"超时"被读成"没超时所以成功"。
 
 2. **停机必须到达静止**：发出终止请求不算停完，要等到进程树真的消失；强杀后仍存在必须有明确的上报路径。
-   - 落点：`internal/service/stop.go` 的 `shutdown`：`terminate`（每次发信号前重新校验记录与启动时间，内部含 `waitForExit`）→ `waitForStopped` 等端口清空 → `Record.Remove()` → `endGroup` 结束整棵树 → 重新 `observe` → 才打印"已停止"；强杀后仍存活时返回 `pid %d 在强制结束后仍然存在`。
+   - 落点：`internal/service/stop.go` 的 `shutdown`：`terminate`（每次发信号前重新校验记录与启动时间，内部含 `waitForExit`）→ `waitForStopped` 等端口清空 → `Record.Remove()` → `endGroup` 结束整棵树 → 重新 `observe` → 才打印"已停止"；强杀后仍存活时返回 `pid %d still exists after a forced end`。
    - 为什么：只发请求就返回，会把仍在监听端口的进程留给下一次 `start`。`internal/service/fake_test.go` 用 `survivesGraceful`/`survivesForce` 专门建模"不听话的进程"，说明这两条路径都必须可达。
 
 3. **只在提交点发布状态**：状态在身份确定的时刻落盘，中间态不对外宣告。
