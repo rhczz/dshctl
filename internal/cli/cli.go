@@ -360,6 +360,14 @@ func versionSelector(args []string, command string) (string, error) {
 	return selector, nil
 }
 
+// printJSON encodes a value as two-space indented JSON — the shape every
+// --json document uses.
+func printJSON(w io.Writer, value any) error {
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
+}
+
 // printCommandHelp writes one command's help.
 //
 // The usage line comes first and is built from the same Usage the top-level
@@ -367,13 +375,6 @@ func versionSelector(args []string, command string) (string, error) {
 //
 // The shell owns this rendering: a use case returns a value, and whether the
 // operator asked for JSON or for the narrative decides which one is printed.
-func printJSON(w io.Writer, value any) error {
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(value)
-}
-
-// help lists, so "how do I call this" is answered before the details.
 func printCommandHelp(w io.Writer, command Command) {
 	fmt.Fprintf(w, "dshctl %s — %s\n\n", command.Name, command.Summary)
 	fmt.Fprintf(w, "usage: dshctl [global flags] %s", command.Name)
