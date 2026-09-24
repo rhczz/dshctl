@@ -432,27 +432,6 @@ func (s *Service) waitForStopped(ctx context.Context, timeout time.Duration) err
 	}
 }
 
-// stickyLock runs fn while one operation lock covers every instance of this
-// state directory.
-//
-// A multi-instance operation derives a value per port, and those values must not
-// each take the lock on their own: releasing it between the instances would let
-// another command observe half of a stop, which is exactly the state an operator
-// must never see. Aquiring it here, on the directory, makes the rule impossible
-// to forget at a call site.
-func stickyLock[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {
-	var zero T
-	held, err := lock.Acquire(ctx, s.Settings.LockFile(), s.Settings.LockTimeout)
-	if err != nil {
-		return zero, exitcode.Wrap(exitcode.LockTimeout, err)
-	}
-	defer held.Release()
-	if err := provision(s); err != nil {
-		return zero, err
-	}
-	return fn()
-}
-
 // withLock runs fn while holding the operation lock, provisioning the state
 // directory first so that reporting commands can stay free of side effects.
 func (s *Service) withLock(ctx context.Context, fn func() error) error {
@@ -462,7 +441,15 @@ func (s *Service) withLock(ctx context.Context, fn func() error) error {
 	return err
 }
 
-// withLockValue runs fn under the operation lock for operations with a result.
+// withLockValue runs fn under the operation lock for operations with a result;
+// withLock is the resultless shape of the same rule.
+//
+// One operation lock covers every instance of this state directory. A
+// multi-instance operation derives a value per port, and those values must not
+// each take the lock on their own: releasing it between the instances would let
+// another command observe half of a stop, which is exactly the state an operator
+// must never see. Aquiring it here, on the directory, makes the rule impossible
+// to forget at a call site.
 func withLockValue[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {
 	var zero T
 	held, err := lock.Acquire(ctx, s.Settings.LockFile(), s.Settings.LockTimeout)

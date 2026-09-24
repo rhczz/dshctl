@@ -101,7 +101,7 @@ type StopAllResult struct {
 //   - the outcome of every instance, in selection order.
 //   - the error of the instance that could not be ended.
 func (s *Service) StopAll(ctx context.Context) (StopAllResult, error) {
-	return stickyLock(ctx, s, func() (StopAllResult, error) {
+	return withLockValue(ctx, s, func() (StopAllResult, error) {
 		selection, err := s.selection()
 		if err != nil {
 			return StopAllResult{}, err
@@ -146,7 +146,7 @@ func (s *Service) stopOneLocked(ctx context.Context, port int) (StopResult, erro
 //   - one start result per instance that was running, in selection order.
 //   - the error that stopped the sequence.
 func (s *Service) RestartAll(ctx context.Context) ([]StartResult, error) {
-	return stickyLock(ctx, s, func() ([]StartResult, error) {
+	return withLockValue(ctx, s, func() ([]StartResult, error) {
 		selection, err := s.selection()
 		if err != nil {
 			return nil, err
