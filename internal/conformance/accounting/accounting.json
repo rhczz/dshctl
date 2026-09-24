@@ -387,6 +387,15 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/cli/cli_test.go::TestParseGlobalsConsumesEveryValueFlag",
+    "file": "internal/cli/cli_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
     "test": "internal/cli/cli_test.go::TestParseGlobalsStopsAtTheCommand",
     "file": "internal/cli/cli_test.go",
     "package": "internal/cli",
