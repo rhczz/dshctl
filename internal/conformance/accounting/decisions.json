@@ -683,5 +683,23 @@
     ],
     "new_path": "internal/state/state.go",
     "status": "ported"
+  },
+  {
+    "name": "a stop reads a port it cannot probe as free",
+    "old_path": "internal/service/observe.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": "internal/service/observe.go",
+    "status": "ported"
+  },
+  {
+    "name": "a stop claims a port is free when the wait cannot watch it",
+    "old_path": "internal/service/observe.go",
+    "packages": [
+      "./internal/service/"
+    ],
+    "new_path": "internal/service/observe.go",
+    "status": "ported"
   }
 ]

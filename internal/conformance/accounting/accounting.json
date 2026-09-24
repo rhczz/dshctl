@@ -6750,6 +6750,24 @@
     "note": ""
   },
   {
+    "test": "internal/service/stop_probe_test.go::TestStopRefusesWhenThePortCannotBeProbed",
+    "file": "internal/service/stop_probe_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
+    "test": "internal/service/stop_probe_test.go::TestStopRefusesWhenTheWaitCannotSeeThePort",
+    "file": "internal/service/stop_probe_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
+  },
+  {
     "test": "internal/service/stop_test.go::TestStopClearsTheRecordOfARecycledPID",
     "file": "internal/service/stop_test.go",
     "package": "internal/service",
@@ -7279,6 +7297,15 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/state/save_bound_test.go::TestSaveRefusesADocumentTooLargeToRead",
+    "file": "internal/state/save_bound_test.go",
+    "package": "internal/state",
+    "behavior": "",
+    "disposition": "todo",
+    "evidence": "",
+    "note": ""
   },
   {
     "test": "internal/state/state_extra_test.go::TestLoadRejectsASymlinkAtTheRecordPath",

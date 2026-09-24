@@ -552,6 +552,20 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         "\tif false {",
         ["./internal/state/", "./internal/service/"],
     ),
+    (
+        "a stop reads a port it cannot probe as free",
+        "internal/service/observe.go",
+        "\t\treturn readiness{}, exitcode.Wrap(exitcode.Preflight, err)",
+        "\t\treturn readiness{}, nil",
+        ["./internal/service/"],
+    ),
+    (
+        "a stop claims a port is free when the wait cannot watch it",
+        "internal/service/observe.go",
+        "\t\t\treturn exitcode.Wrap(exitcode.Preflight, err)",
+        "\t\t\treturn nil",
+        ["./internal/service/"],
+    ),
 ]
 
 
