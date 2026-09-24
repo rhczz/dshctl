@@ -545,6 +545,13 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         "for len(payload) > maxFileBytes {",
         ["./internal/history/", "./internal/service/"],
     ),
+    (
+        "the store writes a document its reader would call too large",
+        "internal/state/state.go",
+        "\tif int64(len(payload)) > s.MaxBytes {",
+        "\tif false {",
+        ["./internal/state/", "./internal/service/"],
+    ),
 ]
 
 

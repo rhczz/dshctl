@@ -673,5 +673,15 @@
     ],
     "new_path": "internal/history/history.go",
     "status": "ported"
+  },
+  {
+    "name": "the store writes a document its reader would call too large",
+    "old_path": "internal/state/state.go",
+    "packages": [
+      "./internal/state/",
+      "./internal/service/"
+    ],
+    "new_path": "internal/state/state.go",
+    "status": "ported"
   }
 ]

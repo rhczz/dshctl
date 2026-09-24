@@ -152,6 +152,12 @@ func readDocumentFile(path string) ([]byte, error) {
 }
 
 // Save writes the document atomically.
+//
+// A document the reader would reject is refused rather than written, in either
+// way the reader can reject one: a shape its Validate refuses, and a size its
+// Load would call too large. Refusing at write time keeps the failure loud and
+// local, where writing first would make every later read fail the same way
+// forever.
 func (s Store[T]) Save(value T) error {
 	if s.Stamp != nil {
 		s.Stamp(&value)
@@ -165,7 +171,11 @@ func (s Store[T]) Save(value T) error {
 	if err != nil {
 		return fmt.Errorf("the document could not be encoded: %w", err)
 	}
-	return atomically.WriteFile(s.Path, append(data, '\n'), documentPermission)
+	payload := append(data, '\n')
+	if int64(len(payload)) > s.MaxBytes {
+		return fmt.Errorf("the document is too large (%d bytes); refusing to write %s", len(payload), s.Path)
+	}
+	return atomically.WriteFile(s.Path, payload, documentPermission)
 }
 
 // Remove deletes the document; a missing file is not an error.
