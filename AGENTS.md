@@ -49,7 +49,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 - 格式真源只有 `gofmt -s`；本仓库没有 linter，其余规范靠 `dshctl-style` 与 `scripts/check-conventions.py`。
 - 注释英文、讲契约与失败模式，非测试文件 ≤ 88 列；导出标识符必须有文档注释。
-- 错误中文 + `: %w`，句尾不加句号；命令与参数加反引号或 `%q`。
+- 错误信息英文 + `: %w`，句尾不加句号；命令与参数加反引号或 `%q`。
 - 禁止 `panic` 与 `func init()`；TODO/FIXME/XXX 按紧急度分级并写明触发条件（当前树中为 0）。
 - 一个事实一个家：README = 操作者契约，包文档 = 模型与不变量，测试 = 被钉住的行为，`.agents/notes` = 为什么与放弃了什么，skill = 流程，git = 历史；别处只链接。
 
