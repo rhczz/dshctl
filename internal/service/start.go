@@ -153,13 +153,8 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		return StartResult{}, err
 	}
 
-	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
-		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
-	} else if rotated {
-		s.narrate(fmt.Sprintf("the log was rotated: %s", s.LogFile.BackupPath()))
-	}
-	if err := s.LogFile.Section(sectionStart); err != nil {
-		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
+	if err := s.openSection(sectionStart); err != nil {
+		return StartResult{}, err
 	}
 
 	s.reportNodeOverride(installation)
@@ -560,10 +555,10 @@ func (s *Service) waitForGroupExit(ctx context.Context, pid int, timeout time.Du
 // preflight verifies every precondition before anything is spawned.
 func (s *Service) preflight(ctx context.Context) (nodejs.Installation, string, error) {
 	if !s.Repo.Exists() {
-		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight, "the checkout does not exist: %s\nhint: name it with --repo or the %s environment variable", s.Settings.RepoDir, paths.EnvRepoDir)
+		return nodejs.Installation{}, "", missingCheckoutError(s.Settings.RepoDir)
 	}
 	if !s.Repo.IsServerCheckout() {
-		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight, "%s does not look like a DeepSeek Harness checkout (no %s or %s)\nhint: point --repo at the right checkout", s.Settings.RepoDir, config.ServerManifestRel, config.WorkspaceManifestRel)
+		return nodejs.Installation{}, "", notServerCheckoutError(s.Settings.RepoDir)
 	}
 	installation, err := s.resolveNode(ctx)
 	if err != nil {

@@ -11,7 +11,6 @@ import (
 	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/history"
-	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/run"
 )
 
@@ -120,14 +119,8 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		return exitcode.New(exitcode.Preflight, "the checkout %s is also used by the service on port %v (pid %v); %s would replace build artifacts it is using\nhint: stop that service first (dshctl stop --port <port>), then %s", s.Settings.RepoDir, elsewhere.ports(), elsewhere.pids(), request.verb, request.verb)
 	}
 
-	if !s.Repo.Exists() {
-		return exitcode.New(exitcode.Preflight, "the checkout does not exist: %s\nhint: name it with --repo or the %s environment variable", s.Settings.RepoDir, paths.EnvRepoDir)
-	}
-	if !s.Repo.IsGit() {
-		return exitcode.New(exitcode.Preflight, "%s is not a git repository", s.Settings.RepoDir)
-	}
-	if !s.Repo.IsServerCheckout() {
-		return exitcode.New(exitcode.Preflight, "%s does not look like a DeepSeek Harness checkout (no %s or %s)", s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
+	if err := s.requireCheckout(true); err != nil {
+		return err
 	}
 	pnpm, err := s.pnpmPath()
 	if err != nil {
@@ -186,14 +179,9 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 	}
 
 	// Rotate before the section marker is written, so a marker and its body can
-	// never end up in different files.
-	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
-		return exitcode.Wrap(exitcode.Failure, err)
-	} else if rotated {
-		s.narrate(fmt.Sprintf("the log was rotated: %s", s.LogFile.BackupPath()))
-	}
-	if err := s.LogFile.Section(request.section); err != nil {
-		return exitcode.Wrap(exitcode.Failure, err)
+	// never end up in different files. openSection owns that order.
+	if err := s.openSection(request.section); err != nil {
+		return err
 	}
 
 	s.narrate(fmt.Sprintf("%s: %s → %s", request.verb, domain.ShortCommit(current), target.Label()))

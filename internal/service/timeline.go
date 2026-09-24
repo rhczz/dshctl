@@ -8,7 +8,6 @@ import (
 	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/history"
-	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/repo"
 )
 
@@ -109,14 +108,8 @@ type TimelineReport struct {
 // and the command exits as a failed preflight — because a timeline that
 // silently showed last week's remote would be worse than no timeline at all.
 func (s *Service) Timeline(ctx context.Context) (TimelineReport, error) {
-	if !s.Repo.Exists() {
-		return TimelineReport{}, exitcode.New(exitcode.Preflight, "the checkout does not exist: %s\nhint: name it with --repo or the %s environment variable", s.Settings.RepoDir, paths.EnvRepoDir)
-	}
-	if !s.Repo.IsGit() {
-		return TimelineReport{}, exitcode.New(exitcode.Preflight, "%s is not a git repository", s.Settings.RepoDir)
-	}
-	if !s.Repo.IsServerCheckout() {
-		return TimelineReport{}, exitcode.New(exitcode.Preflight, "%s does not look like a DeepSeek Harness checkout (no %s or %s)", s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
+	if err := s.requireCheckout(true); err != nil {
+		return TimelineReport{}, err
 	}
 	hasOrigin, err := s.Repo.HasOrigin(ctx)
 	if err != nil {
