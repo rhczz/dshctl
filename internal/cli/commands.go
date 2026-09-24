@@ -130,11 +130,9 @@ func Usage(w io.Writer) {
 func runStart(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "start")
 	asJSON := jsonFlag(flags)
-	help, err := parseFlags(flags, args)
-	if err != nil {
+	if help, err := parseFlags(flags, args); err != nil {
 		return err
-	}
-	if help {
+	} else if help {
 		return nil
 	}
 	if *asJSON {
@@ -142,7 +140,7 @@ func runStart(ctx context.Context, env *Env, args []string) error {
 			return app.Start(ctx)
 		}, nil)
 	}
-	_, err = newApp(env).Start(ctx)
+	_, err := newApp(env).Start(ctx)
 	return err
 }
 
@@ -150,11 +148,9 @@ func runStart(ctx context.Context, env *Env, args []string) error {
 func runStop(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "stop")
 	asJSON := jsonFlag(flags)
-	help, err := parseFlags(flags, args)
-	if err != nil {
+	if help, err := parseFlags(flags, args); err != nil {
 		return err
-	}
-	if help {
+	} else if help {
 		return nil
 	}
 	if *asJSON {
@@ -181,11 +177,9 @@ func runStop(ctx context.Context, env *Env, args []string) error {
 func runRestart(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "restart")
 	asJSON := jsonFlag(flags)
-	help, err := parseFlags(flags, args)
-	if err != nil {
+	if help, err := parseFlags(flags, args); err != nil {
 		return err
-	}
-	if help {
+	} else if help {
 		return nil
 	}
 	if *asJSON {
@@ -193,7 +187,7 @@ func runRestart(ctx context.Context, env *Env, args []string) error {
 			return app.RestartAll(ctx)
 		}, nil)
 	}
-	_, err = newApp(env).RestartAll(ctx)
+	_, err := newApp(env).RestartAll(ctx)
 	return err
 }
 
@@ -201,11 +195,9 @@ func runRestart(ctx context.Context, env *Env, args []string) error {
 func runStatus(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "status")
 	asJSON := flags.Bool("json", false, "print JSON")
-	help, err := parseFlags(flags, args)
-	if err != nil {
+	if help, err := parseFlags(flags, args); err != nil {
 		return err
-	}
-	if help {
+	} else if help {
 		return nil
 	}
 	statuses, err := newApp(env).Statuses(ctx)
@@ -232,11 +224,9 @@ func runStatus(ctx context.Context, env *Env, args []string) error {
 // runURL implements `dshctl url`.
 func runURL(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "url")
-	help, err := parseFlags(flags, args)
-	if err != nil {
+	if help, err := parseFlags(flags, args); err != nil {
 		return err
-	}
-	if help {
+	} else if help {
 		return nil
 	}
 	report, err := newApp(env).URLReport(ctx)
@@ -267,11 +257,9 @@ func runLogs(ctx context.Context, env *Env, args []string) error {
 	flags.BoolVar(follow, "follow", false, "keep following the output")
 	lines := flags.Int("n", service.DefaultLogLines, "print the last N lines")
 	buildOnly := flags.Bool("build", false, "only the last build/update/rollback record")
-	help, err := parseFlags(flags, args)
-	if err != nil {
+	if help, err := parseFlags(flags, args); err != nil {
 		return err
-	}
-	if help {
+	} else if help {
 		return nil
 	}
 	if *buildOnly && *follow {
@@ -288,11 +276,9 @@ func runLogs(ctx context.Context, env *Env, args []string) error {
 func runBuild(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "build")
 	asJSON := jsonFlag(flags)
-	help, err := parseFlags(flags, args)
-	if err != nil {
+	if help, err := parseFlags(flags, args); err != nil {
 		return err
-	}
-	if help {
+	} else if help {
 		return nil
 	}
 	if *asJSON {
@@ -307,11 +293,9 @@ func runBuild(ctx context.Context, env *Env, args []string) error {
 func runTimeline(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "timeline")
 	asJSON := flags.Bool("json", false, "print JSON")
-	help, err := parseFlags(flags, args)
-	if err != nil {
+	if help, err := parseFlags(flags, args); err != nil {
 		return err
-	}
-	if help {
+	} else if help {
 		return nil
 	}
 	report, err := newApp(env).Timeline(ctx)
@@ -408,11 +392,9 @@ func runRollback(ctx context.Context, env *Env, args []string) error {
 func runDoctor(ctx context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "doctor")
 	asJSON := flags.Bool("json", false, "print JSON")
-	help, err := parseFlags(flags, args)
-	if err != nil {
+	if help, err := parseFlags(flags, args); err != nil {
 		return err
-	}
-	if help {
+	} else if help {
 		return nil
 	}
 	checks := newApp(env).Doctor(ctx)
@@ -433,16 +415,14 @@ func runDoctor(ctx context.Context, env *Env, args []string) error {
 func runVersion(_ context.Context, env *Env, args []string) error {
 	flags := newFlagSet(env, "version")
 	asJSON := flags.Bool("json", false, "print JSON")
-	help, err := parseFlags(flags, args)
-	if err != nil {
+	if help, err := parseFlags(flags, args); err != nil {
 		return err
-	}
-	if help {
+	} else if help {
 		return nil
 	}
 	if *asJSON {
 		return printJSON(env.Stdout, env.Version)
 	}
-	_, err = fmt.Fprintln(env.Stdout, env.Version.String())
+	_, err := fmt.Fprintln(env.Stdout, env.Version.String())
 	return err
 }
