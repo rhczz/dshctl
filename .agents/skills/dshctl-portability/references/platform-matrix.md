@@ -31,4 +31,4 @@
 
 - `make cross` 的 `PLATFORMS`：`darwin/amd64`、`darwin/arm64`、`linux/amd64`、`linux/arm64`、`windows/amd64`、`windows/arm64`；交叉编译单独关 cgo（本仓库没有 cgo 依赖）。
 - `.github/workflows/ci.yml` 的矩阵是 `ubuntu-latest`、`macos-latest`、`windows-latest`，另有一个 hermetic job 跑 `make hermetic`。
-- 该 workflow 里有一个 "Fail on unexpected skips" 步骤，白名单只允许"向真实可选工具提问"的测试在工具缺失时跳过；新增 skip 必须同步它。
+- 该 workflow 里有一个 "Fail on unexpected skips" 步骤；skip 的判据与白名单见 `dshctl-testing` 规则 9，新增 skip 必须同步它。

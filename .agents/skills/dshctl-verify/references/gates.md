@@ -2,29 +2,29 @@
 
 ## 怎么用
 
-先按改动类型在表里找到必跑的目标，跑完再看"常见失败信息"一节定位。表中的"实际执行"抄自 `../../../../Makefile`，改了 Makefile 就要回来同步这一页。
+先按改动类型在表里找到必跑的目标，跑完再看"常见失败信息"一节定位。每个目标的实际命令以 `Makefile` 的 `## ` 注释为准（`make help` 可列）；本表不复述它们——抄写是唯一会静默漂移的部分。
 
 **分工**：标着"本地快检"的行在本地跑；标着 **CI** 的行由 GitHub Actions 跑，**本地不执行**（`AGENTS.md` 的「命令」一节）。本地跑全量只是把 CI 的时间花两遍，结论也不比 CI 全。
 
 ## 门禁表
 
-| 目标 | 何时必跑 | 实际执行 | 覆盖什么 | 失败怎么读 |
-|---|---|---|---|---|
-| `make fmt-check` | 本地快检：任何 Go 改动 | `gofmt -s -l .`，有输出即失败 | 格式真源（`gofmt -s`，本仓库没有 linter） | 打印 `these files need gofmt -s -w:` 加文件列表 |
-| `make fmt` | 修格式 | `gofmt -s -w .`，会重写文件 | 同上 | 不是门禁；跑完重跑 `fmt-check` |
-| `make vet` | 本地快检：任何 Go 改动 | `go vet ./...` | 每个包**连同测试文件**的类型检查 | 编译错误，含文件与行号 |
-| `make test` | **CI**（本地不跑全量） | `go test -timeout 600s ./...` | 全套行为与契约 | `--- FAIL: TestX`，先看断言的首句期望 |
-| `make test-race` | **CI** | `go test -race -timeout 600s ./...` | 同上加数据竞争检测 | 竞争报告含两段 goroutine 栈 |
-| `make hermetic` | **CI**：改测试隔离、新增 skip、碰 HOME/环境变量 | `../../../../scripts/hermetic-check.sh` | 一次性 HOME 下跑全套，断言临时目录之外零残留 | `tests created files in a real home directory:` 加路径 |
-| `make coverage` | **CI**：改 `internal/nodejs` 或配置层决策 | hermetic 跑一次带 `-coverprofile`，再交 `../../../../scripts/check-coverage.py` | `internal/nodejs` 100% 硬门禁；`internal/config`、`internal/service` 只报告 | `FAIL internal/nodejs: xx.x% (要求 100%，a/b 条语句)` 加 `未覆盖:` 行 |
-| `make mutation` | **CI**（`ci.yml` 的 `mutation` job）：改 `internal/nodejs` 或配置层决策 | `../../../../scripts/mutation-check.py`，逐条破坏决策并要求测试失败 | "测试真的会注意到破坏吗" | `ALIVE`/`INVALID`/`BLOCKED` 任一行 + `mutation(s) survived` |
-| `make workflow-check` | 本地快检：改 `.github/`（静态检查，秒级；CI 的 hermetic job 也跑一遍） | `../../../../scripts/check-workflow.py` | workflow 结构属性（触发、平台矩阵、构建门禁、产物、表达式引号） | `workflow check failed: …` |
-| `make cross` | **CI**：平台代码改动；发布前 | 6 个 `GOOS/GOARCH` 交叉编译到 `dist/`；CI 的 `build` job 用等价的 6 个 `go build` 目标覆盖（`check-workflow.py` 校验六个目标都在） | darwin/linux/windows × amd64/arm64 都能编译 | 某个目标的编译错误 |
-| `make conventions` | 本地快检：改注释、依赖、skill 或 `AGENTS.md` | `../../../../scripts/check-conventions.py` | AGENTS.md 与 skill 的完整性、注释宽度、`panic`/`init`、零依赖与分层、结尾换行 | `检查失败: <rule>: …`，逐条见下 |
-| `make check` | **CI**（本地等价物是快检三项加受影响包测试） | `fmt-check` + `conventions` + `vet` + `test` | 这四项 | 见各行 |
-| `make ci` | **CI**（本地不执行） | `workflow-check` + `fmt-check` + `conventions` + `vet` + `coverage` + `test-race` | 全套门禁 | 见各行 |
-| `make build` | 需要真实二进制做端到端验证 | `go build -ldflags … -o bin/dshctl ./cmd/dshctl` | 产物本身 | 编译错误 |
-| `make help` | 忘了目标名 | 列出所有带 `## ` 说明的目标 | — | — |
+| 目标 | 何时必跑 | 覆盖什么 | 失败怎么读 |
+|---|---|---|---|
+| `make fmt-check` | 本地快检：任何 Go 改动 | 格式真源（`gofmt -s`，本仓库没有 linter） | 打印 `these files need gofmt -s -w:` 加文件列表 |
+| `make fmt` | 修格式 | 同上 | 不是门禁；跑完重跑 `fmt-check` |
+| `make vet` | 本地快检：任何 Go 改动 | 每个包**连同测试文件**的类型检查 | 编译错误，含文件与行号 |
+| `make test` | **CI**（本地不跑全量） | 全套行为与契约 | `--- FAIL: TestX`，先看断言的首句期望 |
+| `make test-race` | **CI** | 同上加数据竞争检测 | 竞争报告含两段 goroutine 栈 |
+| `make hermetic` | **CI**：改测试隔离、新增 skip、碰 HOME/环境变量 | 一次性 HOME 下跑全套，断言临时目录之外零残留 | `tests created files in a real home directory:` 加路径 |
+| `make coverage` | **CI**：改 `internal/nodejs` 或配置层决策 | `internal/nodejs` 100% 硬门禁；`internal/config`、`internal/service` 只报告 | `FAIL internal/nodejs: xx.x% (要求 100%，a/b 条语句)` 加 `未覆盖:` 行 |
+| `make mutation` | **CI**（`ci.yml` 的 `mutation` job）：改 `internal/nodejs` 或配置层决策 | "测试真的会注意到破坏吗" | `ALIVE`/`INVALID`/`BLOCKED` 任一行 + `mutation(s) survived` |
+| `make workflow-check` | 本地快检：改 `.github/`（静态检查，秒级；CI 的 hermetic job 也跑一遍） | workflow 结构属性（触发、平台矩阵、构建门禁、产物、表达式引号） | `workflow check failed: …` |
+| `make cross` | **CI**：平台代码改动；发布前 | darwin/linux/windows × amd64/arm64 都能编译 | 某个目标的编译错误 |
+| `make conventions` | 本地快检：改注释、依赖、skill 或 `AGENTS.md` | AGENTS.md 与 skill 的完整性、注释宽度、`panic`/`init`、零依赖与分层、结尾换行 | `检查失败: <rule>: …`，逐条见下 |
+| `make check` | **CI**（本地等价物是快检三项加受影响包测试） | 快检三项与 `make test` | 见各行 |
+| `make ci` | **CI**（本地不执行） | 全套门禁 | 见各行 |
+| `make build` | 需要真实二进制做端到端验证 | 产物本身 | 编译错误 |
+| `make help` | 忘了目标名 | 列出所有带 `## ` 说明的目标 | — |
 
 辅助命令：`python3 scripts/mutation-check.py --list` 列出全部变异（条数用它数，别抄数字），`--only <name>` 只跑一条（本地证明"这条变异会被抓住"就用它），`--shard i/6` 只跑 CI 六个分片中的一片（分片只用于并行，不是本地门禁的替代品），`-v` 打印失败输出；`python3 scripts/check-conventions.py --list` 列出约定检查的规则；`python3 scripts/check-coverage.py <profile> --report all` 看每个包的覆盖率。
 
@@ -36,9 +36,10 @@
 - `make ci` 整体 `real 3m57s`：在 `check` 之上再跑一次带覆盖率的 hermetic 套件与 `-race` 套件。
 - 单包（约数，随机器波动）：`internal/cli` 约 110s、`internal/service` 约 106s、`internal/host` 约 21s、`internal/repo` 约 7s、`internal/lock` 约 6s、`internal/detach` 约 6s、`internal/logfile` 约 6s、`internal/nodejs` 约 5s、`internal/paths` 约 4s、`internal/exitcode` 约 4s、`internal/buildinfo` 约 3s、`internal/version` 约 3s、`internal/run` 约 3s、`internal/state` 约 3s、`internal/atomically` 约 2s、`internal/config` 约 2s、`cmd/dshctl` 约 1s。
 - 冷构建缓存会额外付出编译时间；`make mutation` 比 `make ci` 更重（每条变异都跑一次它所属的包）。CI 把它切成 6 个分片后，单个分片的墙钟是分钟级（约 2–4 分钟），整套的算力不变。
-- CI 上还有两个 Makefile 里没有的 job：`floor`（用下限工具链 `go vet ./...`，验证 README 的 `1.24+`）与 `vulncheck`（固定版本的 govulncheck）。两者都与 `test`/`hermetic` 并行，不在关键路径上。
+- CI 上还有两个 Makefile 里没有的 job：`floor`（用下限工具链 `go vet ./...`，验证 README 的 `1.24+`；`check-workflow.py` 把 `go.mod` 的 `go` 指令与这一行绑在一起）与 `vulncheck`（固定版本的 govulncheck）。两者都与 `test`/`hermetic` 并行，不在关键路径上。
+- 其余 job 的结构属性也由 `check-workflow.py` 强制：`build` 有 `needs: [test, hermetic]`（测试不过就不产出 6 个平台的二进制）；`mutation` 分片矩阵 1..N 无洞、`--shard ${{ matrix.shard }}/N` 的 N 与矩阵长度一致、`shard` 来自 `matrix.shard` 而不是字面量，且它刻意不被 `build` 依赖——分片把墙钟除以 6，全部变异仍然各跑一次。
 
-`make test` 不带 `-count=1`：Go 会复用上一次通过的结果（输出 `(cached)`）。要确认某次修复真的重新执行过，用 `go test ./internal/<pkg>/ -count=1`。
+`make test` 不带 `-count=1`：Go 会复用上一次通过的结果（输出 `(cached)`）；`-count=1` 的解释见 SKILL.md 的规则 2。要确认某次修复真的重新执行过，用 `go test ./internal/<pkg>/ -count=1`。
 
 ## 常见失败信息 → 原因 → 下一步
 

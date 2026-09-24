@@ -2,6 +2,8 @@
 
 状态: 已实施
 
+> 取代关系：本文已被 2026-09-22-remove-i18n.md 取代。
+
 ## 问题
 
 `AGENTS.md` 写"人读的文案中文"，`dshctl-style` 与 `dshctl-testing` 把它展开成

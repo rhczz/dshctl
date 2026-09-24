@@ -78,6 +78,8 @@ func TestStopReportsAProcessThatSurvivesTheForceSignal(t *testing.T) {
 
 ## fake 什么、真实什么
 
+可 fake 的缝的清单以 `dshctl-decisions` 规则 8 为真源；下表回答的是每个组件该 fake 还是该真实、以及各自的理由。
+
 | 组件 | 选择 | 理由 |
 |---|---|---|
 | `service.OsHost` | fake | 系统调用与进程表不可控；fake 让"优雅停不掉"这类路径可测 |
@@ -94,5 +96,5 @@ func TestStopReportsAProcessThatSurvivesTheForceSignal(t *testing.T) {
 - 断言 mock 被调用的次数与顺序 → 验证的是剧本，不是行为。
 - 用 `time.Sleep` 等异步结果 → 慢机器 flake、快机器浪费；改成有上界的轮询。
 - 测试之间共享状态目录或端口 → 只有单跑才过；修隔离，不要加 `-p 1`。
-- 为了让测试通过而 `t.Skip` → CI 会拒绝未登记的 skip；新增合法 skip 必须同时进白名单。
+- 为了让测试通过而 `t.Skip` → CI 会拒绝未登记的 skip；skip 的判据与白名单见 SKILL.md 规则 9。
 - 在测试里复制一份**推导型**实现常量（如把某个由其他量算出来的阈值抄一遍）→ 实现改了测试跟着改，守不住任何东西；对协议常量与安全不变量则相反：`internal/config/config_nodeversion_test.go` 用字面量 `"24.12.0"` 对比 `MinNodeVersion` 正是守卫——改常量会红，逼着实现与文档一起改。

@@ -37,7 +37,7 @@ description: 在 dshctl 按测试先行推进：先写会失败的测试，守�
     go test ./internal/nodejs/ -run TestAssess -count=1 -v
     ```
 
-    `-count=1` 关掉结果缓存；不加它时"刚改完还是绿的"可能只是缓存。全量本机约 2 分钟（耗时基线见 `dshctl-verify`）。
+    `-count=1` 关掉结果缓存，解释见 `dshctl-verify`；全量本机约 2 分钟（耗时基线见同一 skill）。
 
 ## 验证
 
