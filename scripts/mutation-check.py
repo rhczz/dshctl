@@ -566,6 +566,13 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         "\t\t\treturn nil",
         ["./internal/service/"],
     ),
+    (
+        "the lock timeout code drifts from the documented five",
+        "internal/exitcode/exitcode.go",
+        "LockTimeout = 5",
+        "LockTimeout = 6",
+        ["./internal/exitcode/", "./internal/cli/"],
+    ),
 ]
 
 

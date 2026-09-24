@@ -701,5 +701,15 @@
     ],
     "new_path": "internal/service/observe.go",
     "status": "ported"
+  },
+  {
+    "name": "the lock timeout code drifts from the documented five",
+    "old_path": "internal/exitcode/exitcode.go",
+    "packages": [
+      "./internal/exitcode/",
+      "./internal/cli/"
+    ],
+    "new_path": "internal/exitcode/exitcode.go",
+    "status": "ported"
   }
 ]

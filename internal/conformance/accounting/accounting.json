@@ -738,6 +738,24 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/cli/documentation_test.go::TestTheHelpExitCodesMatchTheConstants",
+    "file": "internal/cli/documentation_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "帮助文案的退出码表与类型常量逐位一致：常量漂移时帮助与二进制不会各说各话",
+    "note": ""
+  },
+  {
+    "test": "internal/cli/documentation_test.go::TestTheReadmeDocumentsTheInterruptedCode",
+    "file": "internal/cli/documentation_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "README 的 |130| 行有专属存在性断言（helpExitCodes 不含 130，删行不再无人看见）",
+    "note": ""
+  },
+  {
     "test": "internal/cli/documentation_test.go::TestTheReadmeDocumentsTheDefaultLogLines",
     "file": "internal/cli/documentation_test.go",
     "package": "internal/cli",
@@ -925,6 +943,15 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/cli/release_test.go::TestRollbackToANamedVersionThroughTheRealBinary",
+    "file": "internal/cli/release_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "README 承诺的定点回退在真实二进制上闭环：update 到 tag 后 rollback <commit> 回到命名位置并像其他移动一样被记录",
+    "note": ""
   },
   {
     "test": "internal/cli/release_test.go::TestUpdateHEADIsANoOpThroughTheRealBinary",
@@ -1834,6 +1861,15 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/exitcode/exitcode_test.go::TestExitCodesKeepTheirScriptedValues",
+    "file": "internal/exitcode/exitcode_test.go",
+    "package": "internal/exitcode",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "退出码的数值本身被钉住（0-5 与 130）：README 与帮助是脚本分支的依据，常量漂移是契约变化（先红后绿经变异证明）",
+    "note": ""
   },
   {
     "test": "internal/history/alternating_test.go::TestAlternatingCheckoutsKeepTheirOwnBounds",
@@ -3346,6 +3382,15 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/logfile/logfile_test.go::TestSectionReadsAByteExactForgeryAsABoundary",
+    "file": "internal/logfile/logfile_test.go",
+    "package": "internal/logfile",
+    "behavior": "",
+    "disposition": "kept",
+    "evidence": "把『接受字节级伪造的 marker』钉成显式决定：marker 不带作者身份，追加式日志区分不了写入者——加固前先与记录争论",
+    "note": ""
   },
   {
     "test": "internal/logfile/logfile_test.go::TestParseSectionToleratesCarriageReturns",

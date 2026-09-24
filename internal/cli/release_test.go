@@ -415,6 +415,31 @@ func TestUpdateThenRollbackThroughTheRealBinary(t *testing.T) {
 	}
 }
 
+// TestRollbackToANamedVersionThroughTheRealBinary pins the targeted form the
+// README documents: naming a commit returns the checkout to that position even
+// when it is not the previous one, and the move is recorded like any other.
+func TestRollbackToANamedVersionThroughTheRealBinary(t *testing.T) {
+	root := t.TempDir()
+	seedGitCheckout(t, root)
+	repoDir := filepath.Join(root, "repo")
+	original := strings.TrimSpace(cliGit(t, repoDir, "rev-parse", "HEAD"))
+	env := map[string]string{"PATH": toolPathWithGit(t, "pnpm", "node")}
+
+	if update := runBinaryIn(t, root, env, "update", "dsh-v0.1.0"); update.code != 0 {
+		t.Fatalf("update exit = %d, want 0 (stderr = %s)", update.code, update.stderr)
+	}
+	rollback := runBinaryIn(t, root, env, "rollback", original)
+	if rollback.code != 0 {
+		t.Fatalf("rollback exit = %d, want 0 (stderr = %s)", rollback.code, rollback.stderr)
+	}
+	if got := strings.TrimSpace(cliGit(t, repoDir, "rev-parse", "HEAD")); got != original {
+		t.Fatalf("head = %q, want the named commit %q", got, original)
+	}
+	if !strings.Contains(rollback.stdout, "roll back finished") {
+		t.Fatalf("rollback stdout = %q, want the completion report", rollback.stdout)
+	}
+}
+
 // TestUpdateHEADIsANoOpThroughTheRealBinary pins the selector edge at the
 // command line: HEAD names the commit the checkout is already at, so nothing is
 // installed, built or moved.

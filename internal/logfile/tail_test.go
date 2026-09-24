@@ -254,10 +254,16 @@ func TestTailOfALineLongerThanTheWindowPrintsNothing(t *testing.T) {
 // things this codebase refuses to confuse.
 func TestTailReportsAPathItCannotRead(t *testing.T) {
 	// A directory at the path: stat succeeds, and reading it cannot produce
-	// lines. Whatever the platform reports, it must be reported as an error.
+	// lines. Whatever the platform reports, it must be reported as an error,
+	// with the remedy named: the operator who set the path needs to know which
+	// setting to look at.
 	dir := t.TempDir()
-	if _, err := Tail(dir, 5, &bytes.Buffer{}); err == nil {
+	_, err := Tail(dir, 5, &bytes.Buffer{})
+	if err == nil {
 		t.Fatal("a directory at the log path must be reported as an error")
+	}
+	if !strings.Contains(err.Error(), "not a regular file") || !strings.Contains(err.Error(), "DSH_LOG_FILE") {
+		t.Fatalf("error = %v, want the log path named with the DSH_LOG_FILE remedy", err)
 	}
 	if _, _, err := TailFrom(dir, 5, &bytes.Buffer{}); err == nil {
 		t.Fatal("TailFrom must report the same failure")
