@@ -1017,15 +1017,6 @@
     "note": "渲染器搬进接入层，测试随之移动"
   },
   {
-    "test": "internal/cli/render_test.go::TestServeExitCode",
-    "file": "internal/cli/render_test.go",
-    "package": "internal/cli",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "渲染器搬进接入层，测试随之移动"
-  },
-  {
     "test": "internal/cli/render_test.go::TestPrintChecksLabelsEveryStatus",
     "file": "internal/cli/render_test.go",
     "package": "internal/cli",
@@ -4959,25 +4950,7 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
-    "test": "internal/run/collector_test.go::TestNewCollectorWithoutACapturerStillAnswers",
-    "file": "internal/run/collector_test.go",
-    "package": "internal/run",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "重写后仍在树中，钉住同一行为"
-  },
-  {
     "test": "internal/run/collector_test.go::TestIsExitClassifiesOnlyRealExitStatuses",
-    "file": "internal/run/collector_test.go",
-    "package": "internal/run",
-    "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "重写后仍在树中，钉住同一行为"
-  },
-  {
-    "test": "internal/run/collector_test.go::TestIsNotFoundClassifiesOnlyLookupFailures",
     "file": "internal/run/collector_test.go",
     "package": "internal/run",
     "behavior": "",
@@ -7585,6 +7558,33 @@
     "disposition": "new-test",
     "evidence": "version --json 带上编译工具链与 module",
     "note": ""
+  },
+  {
+    "test": "internal/cli/render_test.go::TestServeExitCode",
+    "file": "internal/cli/render_test.go",
+    "package": "internal/cli",
+    "behavior": "",
+    "disposition": "obsolete",
+    "evidence": "函数内联进 runStatus（!Owning 判定），行为由 readonly 矩阵的 status 退出码钉住",
+    "note": "渲染器搬进接入层，测试随之移动"
+  },
+  {
+    "test": "internal/run/collector_test.go::TestNewCollectorWithoutACapturerStillAnswers",
+    "file": "internal/run/collector_test.go",
+    "package": "internal/run",
+    "behavior": "",
+    "disposition": "obsolete",
+    "evidence": "NewCollector 的 nil 回退分支删除（零生产调用）；Capturer-only 路径由 TestCollectorPrefersTheToolItself 钉住",
+    "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/run/collector_test.go::TestIsNotFoundClassifiesOnlyLookupFailures",
+    "file": "internal/run/collector_test.go",
+    "package": "internal/run",
+    "behavior": "",
+    "disposition": "obsolete",
+    "evidence": "未导出包装删除；分类行为由 edges_test 以 errors.Is(err, exec.ErrNotFound) 直接钉住",
+    "note": "重写后仍在树中，钉住同一行为"
   },
   {
     "test": "internal/service/messages_test.go::TestMessagesAreComplete",
