@@ -164,6 +164,17 @@ func seedRunningPort(t *testing.T, f *fixture, port, pid int, url string) {
 	})
 }
 
+// seedTwoServers starts the configured instance on 4321 and a second managed
+// instance on a free port, returning that port. It is the two-server baseline
+// most of this file's scenarios share.
+func seedTwoServers(t *testing.T, f *fixture) int {
+	t.Helper()
+	f.startServer(t, 4321, "")
+	other := reserveFreePort(t)
+	seedRunningPort(t, f, other, 4322, "")
+	return other
+}
+
 // wantRecordForPort asserts that one port's record is on disk, or that it is
 // gone.
 func wantRecordForPort(t *testing.T, f *fixture, port int, want bool) {
@@ -224,10 +235,7 @@ func wantStatesByName(t *testing.T, statuses []domain.Status, want map[int]domai
 func TestStatusReportsEveryManagedPort(t *testing.T) {
 	f := newFixture(t)
 	configured := f.Settings.Port
-	other := reserveFreePort(t)
-
-	f.startServer(t, 4321, "")
-	seedRunningPort(t, f, other, 4322, "")
+	other := seedTwoServers(t, f)
 
 	statuses, err := f.Statuses(context.Background())
 	if err != nil {
@@ -268,10 +276,7 @@ func TestStatusWithoutPortsListsNothing(t *testing.T) {
 func TestExplicitPortSelectsOneInstance(t *testing.T) {
 	f := newFixture(t)
 	configured := f.Settings.Port
-	other := reserveFreePort(t)
-
-	f.startServer(t, 4321, "")
-	seedRunningPort(t, f, other, 4322, "")
+	other := seedTwoServers(t, f)
 
 	explicitPort(t, f, other)
 
@@ -302,10 +307,7 @@ func TestExplicitPortSelectsOneInstance(t *testing.T) {
 func TestStopEndsEveryManagedServer(t *testing.T) {
 	f := newFixture(t)
 	configured := f.Settings.Port
-	other := reserveFreePort(t)
-
-	f.startServer(t, 4321, "")
-	seedRunningPort(t, f, other, 4322, "")
+	other := seedTwoServers(t, f)
 
 	stopped, err := f.StopAll(context.Background())
 	if err != nil {
@@ -330,10 +332,7 @@ func TestStopEndsEveryManagedServer(t *testing.T) {
 func TestStopReportsEveryPortItEnded(t *testing.T) {
 	f := newFixture(t)
 	configured := f.Settings.Port
-	other := reserveFreePort(t)
-
-	f.startServer(t, 4321, "")
-	seedRunningPort(t, f, other, 4322, "")
+	other := seedTwoServers(t, f)
 
 	if _, err := f.StopAll(context.Background()); err != nil {
 		t.Fatalf("StopAll: %v", err)
@@ -656,10 +655,7 @@ func TestPortDiscoveryFailsClosedWhenAProbeFails(t *testing.T) {
 // record.
 func TestStopAllIsIdempotentAcrossPorts(t *testing.T) {
 	f := newFixture(t)
-	other := reserveFreePort(t)
-
-	f.startServer(t, 4321, "")
-	seedRunningPort(t, f, other, 4322, "")
+	seedTwoServers(t, f)
 
 	first, err := f.StopAll(context.Background())
 	if err != nil {
