@@ -146,6 +146,12 @@ func (s *Service) RestartAll(ctx context.Context) ([]StartResult, error) {
 		if err != nil {
 			return nil, err
 		}
+		// One observation per instance answers both questions a restart has:
+		// whether the port is held by something this dshctl cannot act on, and
+		// whether the instance is serving. Taking both answers from one
+		// snapshot keeps them consistent, and spares every instance a second
+		// full probe.
+		var running []int
 		for _, port := range selection.Ports {
 			observed, err := s.atPort(port).observe(ctx)
 			if err != nil {
@@ -154,10 +160,14 @@ func (s *Service) RestartAll(ctx context.Context) ([]StartResult, error) {
 			if observed.occupant() {
 				return nil, exitcode.New(exitcode.Preflight, "port %d is held by a process dshctl cannot claim (pid=%d): %s\nhint: confirm and handle it first, then restart", port, observed.status.ListenerPID, observed.status.ListenerCommand)
 			}
-		}
-		running, err := s.runningSelection(ctx, selection.Ports)
-		if err != nil {
-			return nil, err
+			// The lenient predicate, like the single-port restart: an instance
+			// whose process is alive but whose port it lost is still a server
+			// of ours, and a restart is exactly what brings it back. What the
+			// caller may *signal* is the stricter question, and stopTarget
+			// answers it port by port.
+			if _, ok := s.runningPID(ctx, observed); ok {
+				running = append(running, port)
+			}
 		}
 		if len(running) == 0 {
 			// Nothing was serving, so a restart is a start — exactly what the
@@ -183,26 +193,6 @@ func (s *Service) RestartAll(ctx context.Context) ([]StartResult, error) {
 		}
 		return results, nil
 	})
-}
-
-// runningSelection reports which of the selected instances are serving now and
-// may be replaced by a restart.
-func (s *Service) runningSelection(ctx context.Context, ports []int) ([]int, error) {
-	var running []int
-	for _, port := range ports {
-		observed, err := s.atPort(port).observe(ctx)
-		if err != nil {
-			return nil, err
-		}
-		// The lenient predicate, like the single-port restart: an instance whose
-		// process is alive but whose port it lost is still a server of ours, and
-		// a restart is exactly what brings it back. What the caller may *signal*
-		// is the stricter question, and stopTarget answers it port by port.
-		if _, ok := s.atPort(port).runningPID(ctx, observed); ok {
-			running = append(running, port)
-		}
-	}
-	return running, nil
 }
 
 // URLReport is what `url` found: the addresses of the running instances, the
