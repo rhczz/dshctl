@@ -44,13 +44,6 @@ type Status struct {
 	ListenerCommand string `json:"listenerCommand,omitempty"`
 	// RecordedPID is the pid in the runtime record, or 0.
 	RecordedPID int `json:"recordedPid,omitempty"`
-	// RecordedPhase is the phase in the runtime record, or empty.
-	RecordedPhase string `json:"recordedPhase,omitempty"`
-	// RecordedNodeVersion is the release the recorded server was started with,
-	// or empty when the record predates the field.
-	RecordedNodeVersion string `json:"recordedNodeVersion,omitempty"`
-	// RecordedNodePath is the binary that server was started with.
-	RecordedNodePath string `json:"recordedNodePath,omitempty"`
 	// RecordedRepoDir is the checkout the recorded server was started from, or
 	// empty when the record predates the field. It is a fact about the running
 	// instance, which the configured checkout is not: `--repo` applies to one
@@ -78,17 +71,14 @@ type Status struct {
 	URLFromRecord string `json:"urlWithToken,omitempty"`
 	// RepoDir is the managed checkout.
 	RepoDir string `json:"repoDir"`
-	// RepoReady reports whether the checkout is a DeepSeek Harness checkout.
-	RepoReady bool `json:"repoReady"`
 	// BuildReady reports whether the checkout is installed and built.
 	BuildReady bool `json:"buildReady"`
 	// LogPath is where server, build and update output accumulates.
 	LogPath string `json:"logPath"`
 	// LockHeld reports whether another dshctl operation holds the lock.
 	LockHeld bool `json:"lockHeld"`
-	// LockHolder is the pid holding the lock, or 0.
-	LockHolder int `json:"lockHolder,omitempty"`
 	// LockUnreadable reports that the lock exists but could not be inspected.
+	// It is the "cannot probe" answer, never to be read as "free".
 	LockUnreadable bool `json:"lockUnreadable,omitempty"`
 	// ProbeError explains why a discovered instance could not be looked at. It
 	// is set only with StateUnobservable, and it is what keeps that state from

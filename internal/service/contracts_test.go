@@ -30,13 +30,13 @@ func TestTheBuildMarkerIsTheFileTheBuildWrites(t *testing.T) {
 
 	settings := config.Default(t.TempDir())
 	want := filepath.Join(settings.RepoDir, ".dsh-build", "client-build-environment.json")
-	if got := settings.BuildRecordPath(); got != want {
-		t.Fatalf("config.Settings.BuildRecordPath() = %q, want %q", got, want)
+	if got := filepath.Join(settings.RepoDir, config.BuildRecordRel); got != want {
+		t.Fatalf("config.BuildRecordRel resolves to %q, want %q", got, want)
 	}
 	checkout := repo.Repo{Dir: settings.RepoDir, BuildRecordRel: buildRecordRel}
-	if got := checkout.BuildRecordPath(); got != settings.BuildRecordPath() {
-		t.Fatalf("the repository looks for the marker at %q while the settings name %q",
-			got, settings.BuildRecordPath())
+	if got := checkout.BuildRecordPath(); got != want {
+		t.Fatalf("the repository looks for the marker at %q while the contract names %q",
+			got, want)
 	}
 }
 
@@ -44,12 +44,11 @@ func TestTheBuildMarkerIsTheFileTheBuildWrites(t *testing.T) {
 // decide whether a directory is the managed checkout, and that a directory
 // carrying both is accepted by the same code that reports it missing.
 func TestTheCheckoutMarkersAreTheFilesTheRepositoryShips(t *testing.T) {
-	settings := config.Default(t.TempDir())
-	if got := filepath.Base(settings.RepoManifest()); got != "package.json" {
-		t.Fatalf("the checkout marker is %q, want package.json", got)
+	if config.ServerManifestRel != "package.json" {
+		t.Fatalf("the checkout marker is %q, want package.json", config.ServerManifestRel)
 	}
-	if got := filepath.Base(settings.RepoWorkspaceManifest()); got != "pnpm-workspace.yaml" {
-		t.Fatalf("the workspace marker is %q, want pnpm-workspace.yaml", got)
+	if config.WorkspaceManifestRel != "pnpm-workspace.yaml" {
+		t.Fatalf("the workspace marker is %q, want pnpm-workspace.yaml", config.WorkspaceManifestRel)
 	}
 
 	directory := t.TempDir()

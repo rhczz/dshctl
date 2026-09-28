@@ -12,8 +12,10 @@ decisions pinned by scripts/mutation-check.py as a roster.
 Usage:
     gen-accounting.py [--check]
 
---check fails when regenerating would change a file, which is how CI notices a
-branch that added a test without a ledger row.
+--check regenerates to memory and fails when the result would differ from what
+is on disk. It is a local convenience for editing the ledger or the roster: the
+gate CI runs is scripts/check-accounting.py, which scans the tree and the
+mutation script independently of this generator.
 """
 
 from __future__ import annotations

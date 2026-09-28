@@ -192,7 +192,7 @@ func testWriteBackW7UsesTheEnvironmentAndKeepsTheConfiguredRelease(t *testing.T)
 	f.installNodeTree(t, "26.1.0")
 	f.Settings.NodeVersion = "26.1.0"
 	f.Settings.Sources.NodeVersion = "env"
-	f.Getenv = func(key string) string {
+	f.getenv = func(key string) string {
 		if key == paths.EnvNodeVersion {
 			return "26.1.0"
 		}
@@ -564,16 +564,6 @@ func TestTheRecordNamesTheRuntimeTheInstanceUses(t *testing.T) {
 	if !strings.Contains(row.Detail, "node=24.19.0") {
 		t.Fatalf("runtime record row = %q, want the release of the running server", row.Detail)
 	}
-
-	// The structured status carries the same fact, so a script that reads
-	// `status --json` is not left guessing which runtime is serving.
-	status, err := f.Status(context.Background(), f.Settings.Port)
-	if err != nil {
-		t.Fatalf("Status: %v", err)
-	}
-	if status.RecordedNodeVersion != "24.19.0" || status.RecordedNodePath != record.NodePath {
-		t.Fatalf("status = %+v, want the recorded runtime", status)
-	}
 }
 
 // TestAnAdoptedSurvivorKeepsTheRuntimeItWasStartedWith pins that recovering a
@@ -594,7 +584,6 @@ func TestAnAdoptedSurvivorKeepsTheRuntimeItWasStartedWith(t *testing.T) {
 		SpawnedPID:  4241,
 		StartedAt:   fixtureStartTime,
 		Port:        f.Settings.Port,
-		Phase:       domain.PhaseRunning,
 		NodeVersion: config.TestedNodeVersion,
 		NodePath:    "/opt/node/bin/node",
 	}); err != nil {

@@ -35,7 +35,7 @@ func TestStopEndsTheRecordedServerBehindAStranger(t *testing.T) {
 	f.host.serving(6666, "/usr/sbin/nginx -g daemon off;")
 	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		Port: f.Settings.Port,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestStatusReportsALiveRecordAsNotStale(t *testing.T) {
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
 	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		Port: f.Settings.Port,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestBuildRefusesWhileAnotherPortsSurvivorServes(t *testing.T) {
 	other := recordStore(filepath.Join(f.state, fmt.Sprintf(config.StateFileNamePattern, otherPort)))
 	if err := other.Save(domain.Record{
 		PID: wrapper, SpawnedPID: wrapper, StartedAt: fixtureStartTime,
-		Port: otherPort, Phase: domain.PhaseRunning,
+		Port: otherPort,
 	}); err != nil {
 		t.Fatalf("save other port's record: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestUpdateStopsARecordedServerThatNoLongerListens(t *testing.T) {
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
 	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		Port: f.Settings.Port,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestUpdateRefusesWhenItCannotVerifyTheRunningServer(t *testing.T) {
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
 	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		Port: f.Settings.Port,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -286,7 +286,7 @@ func TestStatusReportsARecycledRecordAsStaleEvenWithAStrangerOnThePort(t *testin
 	f.host.serving(6666, "/usr/sbin/nginx -g daemon off;")
 	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		Port: f.Settings.Port,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -317,7 +317,7 @@ func TestAdoptSurvivorRefusesAListenerOutsideTheRecordedTree(t *testing.T) {
 	f.host.listen(8001)
 	saved := domain.Record{
 		PID: 8000, SpawnedPID: 8000, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		Port: f.Settings.Port,
 	}
 	if err := f.Record.Save(saved); err != nil {
 		t.Fatalf("save record: %v", err)
@@ -356,7 +356,7 @@ func TestStatusReportsPortReadiness(t *testing.T) {
 	f.host.listen(4242)
 	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		Port: f.Settings.Port,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}

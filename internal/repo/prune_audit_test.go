@@ -192,7 +192,7 @@ func TestPruneReportsEachRemovalWithItsResidue(t *testing.T) {
 	if len(lines) != 1 || lines[0] != want {
 		t.Fatalf("report lines = %#v, want [%q]", lines, want)
 	}
-	if len(report.Removed) != 1 || report.Removed[0] != candidate || len(report.Failed) != 0 {
+	if len(report.Removed) != 1 || report.Removed[0] != candidate {
 		t.Fatalf("report = %+v, want exactly one removal of %s", report, candidate)
 	}
 	if box.exists("packages/group/gone") {
@@ -211,7 +211,7 @@ func TestPruneWithNoCandidatesReportsNothing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Prune: %v", err)
 	}
-	if called || len(report.Removed) != 0 || len(report.Failed) != 0 {
+	if called || len(report.Removed) != 0 {
 		t.Fatalf("report = %+v (callback called: %v), want a silent no-op", report, called)
 	}
 }

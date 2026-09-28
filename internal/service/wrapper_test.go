@@ -142,7 +142,7 @@ func TestStartRefusesWhenALiveRecordIsNotListening(t *testing.T) {
 
 	_, err := f.Start(context.Background())
 	wantCode(t, err, exitcode.Preflight)
-	if !contains(err.Error(), "is still alive") {
+	if !strings.Contains(err.Error(), "is still alive") {
 		t.Fatalf("error = %v, want it to say the recorded server is still alive", err)
 	}
 	f.wantNoSpawn(t)
@@ -195,7 +195,6 @@ func stateRecordWithWrapper(f *fixture, pid int) domain.Record {
 		SpawnedPID: pid,
 		StartedAt:  fixtureStartTime,
 		Port:       f.Settings.Port,
-		Phase:      domain.PhaseRunning,
 	}
 }
 

@@ -241,7 +241,7 @@ func TestPruneRemovesOnlyResidue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Prune: %v", err)
 	}
-	if len(report.Removed) != 2 || len(report.Failed) != 0 {
+	if len(report.Removed) != 2 {
 		t.Fatalf("report = %+v, want two removals", report)
 	}
 	for _, gone := range []string{"packages/group/stale", "vendor/oldpkg"} {

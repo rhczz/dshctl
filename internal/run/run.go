@@ -85,9 +85,6 @@ func Collector(ex Executor) Outputer {
 // A component that only needs to read a command's output takes this directly,
 // so its test double never has to implement command execution it does not use.
 func NewCollector(capturer Capturer) Outputer {
-	if capturer == nil {
-		return NewRunner()
-	}
 	return captureAdapter{capturer}
 }
 
@@ -277,11 +274,6 @@ func (r *Runner) Output(ctx context.Context, cmd Command) (string, error) {
 func IsExit(err error, code int) bool {
 	var status *ExitError
 	return errors.As(err, &status) && status.Code == code
-}
-
-// IsNotFound reports whether err means the executable does not exist.
-func IsNotFound(err error) bool {
-	return errors.Is(err, exec.ErrNotFound)
 }
 
 // LookPath reports where name resolves on the current PATH.

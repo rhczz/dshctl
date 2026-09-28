@@ -9,6 +9,3 @@ import "runtime"
 // Platform returns the GOOS/GOARCH pair of the running binary, for example
 // "darwin/arm64".
 func Platform() string { return runtime.GOOS + "/" + runtime.GOARCH }
-
-// GOOS reports the operating system the binary targets.
-func GOOS() string { return runtime.GOOS }

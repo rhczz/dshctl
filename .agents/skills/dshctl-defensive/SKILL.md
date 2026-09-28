@@ -35,9 +35,7 @@ description: 改 dshctl 的生命周期、并发、子进程、超时或清理�
    - 落点：`internal/service/start.go` 的 `spawn`、`internal/service/build.go`、`internal/run/run.go` 的 `WithPathPrefix`。
    - 为什么：版本管理器下 `PATH` 上的 `node` 与 `pnpm` 可能来自不同安装；隐式继承环境会让"这次用的哪个 Node"变成不可复现的事实。
 
-7. **状态与临时文件的安全写入**：状态目录 0700、状态文件 0600；写入经 `internal/atomically` 在同目录建临时文件（独占创建、0600）后原子替换；非普通文件（symlink/目录/设备）是残留，清除而不跟随。
-   - 落点：`internal/state/state.go`（`Remove` 用 `Lstat` 判定，目录走 `RemoveAll`，其余 `Remove`；`Save` 用 `atomically.WriteFile(..., 0o600)`）、`internal/atomically/atomically.go`（`MkdirAll(dir, 0o700)`、`os.CreateTemp`）、`internal/config/config.go`（配置文件属于操作者，允许 symlink，写入靠重命名替换而不是跟随）。
-   - 为什么：跟随链接会把写入引到记录之外；半写的记录会让下一次操作读到自相矛盾的状态。
+7. **状态写入属于失败封闭**：写入绝不跟随链接（跟随会把写入引到记录之外），也绝不留下半写文档（半写记录会让下一次操作读到自相矛盾的状态）。权限位、原子替换与非普通文件清理的细则与落点见 `dshctl-state-safety`。
 
 8. **日志与诊断里的 token 地址是凭据，不许扩大它的传播面**：`dshctl url` 专门打印带 token 的地址，但 `status` 的"访问:"行与 `--json` 的 `urlWithToken` 字段也带，`logs` 转发的服务日志本身含 `dsh web:` 地址行——打印、上报、写入这些输出的路径都要按凭据对待。从共享日志里认领地址时要求整行匹配 `dsh web:` 的格式并且端口相同。
    - 落点：`internal/service/start.go` 的 `webURLPattern` 与 `announcedURL` 的注释——报告别的端口的地址，等于把另一台服务的 token 交给操作者。
@@ -56,7 +54,7 @@ go test ./internal/service/ ./internal/host/ ./internal/run/ -count=1
 make test-race   # CI：本地不跑，race 只在 CI 的三平台矩阵上有意义
 ```
 
-改到等待循环或信号路径时，另外证明守卫会红：引入回归 → 看测试变红 → 还原。`make mutation` 是这条规则在 Node 与配置决策上的可执行形式（见 [scripts/mutation-check.py](../../../scripts/mutation-check.py)）：整套在 CI 上跑，本地只按需用 `--only <name>` 证明某一条会被抓住。
+改到等待循环或信号路径时，另外给出红-绿证明（做法见 `dshctl-tdd` 规则 2）。`make mutation` 是它在 Node 与配置决策上的可执行形式（见 [scripts/mutation-check.py](../../../scripts/mutation-check.py)）：整套在 CI 上跑，本地只按需用 `--only <name>` 证明某一条会被抓住。
 
 ## 相关文件
 

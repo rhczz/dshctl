@@ -46,6 +46,8 @@
 
 ## 验证
 
+> （本节随 2026-09-22-remove-i18n.md 失效：`internal/i18n` 与其中的测试已删除。）
+
 - `internal/i18n/i18n_test.go`：解析顺序与回退、两种语言渲染、缺译文回退、未知 id、
   目录完整性、孤儿消息。
 - `internal/conformance`：`DSHCTL_LANG=zh` 下与 v0.2.5 金标逐字节一致；

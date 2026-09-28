@@ -563,13 +563,3 @@ func TestNodeBinaryNameMatchesThePlatform(t *testing.T) {
 		t.Fatalf("nodeBinaryName = %q, want node", nodeBinaryName)
 	}
 }
-
-// contains reports whether haystack holds needle.
-func contains(haystack, needle string) bool {
-	for index := 0; index+len(needle) <= len(haystack); index++ {
-		if haystack[index:index+len(needle)] == needle {
-			return true
-		}
-	}
-	return false
-}

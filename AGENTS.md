@@ -6,8 +6,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 命令
 
-- 本地只跑快检与定点复现：`make fmt-check conventions vet`（改 `.github/` 加 `make workflow-check`），加受影响包的 `go test ./internal/<pkg>/ -count=1`；要证明某条守卫会红、某个变异会被抓住时只跑那一条（`-run NAME`、`mutation-check.py --only NAME`）。
-- 全量门禁只在 CI 跑（`make check`/`ci`/`mutation`/`coverage`/`hermetic`/`cross`/全量测试），本地不执行；以 GitHub Actions 的结论为准，不要没跑快检就推。
+- 本地只跑快检与定点复现，全量门禁只在 CI 跑（`make check`/`ci`/`mutation`/`coverage`/`hermetic`/`cross`/全量测试），本地不执行；以 GitHub Actions 的结论为准，不要没跑快检就推。快检命令、定点复现与失败定位见 `dshctl-verify`。
 - `make` 只是门禁命令清单，CI 跑同样的命令，`check-workflow.py` 强制一致。
 - 版本一律锁死：Go 写确切补丁 `X.Y.Z`，action 按 commit SHA，govulncheck 固定版本；升级是独立的 `ci:` 提交。
 - 需要 Go 1.24+（`floor` job 验证下限）与 python3。
@@ -18,11 +17,7 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## 固定 vs 配置
 
-新增任何可调值前先问三句，答不出就写死：
-
-1. 它随部署变化吗？否 → 常量。
-2. 今天就有消费者要设它吗？否 → 常量，或要求调用方显式传值。
-3. 它是协议常量、外部规范或安全不变量吗？是 → 写死，任何 flag/env/配置都不得覆盖。
+新增任何可调值前先问三句，答不出就写死（三问全文与现有值的分类见 `dshctl-decisions`）；协议常量、外部规范与安全不变量写死，任何 flag/env/配置都不得覆盖。
 
 `DEFAULT_*` 常量与测试钩子不是可配置性。配置错误在最早可判定点响亮失败：未知键拒绝、缺依赖拒绝启动，绝不降级。
 
@@ -40,24 +35,22 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 
 ## TDD
 
-- 先写会失败的测试再写实现；bug 先写复现测试，并证明它在修复前是红的。
-- 守卫只有在回归能让它变红时才是守卫（引入回归 → 看红 → 还原）；`make mutation` 是其可执行形式（整套在 CI 分片跑，本地只证明单条）。新增被钉住的决策要同时加一条 `MUTATIONS` 字面替换并证明它会被抓住。
-- 禁止先实现后补测试、禁止放宽或删除断言、禁止新增 skip（CI 的 skip 白名单要同步）。
+- 先写会失败的测试再写实现；bug 先写复现测试，并证明它在修复前是红的（红-绿证明的做法见 `dshctl-tdd`）。
+- 守卫只有在回归能让它变红时才是守卫；`make mutation` 是其可执行形式（整套在 CI 分片跑，本地只证明单条），新增被钉住的决策要同时能被它抓住（见 `dshctl-tdd`）。
+- 禁止先实现后补测试、禁止放宽或删除断言、禁止新增 skip（skip 白名单的判据见 `dshctl-testing`）。
 - 测试描述行为而不是"正确性"；行为过时就连测试一起改，并在提交里说明。
 
 ## 风格
 
-- 格式真源只有 `gofmt -s`；本仓库没有 linter，其余规范靠 `dshctl-style` 与 `scripts/check-conventions.py`。
+- 格式真源只有 `gofmt -s`；本仓库没有 linter，其余规范见 `dshctl-style` 与 `scripts/check-conventions.py`。
 - 注释英文、讲契约与失败模式，非测试文件 ≤ 88 列；导出标识符必须有文档注释。
-- 错误信息英文 + `: %w`，句尾不加句号；命令与参数加反引号或 `%q`。
-- 禁止 `panic` 与 `func init()`；TODO/FIXME/XXX 按紧急度分级并写明触发条件（当前树中为 0）。
+- 错误信息英文 + `: %w`；禁止 `panic` 与 `func init()`；TODO/FIXME/XXX 按紧急度分级并写明触发条件（细则见 `dshctl-style`）。
 - 一个事实一个家：README = 操作者契约，包文档 = 模型与不变量，测试 = 被钉住的行为，`.agents/notes` = 为什么与放弃了什么，skill = 流程，git = 历史；别处只链接。
 
 ## 架构
 
 - 跨层调用只经 `service`；平台差异只出现在 build tag 文件里，上层不得有 `if windows`（两处已声明例外见 `dshctl-portability`）。
-- 接口只为可测性存在（当前只有 `run.Executor`/`Capturer`/`Outputer` 与 `service.OsHost`），文档要写明它买到了什么。
-- 基础设施只提供机制，产品值定义在拥有契约的层：文件名、记录 schema、日志标记里的产品名、上限、工具清单、env 名不得写死在机制包里，要以参数或类型传入；判据是"把该包拿去给另一个产品用，需要改它的源码吗"。
+- 基础设施只提供机制，产品值定义在拥有契约的层：文件名、记录 schema、日志标记里的产品名、上限、工具清单、env 名不得写死在机制包里，要以参数或类型传入；判据是"把该包拿去给另一个产品用，需要改它的源码吗"（机制/资源清单见 `dshctl-architecture`）。
 - 接口只为可测性或多前端替换存在：`run.Executor`/`Capturer`/`Outputer`、`service.OsHost`、`service.Emitter`，文档写明买到了什么。
 - 领域层零依赖、零 I/O、不放文案；新不变量同时写进包文档与一个测试；新包需"独立不变量 + 可独立测试 + 不引入反向依赖"三条同时成立。
 - 契约性决定连同被否决的方案与后果写进 `.agents/notes/`，与代码同一提交。
@@ -65,12 +58,12 @@ dshctl 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止
 ## 工作流
 
 1. 定位真源（包文档、pinning 测试、README、`.agents/notes`），定夺固定/可配与所属层，再写失败测试。
-3. 按改动选门禁：本地只跑快检与定点复现，全量交给 CI。
-4. 提交信息 `<type>: <小写英文句子描述行为变化>`，type 用 feat/fix/test/docs/ci；任意分支的 push 都触发完整 CI，main 受分支保护：除 `goldens` 外全绿才许合并 PR；一个 PR 只做一件事、大功能按子系统拆成堆叠 PR；发布只打 `v*` tag，版本由 ldflags 注入。
+2. 按改动选门禁：本地只跑快检与定点复现，全量交给 CI（见「命令」）。
+3. 提交信息 `<type>: <小写英文句子描述行为变化>`，type 用 feat/fix/test/docs/ci；任意分支的 push 都触发完整 CI，main 受分支保护：除 `goldens` 外全绿才许合并 PR；一个 PR 只做一件事、大功能按子系统拆成堆叠 PR；发布只打 `v*` tag，版本由 ldflags 注入。
 
 ## 完成定义
 
-- [ ] `make fmt-check conventions vet`（改 `.github/` 加 `make workflow-check`）与受影响包测试通过；全量以 CI 为准。
+- [ ] 本地快检与受影响包测试通过；全量以 CI 为准（命令见 `dshctl-verify`）。
 - [ ] 确认 `mutation` / `cross` / `hermetic` / `coverage` 已由 CI 覆盖并等结论。
 - [ ] 新增或改变的行为有会失败的测试，新不变量有反向用例。
 - [ ] README 与包文档同步；契约性决定已写进 `.agents/notes/`。

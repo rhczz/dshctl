@@ -42,7 +42,6 @@ import (
 	"github.com/rhczz/dshctl/internal/logfile"
 	"github.com/rhczz/dshctl/internal/logging"
 	"github.com/rhczz/dshctl/internal/nodejs"
-	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/repo"
 	"github.com/rhczz/dshctl/internal/run"
 	"github.com/rhczz/dshctl/internal/state"
@@ -82,8 +81,6 @@ type Service struct {
 	Spawn Launcher
 	// LookPath resolves an executable on PATH.
 	LookPath func(string) (string, error)
-	// Getenv reads the environment.
-	Getenv func(string) string
 	// BuildInfo is the running binary's build metadata.
 	BuildInfo version.Info
 
@@ -164,7 +161,6 @@ func New(settings config.Settings, deps Dependencies) *Service {
 		Dial:      dialPort,
 		Spawn:     spawnDetached,
 		LookPath:  run.LookPath,
-		Getenv:    os.Getenv,
 		BuildInfo: deps.Version,
 		sleep:     sleepCtx,
 		poll:      pollInterval,
@@ -209,21 +205,9 @@ func (s *Service) atPort(port int) *Service {
 	return &bound
 }
 
-// selection resolves the instances a command acts on.
-func (s *Service) selection() (config.StateSelection, error) {
-	return s.Settings.StateSelection()
-}
-
-// buildRecordRel mirrors config's build marker for the repo package.
-const buildRecordRel = ".dsh-build/client-build-environment.json"
-
-// environment returns the injected environment lookup.
-func (s *Service) environment() paths.Getenv {
-	if s.Getenv != nil {
-		return s.Getenv
-	}
-	return os.Getenv
-}
+// buildRecordRel is the relative path of the build marker, injected into the
+// repo layer. The literal lives once, in config.BuildRecordRel.
+const buildRecordRel = config.BuildRecordRel
 
 // note appends a line to the log, ignoring a log failure that would otherwise
 // mask the operation's own result.

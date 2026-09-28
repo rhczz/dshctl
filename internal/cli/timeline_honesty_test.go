@@ -20,8 +20,11 @@ func TestTimelineGapNeverSaysUpToDateWithoutAConfirmedFetch(t *testing.T) {
 		require string
 	}{
 		{
-			name:    "no gap, fetch failed",
-			report:  service.TimelineReport{Remote: service.TimelineRemote{Name: "origin/master"}, Fetched: false},
+			name: "no gap, fetch failed",
+			report: service.TimelineReport{
+				UpToDate: true,
+				Remote:   service.TimelineRemote{Name: "origin/master"},
+			},
 			banned:  "up to date",
 			require: "not confirmed",
 		},
@@ -61,8 +64,9 @@ func TestTimelineGapNeverSaysUpToDateWithoutAConfirmedFetch(t *testing.T) {
 		{
 			name: "no gap, fetch succeeded keeps the confirmed wording",
 			report: service.TimelineReport{
-				Fetched: true,
-				Remote:  service.TimelineRemote{Name: "origin/master"},
+				UpToDate: true,
+				Fetched:  true,
+				Remote:   service.TimelineRemote{Name: "origin/master"},
 			},
 			require: "up to date (origin/master)",
 		},

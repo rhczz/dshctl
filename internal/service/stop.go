@@ -190,20 +190,7 @@ func (s *Service) terminate(ctx context.Context, pid int) error {
 // is gone. Identity and "has it exited" are decided by Inspect, which reads the
 // process state itself.
 func (s *Service) waitForExit(ctx context.Context, pid int, timeout time.Duration) bool {
-	deadline := time.Now().Add(timeout)
-	for {
-		if !s.Host.Alive(ctx, pid) {
-			return true
-		}
-		if time.Now().After(deadline) {
-			return false
-		}
-		select {
-		case <-ctx.Done():
-			return false
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
+	return s.waitUntil(ctx, timeout, func() bool { return !s.Host.Alive(ctx, pid) })
 }
 
 // clearStaleRecord removes a record that describes nothing usable.

@@ -19,6 +19,10 @@
 
 ## 决定
 
+> 取代关系：本节的 CI job 清单（"CI：`make check`、`make ci`、…"）已被
+> 2026-09-17-ci-wall-clock.md 取代：CI 不调用 `make`，每个 job 直接跑同样的命令，
+> 两者由 `check-workflow.py` 的一致性检查绑定。
+
 分工按**成本与性质**切开，而不是按「谁有空」：
 
 - 本地：`make fmt-check`、`make conventions`、`make vet`（改 `.github/` 时加

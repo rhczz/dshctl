@@ -201,7 +201,7 @@ func TestUpdateRefusesWhileAnotherPortServesTheCheckout(t *testing.T) {
 	other := recordStore(filepath.Join(f.state, fmt.Sprintf(config.StateFileNamePattern, otherPort)))
 	if err := other.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-		Port: otherPort, Phase: domain.PhaseRunning,
+		Port: otherPort,
 	}); err != nil {
 		t.Fatalf("save the other port's record: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestBuildAndUpdateSeeASiblingRecordInAnAwkwardStateDirectory(t *testing.T) 
 			f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
 			if err := other.Save(domain.Record{
 				PID: 4242, SpawnedPID: 4242, StartedAt: fixtureStartTime,
-				Port: otherPort, Phase: domain.PhaseRunning,
+				Port: otherPort,
 			}); err != nil {
 				t.Fatalf("save the other port's record: %v", err)
 			}
@@ -302,7 +302,7 @@ func TestBuildRefusesWhenAnotherPortsProbeFails(t *testing.T) {
 		t.Fatalf("provision: %v", err)
 	}
 	if err := store.Save(domain.Record{
-		PID: 9001, SpawnedPID: 9000, StartedAt: fixtureStartTime, Port: other, Phase: domain.PhaseRunning,
+		PID: 9001, SpawnedPID: 9000, StartedAt: fixtureStartTime, Port: other,
 	}); err != nil {
 		t.Fatalf("seed the record: %v", err)
 	}

@@ -38,7 +38,7 @@ import (
 //   - an error only when the configured port itself cannot be observed, or when
 //     discovery cannot search the state directory.
 func (s *Service) Statuses(ctx context.Context) ([]domain.Status, error) {
-	selection, err := s.selection()
+	selection, err := s.Settings.StateSelection()
 	if err != nil {
 		return nil, err
 	}
@@ -69,12 +69,7 @@ func (s *Service) unobservable(port int, cause error) domain.Status {
 	// started here, and a report that hid it would leave the operator with a
 	// port number and nothing else.
 	if record, ok, err := s.atPort(port).Record.Load(); err == nil && ok {
-		status.RecordedPID = record.PID
-		status.RecordedPhase = string(record.Phase)
-		status.RecordedNodeVersion = record.NodeVersion
-		status.RecordedNodePath = record.NodePath
-		status.RecordedRepoDir = record.RepoDir
-		status.URLFromRecord = record.URL
+		applyRecord(&status, record)
 	}
 	return status
 }
@@ -101,8 +96,8 @@ type StopAllResult struct {
 //   - the outcome of every instance, in selection order.
 //   - the error of the instance that could not be ended.
 func (s *Service) StopAll(ctx context.Context) (StopAllResult, error) {
-	return stickyLock(ctx, s, func() (StopAllResult, error) {
-		selection, err := s.selection()
+	return withLockValue(ctx, s, func() (StopAllResult, error) {
+		selection, err := s.Settings.StateSelection()
 		if err != nil {
 			return StopAllResult{}, err
 		}
@@ -146,11 +141,17 @@ func (s *Service) stopOneLocked(ctx context.Context, port int) (StopResult, erro
 //   - one start result per instance that was running, in selection order.
 //   - the error that stopped the sequence.
 func (s *Service) RestartAll(ctx context.Context) ([]StartResult, error) {
-	return stickyLock(ctx, s, func() ([]StartResult, error) {
-		selection, err := s.selection()
+	return withLockValue(ctx, s, func() ([]StartResult, error) {
+		selection, err := s.Settings.StateSelection()
 		if err != nil {
 			return nil, err
 		}
+		// One observation per instance answers both questions a restart has:
+		// whether the port is held by something this dshctl cannot act on, and
+		// whether the instance is serving. Taking both answers from one
+		// snapshot keeps them consistent, and spares every instance a second
+		// full probe.
+		var running []int
 		for _, port := range selection.Ports {
 			observed, err := s.atPort(port).observe(ctx)
 			if err != nil {
@@ -159,10 +160,14 @@ func (s *Service) RestartAll(ctx context.Context) ([]StartResult, error) {
 			if observed.occupant() {
 				return nil, exitcode.New(exitcode.Preflight, "port %d is held by a process dshctl cannot claim (pid=%d): %s\nhint: confirm and handle it first, then restart", port, observed.status.ListenerPID, observed.status.ListenerCommand)
 			}
-		}
-		running, err := s.runningSelection(ctx, selection.Ports)
-		if err != nil {
-			return nil, err
+			// The lenient predicate, like the single-port restart: an instance
+			// whose process is alive but whose port it lost is still a server
+			// of ours, and a restart is exactly what brings it back. What the
+			// caller may *signal* is the stricter question, and stopTarget
+			// answers it port by port.
+			if _, ok := s.runningPID(ctx, observed); ok {
+				running = append(running, port)
+			}
 		}
 		if len(running) == 0 {
 			// Nothing was serving, so a restart is a start — exactly what the
@@ -188,26 +193,6 @@ func (s *Service) RestartAll(ctx context.Context) ([]StartResult, error) {
 		}
 		return results, nil
 	})
-}
-
-// runningSelection reports which of the selected instances are serving now and
-// may be replaced by a restart.
-func (s *Service) runningSelection(ctx context.Context, ports []int) ([]int, error) {
-	var running []int
-	for _, port := range ports {
-		observed, err := s.atPort(port).observe(ctx)
-		if err != nil {
-			return nil, err
-		}
-		// The lenient predicate, like the single-port restart: an instance whose
-		// process is alive but whose port it lost is still a server of ours, and
-		// a restart is exactly what brings it back. What the caller may *signal*
-		// is the stricter question, and stopTarget answers it port by port.
-		if _, ok := s.atPort(port).runningPID(ctx, observed); ok {
-			running = append(running, port)
-		}
-	}
-	return running, nil
 }
 
 // URLReport is what `url` found: the addresses of the running instances, the
@@ -259,13 +244,4 @@ func (s *Service) URLReport(ctx context.Context) (URLReport, error) {
 		report.Addresses[status.Port] = address
 	}
 	return report, nil
-}
-
-// WebURLs reports the address of every running instance, keyed by port.
-func (s *Service) WebURLs(ctx context.Context) (map[int]string, error) {
-	report, err := s.URLReport(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return report.Addresses, nil
 }

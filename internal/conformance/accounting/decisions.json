@@ -647,6 +647,15 @@
     "status": "ported"
   },
   {
+    "name": "a global flag's value is silently dropped",
+    "old_path": "internal/cli/cli.go",
+    "packages": [
+      "./internal/cli/"
+    ],
+    "new_path": "internal/cli/cli.go",
+    "status": "ported"
+  },
+  {
     "name": "the toolchain that built the binary is left unnamed",
     "old_path": "internal/version/version.go",
     "packages": [

@@ -102,12 +102,7 @@ func (s *Service) observe(ctx context.Context) (observed, error) {
 		}
 	}
 	if hasRecord {
-		status.RecordedPID = record.PID
-		status.RecordedPhase = string(record.Phase)
-		status.RecordedNodeVersion = record.NodeVersion
-		status.RecordedNodePath = record.NodePath
-		status.RecordedRepoDir = record.RepoDir
-		status.URLFromRecord = record.URL
+		applyRecord(&status, record)
 	}
 
 	// The record's own liveness is one question, asked at most once: on some
@@ -251,17 +246,17 @@ func (s *Service) baseStatus() domain.Status {
 		URL:        s.Settings.URL(),
 		Port:       s.boundPort(),
 		RepoDir:    s.Settings.RepoDir,
-		RepoReady:  s.Repo.IsServerCheckout(),
 		BuildReady: s.Repo.BuildReady(),
 		LogPath:    s.Settings.LogPath,
 	}
-	holder, held, err := lock.Held(s.Settings.LockFile())
+	_, held, err := lock.Held(s.Settings.LockFile())
 	switch {
 	case err != nil:
+		// An uninspectable lock is never read as "free": the status says so
+		// instead of guessing.
 		status.LockUnreadable = true
 	case held:
 		status.LockHeld = true
-		status.LockHolder = holder
 	}
 	return status
 }
@@ -300,6 +295,41 @@ func describeFacts(facts host.Facts) string {
 		return "pid=" + strconv.Itoa(facts.PID) + " (source: " + facts.Source + ")"
 	}
 	return "unknown process"
+}
+
+// applyRecord carries the record's operator-facing facts into a status. It is
+// the one place a record's shape maps onto a status, so a new record field
+// becomes a report by changing one function.
+func applyRecord(status *domain.Status, record domain.Record) {
+	status.RecordedPID = record.PID
+	status.RecordedRepoDir = record.RepoDir
+	status.URLFromRecord = record.URL
+}
+
+// waitPoll is how often the deadline waits below re-ask their question. It is
+// much finer than pollInterval: these waits sit between "sent the signal" and
+// "reported the outcome", and the answer must arrive as soon as the kernel has
+// it.
+const waitPoll = 50 * time.Millisecond
+
+// waitUntil asks a yes/no question until it answers yes or the deadline passes.
+// A cancelled context stops the wait and reports "not yet" — the caller owns
+// turning that into its own outcome.
+func (s *Service) waitUntil(ctx context.Context, timeout time.Duration, yes func() bool) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		if yes() {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(waitPoll):
+		}
+	}
 }
 
 // waitForListening waits until the port is served by the process this start
@@ -432,27 +462,6 @@ func (s *Service) waitForStopped(ctx context.Context, timeout time.Duration) err
 	}
 }
 
-// stickyLock runs fn while one operation lock covers every instance of this
-// state directory.
-//
-// A multi-instance operation derives a value per port, and those values must not
-// each take the lock on their own: releasing it between the instances would let
-// another command observe half of a stop, which is exactly the state an operator
-// must never see. Aquiring it here, on the directory, makes the rule impossible
-// to forget at a call site.
-func stickyLock[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {
-	var zero T
-	held, err := lock.Acquire(ctx, s.Settings.LockFile(), s.Settings.LockTimeout)
-	if err != nil {
-		return zero, exitcode.Wrap(exitcode.LockTimeout, err)
-	}
-	defer held.Release()
-	if err := provision(s); err != nil {
-		return zero, err
-	}
-	return fn()
-}
-
 // withLock runs fn while holding the operation lock, provisioning the state
 // directory first so that reporting commands can stay free of side effects.
 func (s *Service) withLock(ctx context.Context, fn func() error) error {
@@ -462,7 +471,15 @@ func (s *Service) withLock(ctx context.Context, fn func() error) error {
 	return err
 }
 
-// withLockValue runs fn under the operation lock for operations with a result.
+// withLockValue runs fn under the operation lock for operations with a result;
+// withLock is the resultless shape of the same rule.
+//
+// One operation lock covers every instance of this state directory. A
+// multi-instance operation derives a value per port, and those values must not
+// each take the lock on their own: releasing it between the instances would let
+// another command observe half of a stop, which is exactly the state an operator
+// must never see. Aquiring it here, on the directory, makes the rule impossible
+// to forget at a call site.
 func withLockValue[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {
 	var zero T
 	held, err := lock.Acquire(ctx, s.Settings.LockFile(), s.Settings.LockTimeout)

@@ -15,12 +15,12 @@ import (
 
 func TestDescribe(t *testing.T) {
 	record := Record{
-		PID: 42, StartedAt: 1_700_000_000, Port: 3080, Phase: PhaseRunning,
+		PID: 42, StartedAt: 1_700_000_000, Port: 3080,
 		URL: "http://x", NodeVersion: "24.20.0", NodePath: "/opt/node/bin/node",
 		RepoDir: "/srv/deepseek-harness",
 	}
 	text := record.Describe()
-	for _, want := range []string{"pid=42", "port=3080", "phase=running", "http://x", "node=24.20.0", "repo=/srv/deepseek-harness"} {
+	for _, want := range []string{"pid=42", "port=3080", "http://x", "node=24.20.0", "repo=/srv/deepseek-harness"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("Describe = %q, missing %q", text, want)
 		}
@@ -32,7 +32,7 @@ func TestDescribe(t *testing.T) {
 	// The checkout is a fact about the instance rather than a detail of the
 	// runtime, so a record that carries none must not look as if it served from
 	// somewhere: an empty path in the line would read as a directory named "".
-	withoutRuntime := Record{PID: 42, StartedAt: 1_700_000_000, Port: 3080, Phase: PhaseRunning}
+	withoutRuntime := Record{PID: 42, StartedAt: 1_700_000_000, Port: 3080}
 	for _, absent := range []string{"node=", "repo="} {
 		if strings.Contains(withoutRuntime.Describe(), absent) {
 			t.Fatalf("Describe = %q, want no %q for a record that carries none", withoutRuntime.Describe(), absent)

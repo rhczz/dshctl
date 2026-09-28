@@ -770,7 +770,7 @@ func TestStatusJSONCarriesTheStateMachineFields(t *testing.T) {
 	}
 	for _, key := range []string{
 		"state", "url", "port", "ready", "recordLive", "recordStale",
-		"repoDir", "repoReady", "buildReady", "logPath", "lockHeld",
+		"repoDir", "buildReady", "logPath", "lockHeld",
 	} {
 		if _, ok := decoded[key]; !ok {
 			t.Fatalf("status JSON is missing %q: %s", key, stdout)

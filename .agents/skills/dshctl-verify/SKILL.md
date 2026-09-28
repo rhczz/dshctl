@@ -26,17 +26,12 @@ description: 决定 dshctl 一次改动该跑哪些门禁（本地只跑快检�
 
 ### 3. 三个属性门禁各自断言什么
 
-- `make hermetic`（`../../../scripts/hermetic-check.sh`）：在一次性 HOME 里跑整套测试，并要求测试不在自己的临时目录之外留下任何东西。它红说明某个测试写了真实 HOME、真实状态目录或全局配置——这正是"测试不碰环境"从声明变成被检查属性的地方。
-- `make coverage`（`../../../scripts/check-coverage.py`）：`internal/nodejs` 是 100% 硬门禁（这个包决定长跑服务用哪个 Node 运行时），`internal/config`、`internal/service` 只报告不设阈值。给 nodejs 加分支必须同时加测试，否则 CI 直接红。
-- `make mutation`（`../../../scripts/mutation-check.py`）：逐条破坏 Node 与配置决策，要求测试失败。输出 `ALIVE`（没被发现）、`INVALID`（变异没编译，什么也没证明）、`BLOCKED`（工具链用不了构建缓存）都算失败。改这些决策必须让它跑（整套在 CI，本地只用 `--only` 证明单条），因为"测试通过"本身不能证明测试会注意到破坏。
+`make hermetic`、`make coverage`、`make mutation` 分别把"测试不碰真实环境"、"`internal/nodejs` 100% 语句覆盖"与"决策被钉住"变成被检查的属性，覆盖面、失败输出与下一步都见 `references/gates.md` 的门禁表与失败定位。选法不变：改到哪类决策，就在 CI 看对应门禁的结论；`mutation` 覆盖的决策必须让它跑（整套在 CI，本地只用 `--only` 证明单条），因为"测试通过"本身不能证明测试会注意到破坏。
 
 ### 4. CI 上额外跑什么
 
-- `test` job 在三平台跑 `go vet` 与 `go test -race -count=1 -timeout 600s ./...`；无 race 的复跑与格式化检查只在 ubuntu：race 运行时更慢、调度不同，只在其中一种下通过的测试是值得知道的缺陷。
-- `hermetic` job 把多个属性压在一次套件执行上：workflow 结构与书写约定检查、在一次性 HOME 里带覆盖率跑整套、拒绝白名单之外的 `--- SKIP`、以及 `internal/nodejs` 的覆盖率门禁。新增 skip 必须同步 `../../../.github/workflows/ci.yml` 的白名单并说明理由。
-- `mutation` job 把整套 `scripts/mutation-check.py` 分 6 个分片并行跑（条数以 `--list` 为准，别抄数字），每条决策逐条破坏并要求套件变红。它刻意不被 `build` 依赖：结论只关乎测试强度。`scripts/check-workflow.py` 会检查这个 job 还在、还在跑脚本、有超时、没有 `needs`，并且分片矩阵是 1..N 无洞、`--shard ${{ matrix.shard }}/N` 的 N 与矩阵长度一致——分片把墙钟除以 6，而全部变异仍然各跑一次。没有它，"测试会注意到破坏吗"就没人回答。
-- `floor` job 用 `go.mod` 声明的下限工具链（`GOTOOLCHAIN=go1.24.0`）跑 `go vet ./...`：README 承诺的 `1.24+` 只有这一处验证，`check-workflow.py` 把 `go.mod` 的 `go` 指令与这一行绑在一起。工具链、action 与 govulncheck 都按确切值锁定（该检查拒绝 `1.25.x`、`check-latest: true` 与按 tag 引用的 action）；升级它们是独立的 `ci:` 提交，提交信息说明为什么现在升。
-- `build` job 有 `needs: [test, hermetic]`：测试不过就不会产出 6 个平台的二进制；`vulncheck` 固定 govulncheck 版本，避免扫描器更新让一个没变的提交变红。
+- `test` 只在三平台跑 `-race`，ubuntu 另有无 race 复跑与格式化（race 运行时更慢、调度不同，只在一种下通过的测试是值得知道的缺陷）；`hermetic` 一次执行压上 workflow 结构检查、一次性 HOME、skip 白名单与覆盖率门禁；`mutation` 分 6 个分片并行且刻意不被 `build` 依赖；`floor` 用下限工具链验证 README 承诺的 `1.24+`；`vulncheck` 固定 govulncheck 版本。分片矩阵无洞、`--shard` 的 N、`needs`、版本锁定这些结构属性由 `check-workflow.py` 强制，细节见 `references/gates.md`。
+- 新增 skip 必须同步 ci.yml 白名单并说明理由（判据见 `dshctl-testing` 规则 9）；工具链、action 与 govulncheck 的升级是独立的 `ci:` 提交，提交信息说明为什么现在升（见 `AGENTS.md` 的「命令」）。
 
 ### 5. 提交、PR 与发布
 

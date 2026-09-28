@@ -8,7 +8,6 @@ import (
 
 	"github.com/rhczz/dshctl/internal/config"
 	"github.com/rhczz/dshctl/internal/exitcode"
-	"github.com/rhczz/dshctl/internal/paths"
 	"github.com/rhczz/dshctl/internal/run"
 )
 
@@ -21,10 +20,10 @@ func (s *Service) RunBuild(ctx context.Context) error {
 // buildLocked performs the build while the caller holds the lock.
 func (s *Service) buildLocked(ctx context.Context) error {
 	if !s.Repo.Exists() {
-		return exitcode.New(exitcode.Preflight, "the checkout does not exist: %s\nhint: name it with --repo or the %s environment variable", s.Settings.RepoDir, paths.EnvRepoDir)
+		return missingCheckoutError(s.Settings.RepoDir)
 	}
 	if !s.Repo.IsServerCheckout() {
-		return exitcode.New(exitcode.Preflight, "%s does not look like a DeepSeek Harness checkout (no %s or %s)\nhint: point --repo at the right checkout", s.Settings.RepoDir, configServerManifest, configWorkspaceManifest)
+		return notServerCheckoutError(s.Settings.RepoDir)
 	}
 	pnpm, err := s.pnpmPath()
 	if err != nil {
@@ -49,14 +48,9 @@ func (s *Service) buildLocked(ctx context.Context) error {
 		return err
 	}
 	// Rotate before the section marker is written, so a marker and its body can
-	// never end up in different files.
-	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
-		return exitcode.Wrap(exitcode.Failure, err)
-	} else if rotated {
-		s.narrate(fmt.Sprintf("the log was rotated: %s", s.LogFile.BackupPath()))
-	}
-	if err := s.LogFile.Section(sectionBuild); err != nil {
-		return exitcode.Wrap(exitcode.Failure, err)
+	// never end up in different files. openSection owns that order.
+	if err := s.openSection(sectionBuild); err != nil {
+		return err
 	}
 	s.note("--- pnpm run build ---")
 
@@ -190,7 +184,3 @@ func (s *Service) stream(ctx context.Context, command run.Command) error {
 }
 
 // configServerManifest and configWorkspaceManifest name the checkout markers.
-const (
-	configServerManifest    = "package.json"
-	configWorkspaceManifest = "pnpm-workspace.yaml"
-)

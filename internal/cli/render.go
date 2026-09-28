@@ -12,21 +12,8 @@ import (
 	"sort"
 
 	"github.com/rhczz/dshctl/internal/domain"
-	"github.com/rhczz/dshctl/internal/exitcode"
 	"github.com/rhczz/dshctl/internal/service"
 )
-
-// serveExitCode maps an observed state onto the process exit code, so a shell
-// condition can ask whether the service is up.
-//
-// Running and starting both report success: the service exists and is being
-// managed. Everything else reports "not running".
-func serveExitCode(status domain.Status) int {
-	if status.Owning() {
-		return exitcode.OK
-	}
-	return exitcode.NotRunning
-}
 
 // printStatuses writes the human-readable status report for every observed
 // instance, and the token-carrying address of the extra ones to extra.

@@ -38,7 +38,7 @@ func TestRunReportsTheExitStatus(t *testing.T) {
 // TestRunReportsAMissingExecutable pins the not-found classification.
 func TestRunReportsAMissingExecutable(t *testing.T) {
 	err := NewRunner().Run(context.Background(), Command{Name: "dshctl-no-such-tool"})
-	if !IsNotFound(err) {
+	if !errors.Is(err, exec.ErrNotFound) {
 		t.Fatalf("a missing executable must be recognizable: %v", err)
 	}
 }

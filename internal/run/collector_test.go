@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -61,52 +58,6 @@ func TestCollectorReportsAPlainExecutorsFailure(t *testing.T) {
 	}
 }
 
-// collectorHelperEnv marks the child process of the fallback test below. The
-// value names the parent that set it, so an exported variable in the ambient
-// environment cannot make the parent test process take the child branch.
-const collectorHelperEnv = "DSHCTL_TEST_COLLECTOR_HELPER"
-
-// TestNewCollectorWithoutACapturerStillAnswers pins the documented fallback: a
-// caller that has no capturer gets a working runner, so the helper can never
-// return nil.
-//
-// The command is this test binary re-executed as a helper that prints one known
-// line, which is a real process that needs no tool installed on the machine.
-func TestNewCollectorWithoutACapturerStillAnswers(t *testing.T) {
-	if os.Getenv(collectorHelperEnv) == "child-of-"+strconv.Itoa(os.Getppid()) {
-		fmt.Fprintln(os.Stdout, "collector-helper-ok")
-		os.Exit(0)
-	}
-
-	out, err := NewCollector(nil).Output(context.Background(), Command{
-		Name: os.Args[0],
-		Args: []string{"-test.run=^TestNewCollectorWithoutACapturerStillAnswers$"},
-		Env:  collectorChildEnv(collectorHelperEnv + "=child-of-" + strconv.Itoa(os.Getpid())),
-	})
-	if err != nil {
-		t.Fatalf("Output through the fallback runner: %v", err)
-	}
-	if !strings.Contains(out, "collector-helper-ok") {
-		t.Fatalf("output = %q, want the helper's line: the fallback runner did not run the command", out)
-	}
-}
-
-// collectorChildEnv returns the parent environment with any ambient helper
-// marker removed before the real one is appended. Unix resolves a duplicated
-// environment key to its first occurrence, so an exported
-// DSHCTL_TEST_COLLECTOR_HELPER would otherwise shadow the appended value and
-// the child would re-run the test instead of taking the helper branch.
-func collectorChildEnv(extra ...string) []string {
-	environment := make([]string, 0, len(os.Environ())+len(extra))
-	for _, entry := range os.Environ() {
-		if strings.HasPrefix(entry, collectorHelperEnv+"=") {
-			continue
-		}
-		environment = append(environment, entry)
-	}
-	return append(environment, extra...)
-}
-
 // TestIsExitClassifiesOnlyRealExitStatuses pins the boundary the callers branch
 // on: a nil error is not an exit status, and a wrapped one still is.
 func TestIsExitClassifiesOnlyRealExitStatuses(t *testing.T) {
@@ -129,21 +80,6 @@ func TestIsExitClassifiesOnlyRealExitStatuses(t *testing.T) {
 	other := errors.New("boom")
 	if IsExit(other, 1) {
 		t.Fatal("an unrelated error was reported as an exit status")
-	}
-}
-
-// TestIsNotFoundClassifiesOnlyLookupFailures pins that "the tool is not
-// installed" is recognized through wrapping and is never confused with a tool
-// that ran and failed.
-func TestIsNotFoundClassifiesOnlyLookupFailures(t *testing.T) {
-	if IsNotFound(nil) {
-		t.Fatal("IsNotFound(nil) = true")
-	}
-	if !IsNotFound(fmt.Errorf("run git: %w", exec.ErrNotFound)) {
-		t.Fatal("a wrapped lookup failure was not recognized")
-	}
-	if IsNotFound(&ExitError{Command: "git", Code: 127}) {
-		t.Fatal("a tool that ran and failed was reported as missing")
 	}
 }
 

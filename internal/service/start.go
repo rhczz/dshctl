@@ -7,7 +7,6 @@ import (
 	"os"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/rhczz/dshctl/internal/config"
@@ -130,7 +129,6 @@ func (s *Service) adoptSurvivor(ctx context.Context, observed observed) (domain.
 		SpawnedPID:  record.SpawnedPID,
 		StartedAt:   facts.StartedAt,
 		Port:        record.Port,
-		Phase:       domain.PhaseRunning,
 		URL:         s.urlFromLog(ctx),
 		NodeVersion: record.NodeVersion,
 		NodePath:    record.NodePath,
@@ -153,13 +151,8 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		return StartResult{}, err
 	}
 
-	if rotated, err := s.LogFile.RotateIfNeeded(); err != nil {
-		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
-	} else if rotated {
-		s.narrate(fmt.Sprintf("the log was rotated: %s", s.LogFile.BackupPath()))
-	}
-	if err := s.LogFile.Section(sectionStart); err != nil {
-		return StartResult{}, exitcode.Wrap(exitcode.Failure, err)
+	if err := s.openSection(sectionStart); err != nil {
+		return StartResult{}, err
 	}
 
 	s.reportNodeOverride(installation)
@@ -193,7 +186,6 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		SpawnedPID:  pid,
 		StartedAt:   spawnedAt,
 		Port:        s.boundPort(),
-		Phase:       domain.PhaseRunning,
 		NodeVersion: installation.Version,
 		NodePath:    installation.NodePath,
 		RepoDir:     s.Settings.RepoDir,
@@ -236,7 +228,6 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 		SpawnedPID:  pid,
 		StartedAt:   startedAt,
 		Port:        s.boundPort(),
-		Phase:       domain.PhaseRunning,
 		URL:         s.urlFromLog(ctx),
 		NodeVersion: installation.Version,
 		NodePath:    installation.NodePath,
@@ -245,7 +236,7 @@ func (s *Service) launch(ctx context.Context) (StartResult, error) {
 	if err := s.Record.Save(record); err != nil {
 		s.warning(fmt.Sprintf("the runtime record could not be updated: %v", err))
 	}
-	s.recordRuntime(installation)
+	s.writeBack(s.Settings.RepoDir, installation.Version)
 	final, observeErr := s.observe(ctx)
 	if observeErr != nil {
 		return StartResult{}, observeErr
@@ -296,11 +287,13 @@ func (s *Service) listenerStillOurs(ctx context.Context, wrapper, listenerPID in
 	return result.PID == listenerPID
 }
 
-// recordRuntime writes the facts this start established into the settings
-// document: the checkout the server was started from and the Node release it
-// started with. Each key is written only when the document decides nothing, so a
-// document that names a checkout or a release belongs to the operator and is
-// never rewritten from underneath them.
+// writeBack records what a command established into the settings document: the
+// checkout the server was started from and the Node release it started with.
+// Each key is written only when the document decides nothing, so a document that
+// names a checkout or a release belongs to the operator and is never rewritten
+// from underneath them. An empty value means "nothing to record for this key":
+// the Node release is only ever written by a start, so a build records the
+// checkout alone.
 //
 // The rule is what lets the first successful start decide the rest. Without it
 // the checkout would be honoured for one invocation only: every later command
@@ -312,14 +305,6 @@ func (s *Service) listenerStillOurs(ctx context.Context, wrapper, listenerPID in
 // The server is already serving by the time this runs, so a document that cannot
 // be written is a warning: stopping a working server because its configuration
 // could not be updated would be worse than the missing line.
-func (s *Service) recordRuntime(installation nodejs.Installation) {
-	s.writeBack(s.Settings.RepoDir, installation.Version)
-}
-
-// writeBack records what a command established and reports each key it wrote.
-//
-// An empty value means "nothing to record for this key": the Node release is
-// only ever written by a start, so a build records the checkout alone.
 func (s *Service) writeBack(repoDir, nodeVersion string) {
 	if repoDir == "" && nodeVersion == "" {
 		return
@@ -554,29 +539,16 @@ func (s *Service) endGroup(ctx context.Context, pid int) error {
 // reaped and would skip the force step with the server still holding the port,
 // so GroupExists asks the kernel directly instead.
 func (s *Service) waitForGroupExit(ctx context.Context, pid int, timeout time.Duration) bool {
-	deadline := time.Now().Add(timeout)
-	for {
-		if !s.Host.GroupExists(pid) {
-			return true
-		}
-		if time.Now().After(deadline) {
-			return false
-		}
-		select {
-		case <-ctx.Done():
-			return false
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
+	return s.waitUntil(ctx, timeout, func() bool { return !s.Host.GroupExists(pid) })
 }
 
 // preflight verifies every precondition before anything is spawned.
 func (s *Service) preflight(ctx context.Context) (nodejs.Installation, string, error) {
 	if !s.Repo.Exists() {
-		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight, "the checkout does not exist: %s\nhint: name it with --repo or the %s environment variable", s.Settings.RepoDir, paths.EnvRepoDir)
+		return nodejs.Installation{}, "", missingCheckoutError(s.Settings.RepoDir)
 	}
 	if !s.Repo.IsServerCheckout() {
-		return nodejs.Installation{}, "", exitcode.New(exitcode.Preflight, "%s does not look like a DeepSeek Harness checkout (no %s or %s)\nhint: point --repo at the right checkout", s.Settings.RepoDir, config.ServerManifestRel, config.WorkspaceManifestRel)
+		return nodejs.Installation{}, "", notServerCheckoutError(s.Settings.RepoDir)
 	}
 	installation, err := s.resolveNode(ctx)
 	if err != nil {
@@ -744,14 +716,6 @@ func addressPort(address string) int {
 		return 0
 	}
 	return port
-}
-
-// fallback returns value when set, otherwise alternative.
-func fallback(value, alternative string) string {
-	if strings.TrimSpace(value) == "" {
-		return alternative
-	}
-	return value
 }
 
 // startTailLines is how much of the log a failed start prints for diagnosis.

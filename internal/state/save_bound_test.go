@@ -11,7 +11,7 @@ import (
 // bound: Load refuses a document larger than MaxBytes, so Save must refuse to
 // produce one. A caller that could write a document its own reader rejects
 // would trade a loud failure at write time for a permanent one at read time —
-// exactly the asymmetry the deployment history's store does not have.
+// the same bound the deployment history's store enforces on its side.
 func TestSaveRefusesADocumentTooLargeToRead(t *testing.T) {
 	type document struct {
 		Note string `json:"note"`

@@ -2,10 +2,11 @@
 
 管理本机运行的 DeepSeek Harness Web 服务：后台启动、停止、重启、构建、更新与体检。
 
-macOS、Linux、Windows（amd64 / arm64）都支持。除 `pnpm`、`git` 与 Node 本身外，不需要安装其他工具。
+macOS、Linux、Windows（amd64 / arm64）都支持。日常操作除 `pnpm`、`git` 与 Node 本身外，不需要
+安装其他工具；端口探测在 Unix 上可能用到 `lsof`/`ss`/`netstat`/`ps`，缺失时按探测失败处理。
 
-Node 用 PATH 上的那个（nvm、fnm、Homebrew、n、Volta、asdf、mise、官方安装包都一样），
-首次成功启动后会把它写进配置文件，之后固定使用该版本；低于 24.12.0 一律拒绝启动。
+Node 用 PATH 上的那个，首次成功启动后会把它写进配置文件，之后固定使用该版本；
+版本管理器与下限规则见「Node 版本」。
 
 ## 编译
 
@@ -48,7 +49,7 @@ dshctl stop                   # 停止
 | `restart` | 在同一把锁内先停后启；不加 `--port` 时重启本状态目录中正在运行的每一个服务；`--json` 输出一份运行文档 |
 | `status` | 运行状态；不加 `--port` 时报告本状态目录管理的每一个服务；`--json` 输出结构化结果 |
 | `url` | 打印带 token 的访问地址；不加 `--port` 时每个运行中的实例一行；一个地址都没有时退出码 3 |
-| `logs` | 日志；`-n <行数>`（默认 200 行，见 `internal/service.DefaultLogLines`）、`-f/--follow` 跟随、`--build` 只看最近一次 build/update/rollback 记录 |
+| `logs` | 日志；`-n <行数>`（默认 200 行）、`-f/--follow` 跟随、`--build` 只看最近一次 build/update/rollback 记录 |
 | `build` | 清理已删除包的残留目录后执行 `pnpm run build`；`--json` 输出一份运行文档 |
 | `timeline` | 查看当前版本与 `origin/master` 的差距：落后/领先的提交数、差距内的 tag、最近的提交与部署历史；`--json` 输出结构化结果 |
 | `update` | 更新到指定版本（`latest`/tag/commit，默认 `latest`）：停服 → `git fetch` → 切换 → 清理 → `pnpm install` → 构建 → 恢复启动；`--json` 输出一份运行文档 |
@@ -98,7 +99,8 @@ dshctl stop                   # 停止
   "startTimeoutSeconds": 90,
   "stopTimeoutSeconds": 15,
   "lockTimeoutSeconds": 10,
-  "logRotateBytes": 4194304
+  "logRotateBytes": 4194304,
+  "logLevel": "info"
 }
 ```
 
@@ -131,7 +133,7 @@ dshctl stop                   # 停止
 - 面向操作者的每一句话都是英文，并且就写在产生它的调用点上（帮助、错误、状态、体检、日志）。机器语言不再影响输出：没有语言层，也就没有半翻译的界面。
 - 优先级：命令行参数 > 环境变量 > 配置文件 > 默认值。所有配置项都按这个顺序，没有例外。两处补充：Node 版本的最后一层不是默认值，而是「没人指定就按 PATH 解析」（见「Node 版本」）；`repoDir` 在配置文件里的值与内置默认值完全相同时按默认值处理，不算你做过选择（见「仓库目录」）。
 - dshctl 另外读取操作系统自身的 `PATH`（解析 `node`、`pnpm`、`git`，以及 Unix 上的 `lsof`/`ss`/`netstat`/`ps`）和 `HOME`（Windows 上是 `USERPROFILE`）来确定主目录与默认路径；这两个不是 dshctl 的配置项，但会决定上面这些默认值。
-- 不可配置：Node 最低版本 `24.12.0` 是代码里的常量，任何配置项、参数或环境变量都改不动它；状态目录内的文件名（`dshctl.lock`、`dsh-web-<端口>.state.json`）也是固定的。
+- 不可配置：Node 最低版本下限是代码里的常量，任何配置项、参数或环境变量都改不动它（数值见「Node 版本」）；状态目录内的文件名（`dshctl.lock`、`dsh-web-<端口>.state.json`）也是固定的。
 
 ## Node 版本
 
@@ -238,8 +240,9 @@ dshctl rollback dsh-v0.1.5-rc.2    # 定点回退到某个版本（不联网）
 - `rollback` 不联网：回到已知位置是救火路径，断网也必须可用。`update <tag|commit>`
   在 fetch 失败但目标本地已知时降级为本地解析并打印警告；`update latest` 无法降级。
 - 更新历史存在 `<状态目录>/updates.json`：每个 checkout 一组位置（新→旧，最多
-  50 条），git 的 HEAD 始终是「当前在哪」的唯一真源。文件损坏时 `timeline` 警告、
-  `rollback` 拒绝、`update` 以当前位置重建。
+  50 条），git 的 HEAD 始终是「当前在哪」的唯一真源；接近单文件上限时，最久未部署的
+  checkout 组会被整组淘汰（刚部署过的组最后才走，至少保留一组）。文件损坏时
+  `timeline` 警告、`rollback` 拒绝、`update` 以当前位置重建。
 - `timeline` 是唯一会写 `.git` 的报告命令（它必须 `git fetch` 才能知道远程最新）；
   它不写状态目录、不改工作区。fetch 失败时仍打印本地已知状态、明确标注「远程未
   确认」、绝不出现「已是最新」，并以退出码 4 结束。

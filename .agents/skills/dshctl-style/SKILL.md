@@ -11,11 +11,11 @@ description: 按 dshctl 的书写规范改代码与注释：gofmt -s、注释讲
 
 ## 规则
 
-1. **格式只跑 `make fmt` / `make fmt-check`**（即 `gofmt -s`）。不要在编辑器里另配一套格式化，也不要手工对齐：`-s` 做的是简化重写，手工结果与它冲突时 `make fmt-check` 在 CI 上变红。落点：`Makefile` 的 `fmt`/`fmt-check`，`check` 与 `ci` 都包含 `fmt-check`。
+1. **格式真源只有 `gofmt -s`，由 `make fmt-check` 强制**。不要在编辑器里另配一套格式化，也不要手工对齐：`-s` 做的是简化重写，手工结果与它冲突时 `make fmt-check` 在 CI 上变红。
 
 2. **注释用英文、讲契约不讲过程**：保留行为、失败、时序、归属、后果与非显而易见的取向；删除实现叙述、测试走查、评审历史与代码复述（DSH 的原话是 "Comments and docs state complete contracts and context, not reasoning transcripts"）。为什么：下一个改这段代码的人靠注释判断"能不能这样改"，而复述代码的注释会与代码一起腐烂。
 
-3. **非测试 `.go` 文件的注释行 ≤ 88 列，按 ~80 列自然折行**。实测：2666 行注释中最宽 83 列（`internal/repo/prune.go:257`）、p95 80、p99 81、中位数 70；`scripts/check-conventions.py` 的 `go-comments` 规则以 88 为上限。为什么：一条注释是一条契约，超过一行宽度时它已经在写段落。
+3. **非测试 `.go` 文件的注释行 ≤ 88 列，按 ~80 列自然折行**（`scripts/check-conventions.py` 的 `go-comments` 强制）。为什么：一条注释是一条契约，超过一行宽度时它已经在写段落。
 
 4. **包文档写模型与不变量**，不写实现目录。范例：`internal/service`（三条生命周期不变量）、`internal/host`（"探测不了"不是结论）、`internal/state`（记录的严格规则，以及为什么不跟随 symlink）、`internal/lock`（锁在 inode 上）、`internal/logfile`（轮转为什么截断同一 inode）、`internal/detach`（为什么必须 reap）。为什么：这些正是判断"这段代码能不能这样改"的依据；删掉它，理由就只剩 git 历史。
 
@@ -29,11 +29,11 @@ description: 按 dshctl 的书写规范改代码与注释：gofmt -s、注释讲
 
 9. **单文件一概念**：新概念开新文件，而不是把无关逻辑堆进已有的大文件；平台实现只放 `_unix`/`_windows`/`_darwin`/`_linux`/`_other` 后缀的文件（细节见 `dshctl-portability`）。
 
-10. **禁止 `panic` 与 `func init()`**：生产代码当前各 0 处，`scripts/check-conventions.py` 的 `go-forbidden` 规则会让新增的失败。为什么：panic 会结束操作者交给 dshctl 管理的服务；init 把初始化顺序藏到调用图之外。
+10. **禁止 `panic` 与 `func init()`**（`scripts/check-conventions.py` 的 `go-forbidden` 强制）。为什么：panic 会结束操作者交给 dshctl 管理的服务；init 把初始化顺序藏到调用图之外。
 
 11. **TODO/FIXME/XXX 分级并写触发条件**：FIXME = 应阻止发布，TODO = 资源允许时尽快，XXX = 最低优先级。当前树中为 0；新增必须在同一处写明"什么情况下该被处理"。不写"以后再说"式注解——会腐烂的状态注解属于 slop（见 [slop 清单](references/slop.md)）。
 
-12. **文件恰好以一个换行结尾，行尾不留空格**。`scripts/check-conventions.py` 的 `trailing-newline` 规则覆盖 `.go`/`.md`/`.py`/`.sh`/`.yml`/`.yaml`/`.json`/`.txt` 与 `Makefile`、`.gitignore`。为什么：多一个或少一个结尾换行会进入之后的每一次 diff。
+12. **文件恰好以一个换行结尾，行尾不留空格**（`scripts/check-conventions.py` 的 `trailing-newline` 强制）。为什么：多一个或少一个结尾换行会进入之后的每一次 diff。
 
 13. **一个事实一个家**：README = 操作者契约，包文档 = 模型与不变量，测试 = 被钉住的行为，`.agents/notes` = 为什么与放弃了什么，skill = 流程，git = 历史；别处只链接、不复制。判据见 [AGENTS.md](../../../AGENTS.md)。
 

@@ -653,6 +653,11 @@ func (u unknownFingerprint) KillGroup(pid int) error { return u.inner.KillGroup(
 // fixture is one service under test plus the machine it runs against.
 type fixture struct {
 	*Service
+	// getenv is the fixture's own environment lookup: the settings resolution
+	// in this package's tests reads the environment, and a sequence can make
+	// one variable visible for one call. It is fixture state, not a service
+	// dependency — production resolves settings before the app exists.
+	getenv func(string) string
 	host   *fakeHost
 	root   string
 	repo   string
@@ -732,7 +737,7 @@ func newFixture(t *testing.T) *fixture {
 			BuildRecordRel:       buildRecordRel,
 		}),
 		Node: &nodejs.Resolver{
-			Output: run.NewCollector(h),
+			Output: run.Collector(h),
 			LookPath: func(name string) (string, error) {
 				if name == "node" {
 					return signature, nil
@@ -750,7 +755,6 @@ func newFixture(t *testing.T) *fixture {
 			Version: "test", Platform: "test/arch",
 			GoVersion: "go1.test", Module: "github.com/rhczz/dshctl",
 		},
-		Getenv: envLookup,
 		LookPath: func(name string) (string, error) {
 			return "/fake/bin/" + name, nil
 		},
@@ -781,7 +785,7 @@ func newFixture(t *testing.T) *fixture {
 		// TestFingerprintTimeoutIsGenerous.
 		fingerprint: 20 * time.Millisecond,
 	}
-	return &fixture{Service: svc, host: h, root: root, repo: repoDir, state: stateDir, out: out, errOut: errOut}
+	return &fixture{Service: svc, getenv: envLookup, host: h, root: root, repo: repoDir, state: stateDir, out: out, errOut: errOut}
 }
 
 // attemptSpawn records a launch request in the command log and then answers it.
@@ -1108,20 +1112,6 @@ func nodeSignature(t *testing.T, root string) string {
 	return path
 }
 
-// lockHolderThroughLock is the pid a status report can name for a lock this
-// process holds.
-//
-// Unix locks are advisory, so the record inside the file stays readable and
-// names the holder. Windows byte-range locks are mandatory: the locked region
-// cannot be read through another handle, so the honest answer is "unknown",
-// which is what zero means in the status field.
-func lockHolderThroughLock(pid int) int {
-	if runtime.GOOS == "windows" {
-		return 0
-	}
-	return pid
-}
-
 // fixtureNodeName is the file name the platform resolves a Node runtime by.
 //
 // Windows looks for node.exe, so a fixture that writes "node" leaves every
@@ -1264,7 +1254,7 @@ func (f *fixture) wantSignals(t *testing.T, want []fakeSignal) {
 // stateRecord builds a record for the fixture's port with a matching
 // fingerprint, which is the shape a successful start writes.
 func stateRecord(f *fixture, pid int) domain.Record {
-	return domain.Record{PID: pid, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: domain.PhaseRunning}
+	return domain.Record{PID: pid, StartedAt: fixtureStartTime, Port: f.Settings.Port}
 }
 
 // startServer makes the fixture look like a server this service started: a
@@ -1272,7 +1262,7 @@ func stateRecord(f *fixture, pid int) domain.Record {
 func (f *fixture) startServer(t *testing.T, pid int, url string) domain.Record {
 	t.Helper()
 	f.host.serving(pid, "pnpm --dir repo dsh web")
-	record := domain.Record{PID: pid, StartedAt: 1_700_000_000, Port: f.Settings.Port, Phase: domain.PhaseRunning, URL: url}
+	record := domain.Record{PID: pid, StartedAt: 1_700_000_000, Port: f.Settings.Port, URL: url}
 	if err := f.Record.Save(record); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -1481,7 +1471,7 @@ func (f *fixture) servedNodePath(t *testing.T) string {
 // sequence of calls shares one document, one record and one port.
 func (f *fixture) run(t *testing.T, overrides config.Overrides) config.Settings {
 	t.Helper()
-	loaded, err := config.Load(f.Getenv, overrides)
+	loaded, err := config.Load(f.getenv, overrides)
 	if err != nil {
 		t.Fatalf("resolve the settings: %v", err)
 	}

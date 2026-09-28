@@ -91,7 +91,8 @@ type Emitter interface {
 v0.3 分支用三件工具保证"功能不变、强度只增"：金标 conformance（`internal/conformance`，
 黑盒场景驱动真实二进制并与 v0.2.5 金标逐字节比对）、账本
 （`internal/conformance/accounting/`，每个测试一行 disposition）、决策名册
-（63+ 条被钉决策的名字不许少、每条都要被抓住）。细则与"删测试必须记账"见
+（被钉决策的名字不许少、每条都要被抓住，条数以 `python3 scripts/mutation-check.py --list`
+为准）。细则与"删测试必须记账"见
 `../dshctl-testing/references/accounting.md`。
 
 ## 相关文件

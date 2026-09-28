@@ -2,7 +2,9 @@ package run
 
 import (
 	"context"
+	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -34,7 +36,7 @@ func TestRunRejectsAnImpossibleWorkingDirectory(t *testing.T) {
 	if IsExit(err, 0) {
 		t.Fatalf("a start failure must not be reported as an exit status: %v", err)
 	}
-	if IsNotFound(err) {
+	if errors.Is(err, exec.ErrNotFound) {
 		t.Fatalf("a directory failure was reported as a missing executable: %v", err)
 	}
 }
@@ -50,13 +52,13 @@ func TestRunnerNilReceiversStayUsable(t *testing.T) {
 	missing := Command{Name: "dshctl-no-such-tool"}
 	var runner *Runner
 
-	if err := runner.Run(context.Background(), missing); !IsNotFound(err) {
+	if err := runner.Run(context.Background(), missing); !errors.Is(err, exec.ErrNotFound) {
 		t.Fatalf("a nil *Runner must classify a missing tool, got %v", err)
 	}
-	if result := runner.Capture(context.Background(), missing); !IsNotFound(result.Err) {
+	if result := runner.Capture(context.Background(), missing); !errors.Is(result.Err, exec.ErrNotFound) {
 		t.Fatalf("a nil *Runner must classify a missing tool in Capture, got %v", result.Err)
 	}
-	if _, err := runner.Output(context.Background(), missing); !IsNotFound(err) {
+	if _, err := runner.Output(context.Background(), missing); !errors.Is(err, exec.ErrNotFound) {
 		t.Fatalf("a nil *Runner must classify a missing tool in Output, got %v", err)
 	}
 
@@ -65,7 +67,7 @@ func TestRunnerNilReceiversStayUsable(t *testing.T) {
 	if zero.OutputCap != 0 {
 		t.Fatalf("a zero Runner carries an output cap of %d, want none", zero.OutputCap)
 	}
-	if err := zero.Run(context.Background(), missing); !IsNotFound(err) {
+	if err := zero.Run(context.Background(), missing); !errors.Is(err, exec.ErrNotFound) {
 		t.Fatalf("a zero Runner must classify a missing tool, got %v", err)
 	}
 }

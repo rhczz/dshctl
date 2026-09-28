@@ -352,8 +352,8 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "a multi-instance operation no longer serializes on the state directory",
         "internal/service/observe.go",
-        "func stickyLock[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {\n\tvar zero T\n\theld, err := lock.Acquire(ctx, s.Settings.LockFile(), s.Settings.LockTimeout)\n\tif err != nil {\n\t\treturn zero, exitcode.Wrap(exitcode.LockTimeout, err)\n\t}\n\tdefer held.Release()",
-        "func stickyLock[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {\n\tvar zero T",
+        "func withLockValue[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {\n\tvar zero T\n\theld, err := lock.Acquire(ctx, s.Settings.LockFile(), s.Settings.LockTimeout)\n\tif err != nil {\n\t\treturn zero, exitcode.Wrap(exitcode.LockTimeout, err)\n\t}\n\tdefer held.Release()",
+        "func withLockValue[T any](ctx context.Context, s *Service, fn func() (T, error)) (T, error) {\n\tvar zero T",
         ["./internal/service/"],
     ),
     (
@@ -520,8 +520,15 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
     (
         "the log level flag is ignored, so only the file and environment decide",
         "internal/cli/cli.go",
-        "\tif parsed.logLevelSet {",
+        "\tif parsed.logLevel != \"\" {",
         "\tif false {",
+        ["./internal/cli/"],
+    ),
+    (
+        "a global flag's value is silently dropped",
+        "internal/cli/cli.go",
+        "\t\t\tparsed.configPath = value",
+        "\t\t\t_ = value",
         ["./internal/cli/"],
     ),
     (

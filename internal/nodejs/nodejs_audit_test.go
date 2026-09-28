@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -328,7 +329,7 @@ func TestResolveReportsAFailureWithoutObservationsSafely(t *testing.T) {
 	if got == "" {
 		t.Fatal("Describe returned nothing for a failure with no observations")
 	}
-	if !contains(got, "24.20.0") {
+	if !strings.Contains(got, "24.20.0") {
 		t.Fatalf("Describe() = %q, want the request named", got)
 	}
 }
