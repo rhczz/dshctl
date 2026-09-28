@@ -195,7 +195,6 @@ func stateRecordWithWrapper(f *fixture, pid int) domain.Record {
 		SpawnedPID: pid,
 		StartedAt:  fixtureStartTime,
 		Port:       f.Settings.Port,
-		Phase:      domain.PhaseRunning,
 	}
 }
 

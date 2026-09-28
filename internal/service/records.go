@@ -2,7 +2,6 @@ package service
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/rhczz/dshctl/internal/domain"
 	"github.com/rhczz/dshctl/internal/state"
@@ -27,7 +26,6 @@ func recordStore(path string) state.Store[domain.Record] {
 		Path:     path,
 		MaxBytes: maxRecordBytes,
 		Validate: validateRecord,
-		Stamp:    stampRecord,
 	}
 }
 
@@ -41,9 +39,4 @@ func validateRecord(record domain.Record) error {
 		return fmt.Errorf("the record's pid is invalid: %d", record.PID)
 	}
 	return nil
-}
-
-// stampRecord writes the moment the record was last touched.
-func stampRecord(record *domain.Record) {
-	record.UpdatedAt = time.Now().Unix()
 }

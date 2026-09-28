@@ -517,8 +517,7 @@ func TestAForeignCheckoutDoesNotBlockABuild(t *testing.T) {
 	other := makeCheckout(t, filepath.Join(f.root, "other-checkout"))
 	f.host.serving(8200, "pnpm --dir other dsh web")
 	f.saveRecord(t, domain.Record{
-		PID: 8200, StartedAt: fixtureStartTime, Port: f.Settings.Port + 1,
-		Phase: domain.PhaseRunning, RepoDir: other,
+		PID: 8200, StartedAt: fixtureStartTime, Port: f.Settings.Port + 1, RepoDir: other,
 	})
 
 	if err := f.RunBuild(context.Background()); err != nil {
@@ -535,7 +534,7 @@ func TestASiblingOnTheSameCheckoutStillBlocksABuild(t *testing.T) {
 			f := newFixture(t)
 			f.servePATHNode(t, config.TestedNodeVersion)
 			record := domain.Record{
-				PID: 8200, StartedAt: fixtureStartTime, Port: f.Settings.Port + 1, Phase: domain.PhaseRunning,
+				PID: 8200, StartedAt: fixtureStartTime, Port: f.Settings.Port + 1,
 			}
 			if checkout == "same" {
 				record.RepoDir = f.repo
@@ -657,7 +656,7 @@ func (f *fixture) survivorRecord(t *testing.T, wrapper int, checkout string) dom
 	t.Helper()
 	record := domain.Record{
 		PID: wrapper, SpawnedPID: wrapper, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: domain.PhaseRunning, RepoDir: checkout,
+		Port: f.Settings.Port, RepoDir: checkout,
 	}
 	f.host.add(wrapper, "pnpm --dir repo dsh web", fixtureStartTime)
 	if err := f.Record.Save(record); err != nil {

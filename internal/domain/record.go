@@ -6,25 +6,18 @@ import (
 	"time"
 )
 
-// Phase names what dshctl was doing when it wrote the record.
-type Phase string
-
-const (
-	// PhaseRunning means the server answered on its port and is expected there.
-	//
-	// A record exists only for a server that reached that point: it is written
-	// after the port answers, so there is no separate "starting" phase to record.
-	// (A start that is interrupted writes a wrapper record first so the process
-	// it launched is not left unowned; see internal/service.)
-	PhaseRunning Phase = "running"
-)
-
+// Record is the runtime state of the server dshctl started.
 // Record is the runtime state of the server dshctl started.
 //
 // It is the model's answer to "which process did I start, and is this still it":
 // the pid alone cannot say, which is why StartedAt is the fingerprint the
 // identity rule compares. The bytes live in internal/state; the meaning lives
 // here, so a front-end that never reads the file can still name an instance.
+//
+// A record exists only for a server that answered on its port: it is written
+// after the port answers, so there is no "starting" record. (A start that is
+// interrupted writes a wrapper record first so the process it launched is not
+// left unowned; see internal/service.)
 type Record struct {
 	// PID is the process holding the port: the server itself, not the wrapper
 	// dshctl launched. pnpm runs package scripts in a child process, so the pid
@@ -56,17 +49,13 @@ type Record struct {
 	// of the configuration, and what lets a start that finds the service already
 	// running close the gap between the two.
 	RepoDir string `json:"repoDir,omitempty"`
-	// Phase is what dshctl observed the last time it wrote the record.
-	Phase Phase `json:"phase"`
-	// UpdatedAt is when the record was last written, in Unix seconds.
-	UpdatedAt int64 `json:"updatedAt"`
 }
 
 // Describe renders the record in one line for diagnostics.
 func (r Record) Describe() string {
 	var builder strings.Builder
-	fmt.Fprintf(&builder, "pid=%d, started=%s, port=%d, phase=%s",
-		r.PID, time.Unix(r.StartedAt, 0).Format(time.RFC3339), r.Port, r.Phase)
+	fmt.Fprintf(&builder, "pid=%d, started=%s, port=%d",
+		r.PID, time.Unix(r.StartedAt, 0).Format(time.RFC3339), r.Port)
 	if r.URL != "" {
 		builder.WriteString(", url=")
 		builder.WriteString(r.URL)

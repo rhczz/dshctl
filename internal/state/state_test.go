@@ -262,7 +262,7 @@ func TestSaveReplacesAtomically(t *testing.T) {
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("the file is not a complete document: %v\n%s", err, data)
 	}
-	if decoded.PID != 2 || decoded.Phase != testPhaseRunning || decoded.URL != "http://x" {
+	if decoded.PID != 2 || decoded.URL != "http://x" {
 		t.Fatalf("decoded = %+v, want the second record", decoded)
 	}
 	// No temporary files may be left behind.

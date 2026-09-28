@@ -140,7 +140,7 @@
   },
   "status-json-fresh": {
     "exit": 3,
-    "stdout": "{\n  \"status\": {\n    \"state\": \"stopped\",\n    \"url\": \"http://127.0.0.1:3080\",\n    \"port\": 3080,\n    \"ready\": false,\n    \"recordLive\": false,\n    \"recordStale\": false,\n    \"repoDir\": \"\u003cPATH\u003e/home/deepseek-harness\",\n    \"repoReady\": false,\n    \"buildReady\": false,\n    \"logPath\": \"\u003cPATH\u003e/state/dsh-web.log\",\n    \"lockHeld\": false\n  },\n  \"ports\": [\n    {\n      \"state\": \"stopped\",\n      \"url\": \"http://127.0.0.1:3080\",\n      \"port\": 3080,\n      \"ready\": false,\n      \"recordLive\": false,\n      \"recordStale\": false,\n      \"repoDir\": \"\u003cPATH\u003e/home/deepseek-harness\",\n      \"repoReady\": false,\n      \"buildReady\": false,\n      \"logPath\": \"\u003cPATH\u003e/state/dsh-web.log\",\n      \"lockHeld\": false\n    }\n  ]\n}\n",
+    "stdout": "{\n  \"status\": {\n    \"state\": \"stopped\",\n    \"url\": \"http://127.0.0.1:3080\",\n    \"port\": 3080,\n    \"ready\": false,\n    \"recordLive\": false,\n    \"recordStale\": false,\n    \"repoDir\": \"\u003cPATH\u003e/home/deepseek-harness\",\n    \"buildReady\": false,\n    \"logPath\": \"\u003cPATH\u003e/state/dsh-web.log\",\n    \"lockHeld\": false\n  },\n  \"ports\": [\n    {\n      \"state\": \"stopped\",\n      \"url\": \"http://127.0.0.1:3080\",\n      \"port\": 3080,\n      \"ready\": false,\n      \"recordLive\": false,\n      \"recordStale\": false,\n      \"repoDir\": \"\u003cPATH\u003e/home/deepseek-harness\",\n      \"buildReady\": false,\n      \"logPath\": \"\u003cPATH\u003e/state/dsh-web.log\",\n      \"lockHeld\": false\n    }\n  ]\n}\n",
     "stderr": "",
     "files": [
       "bin/|0755|dir",

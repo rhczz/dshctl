@@ -246,17 +246,17 @@ func (s *Service) baseStatus() domain.Status {
 		URL:        s.Settings.URL(),
 		Port:       s.boundPort(),
 		RepoDir:    s.Settings.RepoDir,
-		RepoReady:  s.Repo.IsServerCheckout(),
 		BuildReady: s.Repo.BuildReady(),
 		LogPath:    s.Settings.LogPath,
 	}
-	holder, held, err := lock.Held(s.Settings.LockFile())
+	_, held, err := lock.Held(s.Settings.LockFile())
 	switch {
 	case err != nil:
+		// An uninspectable lock is never read as "free": the status says so
+		// instead of guessing.
 		status.LockUnreadable = true
 	case held:
 		status.LockHeld = true
-		status.LockHolder = holder
 	}
 	return status
 }
@@ -302,9 +302,6 @@ func describeFacts(facts host.Facts) string {
 // becomes a report by changing one function.
 func applyRecord(status *domain.Status, record domain.Record) {
 	status.RecordedPID = record.PID
-	status.RecordedPhase = string(record.Phase)
-	status.RecordedNodeVersion = record.NodeVersion
-	status.RecordedNodePath = record.NodePath
 	status.RecordedRepoDir = record.RepoDir
 	status.URLFromRecord = record.URL
 }

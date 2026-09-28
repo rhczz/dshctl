@@ -149,7 +149,7 @@ func serveOnConfiguredPort(t *testing.T, f *fixture, pid int) {
 	t.Helper()
 	f.host.servingOnPort(f.Settings.Port, pid, "pnpm --dir repo dsh web")
 	saveRecordFor(t, f, domain.Record{
-		PID: pid, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		PID: pid, StartedAt: fixtureStartTime, Port: f.Settings.Port,
 	})
 }
 
@@ -160,7 +160,7 @@ func seedRunningPort(t *testing.T, f *fixture, port, pid int, url string) {
 	f.host.servingOnPort(port, pid, "pnpm --dir repo dsh web")
 	saveRecordFor(t, f, domain.Record{
 		PID: pid, StartedAt: fixtureStartTime, Port: port,
-		URL: url, Phase: domain.PhaseRunning,
+		URL: url,
 	})
 }
 
@@ -360,7 +360,7 @@ func TestStopEndsEveryInstanceThatIsRunning(t *testing.T) {
 	// A record for another port whose process is gone: residue that a bare stop
 	// has to retire, or `status` keeps reporting a server that does not exist.
 	saveRecordFor(t, f, domain.Record{
-		PID: 9001, StartedAt: fixtureStartTime, Port: other, Phase: domain.PhaseRunning,
+		PID: 9001, StartedAt: fixtureStartTime, Port: other,
 	})
 
 	if _, err := f.StopAll(context.Background()); err != nil {
@@ -408,7 +408,7 @@ func TestStopAllLeavesAForeignListenerAloneAcrossPorts(t *testing.T) {
 	f.host.servingOnPort(strangerPort, 7001, "/usr/sbin/nginx -g daemon off;")
 	f.host.add(9999, "pnpm --dir repo dsh web", fixtureStartTime+60)
 	saveRecordFor(t, f, domain.Record{
-		PID: 9999, StartedAt: fixtureStartTime, Port: strangerPort, Phase: domain.PhaseRunning,
+		PID: 9999, StartedAt: fixtureStartTime, Port: strangerPort,
 	})
 
 	stopped, err := f.StopAll(context.Background())
@@ -545,7 +545,7 @@ func TestRestartRefusesBeforeStoppingAnything(t *testing.T) {
 	// the restart before any instance is ended.
 	f.host.servingOnPort(other, 7001, "/other/apps/cli/src/bin.ts web --port "+strconv.Itoa(other))
 	saveRecordFor(t, f, domain.Record{
-		PID: 4322, StartedAt: fixtureStartTime, Port: other, Phase: domain.PhaseRunning,
+		PID: 4322, StartedAt: fixtureStartTime, Port: other,
 	})
 
 	_, err := f.RestartAll(context.Background())
@@ -616,7 +616,7 @@ func TestWebURLsKeepsAWorkingInstanceOutOfTheFallback(t *testing.T) {
 	f.startServer(t, 4321, "http://127.0.0.1:"+strconv.Itoa(configured)+"/?token=CONFIGURED")
 	saveRecordFor(t, f, domain.Record{
 		PID: 9001, StartedAt: fixtureStartTime, Port: other,
-		URL: "http://127.0.0.1:" + strconv.Itoa(other) + "/?token=DEAD", Phase: domain.PhaseRunning,
+		URL: "http://127.0.0.1:" + strconv.Itoa(other) + "/?token=DEAD",
 	})
 
 	addresses, err := f.WebURLs(context.Background())
@@ -637,7 +637,7 @@ func TestPortDiscoveryFailsClosedWhenAProbeFails(t *testing.T) {
 
 	f.startServer(t, 4321, "")
 	saveRecordFor(t, f, domain.Record{
-		PID: 9999, StartedAt: fixtureStartTime, Port: other, Phase: domain.PhaseRunning,
+		PID: 9999, StartedAt: fixtureStartTime, Port: other,
 	})
 	f.host.listenErr = host.ErrUnsupported
 

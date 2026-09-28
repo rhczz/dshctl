@@ -30,7 +30,7 @@ func TestStopClearsTheRecordOfARecycledPID(t *testing.T) {
 	f.host.mu.Unlock()
 	if err := f.Record.Save(domain.Record{
 		PID: 4321, SpawnedPID: 4321, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		Port: f.Settings.Port,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestStopReportsALiveRecordWithoutStartedAt(t *testing.T) {
 	f.host.add(4242, "pnpm --dir repo dsh web", fixtureStartTime)
 	if err := f.Record.Save(domain.Record{
 		PID: 4242, SpawnedPID: 4242, StartedAt: 0,
-		Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		Port: f.Settings.Port,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestStopClearsARecordThatDescribesNothing(t *testing.T) {
 	f := newFixture(t)
 	if err := f.Record.Save(domain.Record{
 		PID: 999999, SpawnedPID: 999999, StartedAt: 1_600_000_000,
-		Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		Port: f.Settings.Port,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestStopTimesOutWhenTheTreeKeepsThePort(t *testing.T) {
 	f.host.mu.Unlock()
 	if err := f.Record.Save(domain.Record{
 		PID: 4321, SpawnedPID: 4321, StartedAt: fixtureStartTime,
-		Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		Port: f.Settings.Port,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}

@@ -33,7 +33,7 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 	recordLive := func(f *fixture, pid int) statepkg.Record {
 		return statepkg.Record{
 			PID: pid, SpawnedPID: pid, StartedAt: fixtureStartTime,
-			Port: f.Settings.Port, Phase: statepkg.PhaseRunning,
+			Port: f.Settings.Port,
 		}
 	}
 
@@ -123,7 +123,7 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 				f.host.ready = false
 				if err := f.Record.Save(statepkg.Record{
 					PID: 4321, SpawnedPID: 4321, StartedAt: fixtureStartTime,
-					Port: f.Settings.Port, Phase: statepkg.PhaseRunning,
+					Port: f.Settings.Port,
 				}); err != nil {
 					t.Fatalf("save record: %v", err)
 				}
@@ -176,7 +176,7 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 					" is served by a survivor of an interrupted start (pid=8001); dshctl start or dshctl stop manages it again")
 				replaceCheck(*checks, "runtime record", CheckWarn, statepkg.Record{
 					PID: 8000, SpawnedPID: 8000, StartedAt: fixtureStartTime,
-					Port: f.Settings.Port, Phase: statepkg.PhaseRunning,
+					Port: f.Settings.Port,
 				}.Describe())
 			},
 		},
@@ -184,7 +184,7 @@ func TestDoctorReportsEveryRowInOrder(t *testing.T) {
 			name: "a stale record of a process that is gone",
 			setup: func(f *fixture, t *testing.T) {
 				if err := f.Record.Save(statepkg.Record{
-					PID: 999999, StartedAt: 1_600_000_000, Port: f.Settings.Port, Phase: statepkg.PhaseRunning,
+					PID: 999999, StartedAt: 1_600_000_000, Port: f.Settings.Port,
 				}); err != nil {
 					t.Fatalf("save record: %v", err)
 				}

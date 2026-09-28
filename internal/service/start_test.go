@@ -24,7 +24,7 @@ func TestStartReportsAServerThatIsStillStarting(t *testing.T) {
 	f.host.listen(4321)
 	f.host.ready = false
 	if err := f.Record.Save(domain.Record{
-		PID: 4321, StartedAt: fixtureStartTime, Port: f.Settings.Port, Phase: domain.PhaseRunning,
+		PID: 4321, StartedAt: fixtureStartTime, Port: f.Settings.Port,
 	}); err != nil {
 		t.Fatalf("save record: %v", err)
 	}
