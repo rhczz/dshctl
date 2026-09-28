@@ -55,9 +55,6 @@ type Store[T any] struct {
 	// decoded value is usable. It runs on read and before a write, so a document
 	// that could not be written is also not read back as one.
 	Validate func(T) error
-	// Stamp, when set, is applied to the value before it is written: a document
-	// that carries its own timestamp leaves the clock to the caller.
-	Stamp func(*T)
 }
 
 // Load reads the document.
@@ -159,9 +156,6 @@ func readDocumentFile(path string) ([]byte, error) {
 // local, where writing first would make every later read fail the same way
 // forever.
 func (s Store[T]) Save(value T) error {
-	if s.Stamp != nil {
-		s.Stamp(&value)
-	}
 	if s.Validate != nil {
 		if err := s.Validate(value); err != nil {
 			return fmt.Errorf("refusing to write an invalid document: %w", err)

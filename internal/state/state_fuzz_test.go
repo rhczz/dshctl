@@ -112,12 +112,8 @@ func FuzzSaveLoadRoundTrip(f *testing.F) {
 		if !ok {
 			t.Fatalf("a saved record loaded as absent")
 		}
-		saved.UpdatedAt = loaded.UpdatedAt
 		if loaded != saved {
 			t.Fatalf("round trip changed the record:\n saved  %+v\n loaded %+v", saved, loaded)
-		}
-		if loaded.UpdatedAt <= 0 {
-			t.Fatalf("round trip lost the write timestamp: %+v", loaded)
 		}
 	})
 }
