@@ -96,11 +96,13 @@ func currentName(current service.TimelineCurrent) string {
 // timelineGap renders the one-line answer to "how far behind am I".
 //
 // A failed fetch must never produce the up-to-date message: the gap may be zero
-// only against the last known remote state, and the line says so.
+// only against the last known remote state, and the line says so. The up-to-date
+// predicate itself is the report's own `UpToDate` field — one home, so the
+// rendered line cannot disagree with the JSON key.
 func timelineGap(report service.TimelineReport) string {
 	unconfirmed := "(against the last known remote state; not confirmed)"
 	switch {
-	case report.Behind == 0 && report.Ahead == 0:
+	case report.UpToDate:
 		if report.Fetched {
 			return fmt.Sprintf("up to date (%s)", report.Remote.Name)
 		}
