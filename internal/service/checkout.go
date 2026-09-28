@@ -40,14 +40,15 @@ func notServerCheckoutError(repoDir string) error {
 	return exitcode.New(exitcode.Preflight, "%s does not look like a DeepSeek Harness checkout (no %s or %s)\nhint: point --repo at the right checkout", repoDir, config.ServerManifestRel, config.WorkspaceManifestRel)
 }
 
-// requireCheckout runs the three checkout gates every tree-touching command
-// shares: the directory exists, it is a git repository, and it is the managed
-// checkout. Commands that never read git ask only the first and third.
-func (s *Service) requireCheckout(withGit bool) error {
+// requireCheckout runs the three checkout gates the commands that will run git
+// inside the tree share: the directory exists, it is a git repository, and it is
+// the managed checkout. Commands that never read git — start and build — ask
+// only the first and third through the message helpers above.
+func (s *Service) requireCheckout() error {
 	if !s.Repo.Exists() {
 		return missingCheckoutError(s.Settings.RepoDir)
 	}
-	if withGit && !s.Repo.IsGit() {
+	if !s.Repo.IsGit() {
 		return notAGitRepositoryError(s.Settings.RepoDir)
 	}
 	if !s.Repo.IsServerCheckout() {

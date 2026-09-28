@@ -119,7 +119,7 @@ func (s *Service) deployLocked(ctx context.Context, request deployRequest) error
 		return exitcode.New(exitcode.Preflight, "the checkout %s is also used by the service on port %v (pid %v); %s would replace build artifacts it is using\nhint: stop that service first (dshctl stop --port <port>), then %s", s.Settings.RepoDir, elsewhere.ports(), elsewhere.pids(), request.verb, request.verb)
 	}
 
-	if err := s.requireCheckout(true); err != nil {
+	if err := s.requireCheckout(); err != nil {
 		return err
 	}
 	pnpm, err := s.pnpmPath()
