@@ -115,8 +115,15 @@ def check_accounting(strict: bool) -> int:
         problems.append(f"树里有测试但账本没有行: {test}")
     for test in sorted(seen - present):
         row = next(r for r in rows if r["test"] == test)
-        if row.get("disposition") == "todo":
+        disposition = row.get("disposition", "")
+        if disposition == "todo":
             problems.append(f"测试已从树中消失但仍未决定 disposition: {test}")
+        if disposition in ("kept", "new-test"):
+            problems.append(
+                f"{disposition} 行描述的测试不在树中: {test}"
+                f"（kept 的承诺是仍在树中，new-test 的承诺是重写新增——请把文件路径改成测试现在的位置，"
+                f"或改为 obsolete 并写明去向）"
+            )
     if strict and undecided:
         problems.append(f"仍有 {undecided} 行是 todo")
     return report(problems, f"账本 {len(rows)} 行，树中测试 {len(present)} 个，未决定 {undecided}")
