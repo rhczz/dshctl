@@ -7591,45 +7591,45 @@
     "file": "internal/service/messages_test.go",
     "package": "internal/service",
     "behavior": "",
-    "disposition": "new-test",
-    "evidence": "本层消息目录两种语言都非空",
-    "note": "重写后仍在树中，钉住同一行为"
+    "disposition": "obsolete",
+    "evidence": "消息目录机制随 2026-09-22-remove-i18n 决定删除，测试随之消失",
+    "note": "i18n 目录被整体移除，消息改为就地英文"
   },
   {
     "test": "internal/service/messages_test.go::TestMessagesMergeWithAnotherLayer",
     "file": "internal/service/messages_test.go",
     "package": "internal/service",
     "behavior": "",
-    "disposition": "new-test",
-    "evidence": "本层目录可与前端目录合并",
-    "note": "重写后仍在树中，钉住同一行为"
+    "disposition": "obsolete",
+    "evidence": "消息目录机制随 2026-09-22-remove-i18n 决定删除，测试随之消失",
+    "note": "i18n 目录被整体移除，消息改为就地英文"
   },
   {
     "test": "internal/service/messages_test.go::TestNoOrphanMessages",
     "file": "internal/service/messages_test.go",
     "package": "internal/service",
     "behavior": "",
-    "disposition": "new-test",
-    "evidence": "目录里没有无人渲染的消息",
-    "note": "重写后仍在树中，钉住同一行为"
+    "disposition": "obsolete",
+    "evidence": "消息目录机制随 2026-09-22-remove-i18n 决定删除，测试随之消失",
+    "note": "i18n 目录被整体移除，消息改为就地英文"
   },
   {
     "test": "internal/cli/render_test.go::TestDescribeFacts",
     "file": "internal/cli/render_test.go",
     "package": "internal/cli",
     "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "渲染器搬进接入层，测试随之移动"
+    "disposition": "obsolete",
+    "evidence": "测试随渲染器搬到 internal/service/print_helpers_test.go，行为由该路径的 kept 行钉住",
+    "note": "渲染器搬进接入层，旧行记录搬迁去向"
   },
   {
     "test": "internal/service/timeline_test.go::TestPrintTimelineRendersTheExactFormat",
     "file": "internal/service/timeline_test.go",
     "package": "internal/service",
     "behavior": "",
-    "disposition": "kept",
-    "evidence": "",
-    "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+    "disposition": "obsolete",
+    "evidence": "timeline 渲染的精确格式现由 internal/cli 的渲染测试与三平台 conformance 金标钉住",
+    "note": "重写后该精确格式测试消失，格式断言落在渲染测试与金标"
   },
   {
     "test": "internal/state/state_extra_test.go::TestDescribeAnEmptyRecord",

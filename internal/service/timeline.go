@@ -108,7 +108,7 @@ type TimelineReport struct {
 // and the command exits as a failed preflight — because a timeline that
 // silently showed last week's remote would be worse than no timeline at all.
 func (s *Service) Timeline(ctx context.Context) (TimelineReport, error) {
-	if err := s.requireCheckout(true); err != nil {
+	if err := s.requireCheckout(); err != nil {
 		return TimelineReport{}, err
 	}
 	hasOrigin, err := s.Repo.HasOrigin(ctx)

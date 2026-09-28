@@ -1,9 +1,6 @@
 package state
 
-import (
-	"fmt"
-	"time"
-)
+import "fmt"
 
 // testDoc is the document the store's tests exercise.
 //
@@ -11,7 +8,7 @@ import (
 // mechanism, and its tests prove the mechanism works for the shape it is
 // handed. The fields mirror the record closely enough that the assertions stay
 // readable, and the rules below are the test's own — the product's validation
-// and stamping live with the product.
+// lives with the product.
 type testDoc struct {
 	PID         int    `json:"pid"`
 	StartedAt   int64  `json:"startedAt"`
@@ -42,7 +39,6 @@ func testStore(path string) Store[testDoc] {
 			}
 			return nil
 		},
-		Stamp: func(doc *testDoc) { doc.UpdatedAt = time.Now().Unix() },
 	}
 }
 

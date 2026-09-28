@@ -47,12 +47,8 @@ func TestRoundTrip(t *testing.T) {
 	if !ok {
 		t.Fatal("Load reported no record")
 	}
-	record.UpdatedAt = loaded.UpdatedAt
 	if loaded != record {
 		t.Fatalf("loaded = %+v, want %+v", loaded, record)
-	}
-	if loaded.UpdatedAt == 0 {
-		t.Fatal("Save must stamp UpdatedAt")
 	}
 }
 

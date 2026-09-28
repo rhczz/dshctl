@@ -8,6 +8,18 @@ macOS、Linux、Windows（amd64 / arm64）都支持。日常操作除 `pnpm`、`
 Node 用 PATH 上的那个，首次成功启动后会把它写进配置文件，之后固定使用该版本；
 版本管理器与下限规则见「Node 版本」。
 
+## 安装
+
+每个 `v*` tag 发布时，GitHub Releases 会附上 6 个平台的二进制（`dshctl_<os>_<arch>`，
+Windows 带 `.exe`）与 `SHA256SUMS`。下载对应平台的文件，校验后放到 PATH：
+
+```sh
+shasum -a 256 -c SHA256SUMS --ignore-missing   # 只校验自己下载的那几个
+chmod +x dshctl_darwin_arm64 && mv dshctl_darwin_arm64 /usr/local/bin/dshctl
+```
+
+标了 `-rc` 的版本是候选构建，不会替代 latest 稳定版。
+
 ## 编译
 
 ```sh
