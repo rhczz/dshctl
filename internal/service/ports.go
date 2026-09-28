@@ -255,12 +255,3 @@ func (s *Service) URLReport(ctx context.Context) (URLReport, error) {
 	}
 	return report, nil
 }
-
-// WebURLs reports the address of every running instance, keyed by port.
-func (s *Service) WebURLs(ctx context.Context) (map[int]string, error) {
-	report, err := s.URLReport(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return report.Addresses, nil
-}

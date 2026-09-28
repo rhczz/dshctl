@@ -570,10 +570,11 @@ func TestWebURLsReportsEveryRunningAddress(t *testing.T) {
 	f.startServer(t, 4321, "http://127.0.0.1:"+strconv.Itoa(configured)+"/?token=CONFIGURED")
 	seedRunningPort(t, f, other, 4322, "http://127.0.0.1:"+strconv.Itoa(other)+"/?token=OTHER")
 
-	addresses, err := f.WebURLs(context.Background())
+	report, err := f.URLReport(context.Background())
 	if err != nil {
-		t.Fatalf("WebURLs: %v", err)
+		t.Fatalf("URLReport: %v", err)
 	}
+	addresses := report.Addresses
 	if len(addresses) != 2 {
 		t.Fatalf("addresses = %v, want two", addresses)
 	}
@@ -596,10 +597,11 @@ func TestWebURLsNamesAnExplicitlySelectedInstance(t *testing.T) {
 	seedRunningPort(t, f, other, 4322, "http://127.0.0.1:"+strconv.Itoa(other)+"/?token=OTHER")
 
 	explicitPort(t, f, other)
-	addresses, err := f.WebURLs(context.Background())
+	report, err := f.URLReport(context.Background())
 	if err != nil {
-		t.Fatalf("WebURLs: %v", err)
+		t.Fatalf("URLReport: %v", err)
 	}
+	addresses := report.Addresses
 	if len(addresses) != 1 || addresses[other] == "" {
 		t.Fatalf("addresses = %v, want only port %d", addresses, other)
 	}
@@ -619,10 +621,11 @@ func TestWebURLsKeepsAWorkingInstanceOutOfTheFallback(t *testing.T) {
 		URL: "http://127.0.0.1:" + strconv.Itoa(other) + "/?token=DEAD",
 	})
 
-	addresses, err := f.WebURLs(context.Background())
+	report, err := f.URLReport(context.Background())
 	if err != nil {
-		t.Fatalf("WebURLs: %v", err)
+		t.Fatalf("URLReport: %v", err)
 	}
+	addresses := report.Addresses
 	if len(addresses) != 1 || addresses[other] != "" {
 		t.Fatalf("addresses = %v, want only port %d", addresses, configured)
 	}
