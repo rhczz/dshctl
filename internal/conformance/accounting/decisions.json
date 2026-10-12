@@ -720,5 +720,23 @@
     ],
     "new_path": "internal/exitcode/exitcode.go",
     "status": "ported"
+  },
+  {
+    "name": "a script that left the group is no longer reached through the parent chain",
+    "old_path": "internal/host/group_unix.go",
+    "packages": [
+      "./internal/host/"
+    ],
+    "new_path": "internal/host/group_unix.go",
+    "status": "ported"
+  },
+  {
+    "name": "a group stops answering for its members once the leader was reaped",
+    "old_path": "internal/host/group_unix.go",
+    "packages": [
+      "./internal/host/"
+    ],
+    "new_path": "internal/host/group_unix.go",
+    "status": "ported"
   }
 ]

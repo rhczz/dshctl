@@ -22,9 +22,11 @@ type OsHost interface {
 	// Signal delivers a termination request to one process.
 	Signal(pid int, request host.Request) error
 	// DescendsFrom reports whether a process descends from the one dshctl
-	// spawned — process-group membership on Unix, the parent-pid chain on
-	// Windows. It is the evidence that a listener which is not the spawned pid
-	// is still ours, and it is the same question on both platforms.
+	// spawned — the evidence that a listener which is not the spawned pid is
+	// still ours. Unix answers with the process group the wrapper leads first
+	// and the parent-pid chain after it (a package-script runner may detach its
+	// scripts into a session of their own); Windows answers with the chain
+	// alone. It is the same question on both platforms.
 	DescendsFrom(ancestor, pid int) bool
 	// GroupExists reports whether any process is left in the tree the pid
 	// leads. It is not the same question as DescendsFrom: a tree whose root was

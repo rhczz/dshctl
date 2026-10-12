@@ -52,13 +52,7 @@ func startTicks(pid int) (int64, bool) {
 
 // parseStartTicks extracts the start time from /proc/<pid>/stat content.
 func parseStartTicks(text string) (int64, bool) {
-	// The second field is the executable name in parentheses and may itself
-	// contain spaces, so the split starts after the closing parenthesis.
-	close := strings.LastIndexByte(text, ')')
-	if close < 0 || close+2 >= len(text) {
-		return 0, false
-	}
-	fields := strings.Fields(text[close+2:])
+	fields := statFieldsAfterName(text)
 	// After the name, field 3 is state, so starttime (field 22) is index 19.
 	const startTimeIndex = 19
 	if len(fields) <= startTimeIndex {
@@ -69,6 +63,42 @@ func parseStartTicks(text string) (int64, bool) {
 		return 0, false
 	}
 	return ticks, true
+}
+
+// parentFromProc reads the parent pid (field 4) of a process from /proc
+// without running any tool, the same direct read startTimeFromProc prefers.
+func parentFromProc(pid int) (int, bool) {
+	data, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
+	if err != nil {
+		return 0, false
+	}
+	return parseParentPID(string(data))
+}
+
+// parseParentPID extracts the parent pid from /proc/<pid>/stat content.
+func parseParentPID(text string) (int, bool) {
+	fields := statFieldsAfterName(text)
+	// After the name, field 3 is state, so ppid (field 4) is index 1.
+	const parentIndex = 1
+	if len(fields) <= parentIndex {
+		return 0, false
+	}
+	parent, err := strconv.Atoi(fields[parentIndex])
+	if err != nil || parent < 0 {
+		return 0, false
+	}
+	return parent, true
+}
+
+// statFieldsAfterName splits /proc/<pid>/stat into the fields after the
+// executable name. The name is parenthesized and may itself contain spaces and
+// closing parentheses, so the split starts after the LAST ')'.
+func statFieldsAfterName(text string) []string {
+	close := strings.LastIndexByte(text, ')')
+	if close < 0 || close+2 >= len(text) {
+		return nil
+	}
+	return strings.Fields(text[close+2:])
 }
 
 // uptimeSeconds reads the kernel uptime.

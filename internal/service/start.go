@@ -99,15 +99,17 @@ func (s *Service) startLocked(ctx context.Context) (StartResult, error) {
 
 // adoptSurvivor rewrites the record to name the listener that is actually
 // serving the port when the record names a process of the recorded start's
-// group instead.
+// tree instead.
 //
 // The shape it recovers from is a start that was interrupted after the wrapper
 // record was written but before the port answered: the record names the
-// wrapper, and the server — a child in the wrapper's group — serves the port.
-// Group membership is the same evidence waitForListening uses to accept a
-// listener as this start's own: a live member of the recorded group cannot be
-// a recycled stranger, because the group id cannot be reused while a member
-// still holds it.
+// wrapper, and the server — a process the wrapper's tree spawned — serves the
+// port. Descent (see DescendsFrom) is the same evidence waitForListening uses
+// to accept a listener as this start's own. A live member of the recorded
+// group cannot be a recycled stranger, because the group id cannot be reused
+// while a member still holds it; the parent chain answers only while the
+// parents it climbs through still exist, so a detached server whose wrapper
+// died is refused rather than guessed at.
 //
 // Returns the adopted record and whether the adoption happened. A failure to
 // write the record reports the survivor as unadoptable rather than pretending
@@ -468,11 +470,13 @@ func spawnDetached(path string, args []string, dir string, env []string, log *os
 
 // cleanupFailedStart ends everything this attempt created and reports why.
 //
-// It works on the process group, not on the pid it spawned: the harness is
-// launched through a package script, so the process holding the port is a child
-// of the wrapper, and ending only the wrapper leaves the server serving with
-// nothing able to manage it. The port is checked afterwards — the cleanup is
-// only reported as done once the port is actually free.
+// It signals the process group, not the pid it spawned: the harness is
+// launched through a package script, so the wrapper leads a group that holds
+// the runner and, for a runner that keeps its scripts inside the group, the
+// server as well. A runner that detaches its scripts out of the group — pnpm
+// 11 does — relies on its own signal forwarding to reach them, so the port is
+// checked afterwards: a miss is reported as a port still occupied, never as a
+// successful cleanup.
 func (s *Service) cleanupFailedStart(ctx context.Context, pid int, cause error) error {
 	s.failure("the start failed or timed out; cleaning up the processes this run started ...")
 	s.note("start failed")

@@ -43,10 +43,6 @@ func (h *Host) DescendsFrom(ancestor, pid int) bool {
 	return false
 }
 
-// maxAncestorHops bounds the walk: a cycle can only come from a corrupt
-// snapshot, and a chain longer than this is not the shape dshctl creates.
-const maxAncestorHops = 64
-
 // processParents reads the parent pid of every process in one snapshot.
 func processParents() (map[uint32]uint32, error) {
 	snapshot, err := syscall.CreateToolhelp32Snapshot(syscall.TH32CS_SNAPPROCESS, 0)

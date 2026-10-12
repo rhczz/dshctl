@@ -45,6 +45,55 @@ func TestParseStartTicks(t *testing.T) {
 	}
 }
 
+// TestParseParentPID pins the ppid extraction from the same stat line, with
+// the same tolerance for a process name that contains spaces and parentheses.
+func TestParseParentPID(t *testing.T) {
+	cases := []struct {
+		name string
+		stat string
+		want int
+		ok   bool
+	}{
+		{
+			name: "ordinary",
+			stat: "1234 (node) S 4321 1234 1234 0 -1 4194560 100 0 0 0 5 6 0 0 20 0 11 0 987654 123 456 0 0 0 0 0 0 0 0 0 0 0 0 17 0 0 0 0 0 0",
+			want: 4321,
+			ok:   true,
+		},
+		{
+			name: "name with spaces and parentheses",
+			stat: "1234 (weird (name) here) S 4321 1234 1234 0 -1 4194560 100 0 0 0 5 6 0 0 20 0 11 0 4242 123 456 0 0 0 0 0 0 0 0 0 0 0 0 17 0 0 0 0 0 0",
+			want: 4321,
+			ok:   true,
+		},
+		{name: "no name", stat: "1234 S 4321 2 3", ok: false},
+		{name: "too short", stat: "1234 (node) S", ok: false},
+		{name: "empty", stat: "", ok: false},
+		{name: "not a number", stat: "1234 (node) S abc 1234 1234 0 -1", ok: false},
+		{name: "negative", stat: "1234 (node) S -5 1234 1234 0 -1", ok: false},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			got, ok := parseParentPID(testCase.stat)
+			if ok != testCase.ok || got != testCase.want {
+				t.Fatalf("parseParentPID = (%d, %v), want (%d, %v)", got, ok, testCase.want, testCase.ok)
+			}
+		})
+	}
+}
+
+// TestParentFromProcReadsThisProcess pins that the kernel path answers for a
+// process that plainly exists, and that it names the real parent.
+func TestParentFromProcReadsThisProcess(t *testing.T) {
+	parent, ok := parentFromProc(os.Getpid())
+	if !ok {
+		t.Skip("/proc is unavailable in this environment")
+	}
+	if parent != os.Getppid() {
+		t.Fatalf("parentFromProc = %d, want the real parent %d", parent, os.Getppid())
+	}
+}
+
 // TestStartTimeFromProcReadsThisProcess pins that the kernel path answers for a
 // process that plainly exists, and that the value is plausible.
 func TestStartTimeFromProcReadsThisProcess(t *testing.T) {

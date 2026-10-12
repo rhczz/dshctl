@@ -5,27 +5,93 @@ package host
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"syscall"
 )
 
-// DescendsFrom reports whether pid is a member of the process group the
-// ancestor leads, which is how a detached server started through a wrapper is
-// recognized as dshctl's own.
+// DescendsFrom reports whether pid belongs to the tree of processes the
+// ancestor spawned, which is how a detached server started through a wrapper
+// is recognized as dshctl's own.
 //
-// Unix answers it with the process group: the wrapper becomes the group leader
-// (setsid) and every process it starts inherits that group, so membership is
-// exactly descent for the shape dshctl creates. Descent is therefore
-// inherited, not reflexive in general — DescendsFrom(pid, pid) holds exactly
-// when pid leads its own group, which the spawned wrapper always does.
+// Two pieces of evidence answer, strongest first:
+//
+//   - The process group. The wrapper becomes the group leader (setsid) and
+//     every process started inside the group inherits it. A group outlives its
+//     leader, so the answer survives the wrapper itself — the property
+//     survivor adoption rests on.
+//   - The parent-pid chain. A package-script runner may leave the group: pnpm
+//     11 runs every script in a shell it detaches into its own session so a
+//     terminal interrupt can be forwarded to the script alone, and the server
+//     that binds the port is then outside the wrapper's group although the
+//     wrapper plainly started it. The chain is the same evidence Windows
+//     answers with, and it is sound while it climbs: a process names its real
+//     parent while that parent lives, and an orphan is reparented to init
+//     rather than to whatever pid its dead parent's value was recycled to, so
+//     a chain that reaches a live ancestor names a tree that ancestor really
+//     spawned. A chain through processes that are gone simply stops answering
+//     — the refusal is the honest result, never a guess.
+//
+// Descent is therefore inherited, not reflexive in general — DescendsFrom(pid,
+// pid) holds exactly when pid leads its own group, which the spawned wrapper
+// always does.
 func (h *Host) DescendsFrom(ancestor, pid int) bool {
 	if ancestor <= 0 || pid <= 0 {
 		return false
 	}
-	group, err := syscall.Getpgid(pid)
-	if err != nil || group <= 0 {
-		return false
+	if group, err := syscall.Getpgid(pid); err == nil && group == ancestor {
+		return true
 	}
-	return group == ancestor
+	return h.parentChainReaches(ancestor, pid)
+}
+
+// parentChainReaches walks the parent-pid chain from pid toward ancestor.
+//
+// The walk stops at init, at a parent that cannot be read, and at the hop
+// bound; every stop that is not a match answers "no evidence", which callers
+// treat as "not ours" rather than as "ours".
+func (h *Host) parentChainReaches(ancestor, pid int) bool {
+	current := pid
+	for hop := 0; hop < maxAncestorHops; hop++ {
+		parent, ok := h.parentPID(current)
+		if !ok {
+			return false
+		}
+		if parent == ancestor {
+			return true
+		}
+		if parent <= 1 || parent == current {
+			return false
+		}
+		current = parent
+	}
+	return false
+}
+
+// parentPID reads the parent of a process.
+//
+// A direct kernel read is preferred where it exists, exactly as Inspect
+// prefers it: it needs no external tool and cannot be denied by a policy that
+// still allows signals. Where procfs does not exist, ps answers. A refusal is
+// reported as "unknown" — the walk above turns it into "no evidence", never
+// into "no parent".
+func (h *Host) parentPID(pid int) (int, bool) {
+	if parent, ok := parentFromProc(pid); ok {
+		return parent, true
+	}
+	path, found := h.tool(h.tools.Process)
+	if !found {
+		return 0, false
+	}
+	output, status, err := runCapture(nil, path, "-p", strconv.Itoa(pid), "-o", "ppid=")
+	if err != nil || status != 0 {
+		return 0, false
+	}
+	parent, convErr := strconv.Atoi(strings.TrimSpace(output))
+	if convErr != nil || parent <= 0 {
+		return 0, false
+	}
+	return parent, true
 }
 
 // GroupExists reports whether any process is left in the group the pid leads.
