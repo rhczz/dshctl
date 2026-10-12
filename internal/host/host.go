@@ -104,6 +104,11 @@ type PortResult struct {
 // CtxTimeout bounds a probe that a platform tool answers.
 const probeTimeout = 10 * time.Second
 
+// maxAncestorHops bounds a parent-chain walk: a cycle can only come from a
+// corrupt process table, and a chain longer than this is not the shape dshctl
+// creates.
+const maxAncestorHops = 64
+
 // probeContext derives a bounded context for one probe.
 //
 // A nil context is treated as the background context so that a probe can never

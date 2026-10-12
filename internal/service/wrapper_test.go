@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -114,6 +115,118 @@ setInterval(() => {}, 1000);
 	// A detached process is reaped by init, and a zombie still answers an
 	// existence probe, so a moment is allowed for the reaper; Inspect is the
 	// probe that can tell a zombie from a live process where ps is available.
+	for _, pid := range []int{record.PID, record.SpawnedPID} {
+		deadline := time.Now().Add(5 * time.Second)
+		for f.Host.Inspect(ctx, pid).Alive && time.Now().Before(deadline) {
+			time.Sleep(50 * time.Millisecond)
+		}
+		if f.Host.Inspect(ctx, pid).Alive {
+			t.Fatalf("pid %d survived the stop", pid)
+		}
+	}
+	if _, ok := f.stateRecord(t); ok {
+		t.Fatal("a completed stop must clear the record")
+	}
+}
+
+// TestStartAcrossAWrapperThatDetachesTheServer is the regression test for the
+// shape pnpm 11 gives every real launch: it runs each package script in a
+// shell it detaches into its own session so a terminal interrupt can be
+// forwarded to the script alone. The server therefore binds the port outside
+// the process group of the wrapper dshctl spawned, and a start that trusts
+// nothing but the group reports the server it just started as a stranger's
+// ("port is held by another process") and cleans it up. This is how every
+// start failed against a checkout whose packageManager pinned pnpm 11.
+func TestStartAcrossAWrapperThatDetachesTheServer(t *testing.T) {
+	requirePosix(t)
+	f := newFixture(t)
+	nodePath := realNodeShim(t, filepath.Join(f.root, "node-bin"))
+	python3, err := run.LookPath("python3")
+	if err != nil {
+		t.Fatalf("python3 provides the setsid step the fixture needs and POSIX sh lacks: %v", err)
+	}
+	server := filepath.Join(f.root, "server.js")
+	writeFile(t, server, `
+const net = require('net');
+const port = Number(process.argv[process.argv.indexOf('--port') + 1]);
+console.log('dsh web: http://127.0.0.1:' + port + '/?token=DETACHED');
+net.createServer(() => {}).listen(port, '127.0.0.1', () => console.log('listening'));
+// A start that fails cannot reach this server through the wrapper's group —
+// that isolation is the point of the fixture — so it ends on its own instead
+// of outliving the run.
+setTimeout(() => process.exit(0), 90000);
+`)
+	// A wrapper that runs the script in a session of its own and waits for it,
+	// exactly as pnpm 11 does.
+	binDir := filepath.Join(f.root, "bin")
+	writeFile(t, filepath.Join(binDir, "pnpm"), "#!/bin/sh\n"+
+		python3+" -c 'import os,sys; os.setsid(); os.execvp(sys.argv[1], sys.argv[1:])' "+
+		"\""+nodePath+"\" \""+server+"\" \"$@\" &\n"+
+		"child=$!\n"+
+		"wait $child\n")
+	if err := os.Chmod(filepath.Join(binDir, "pnpm"), 0o755); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+filepath.Dir(nodePath)+string(os.PathListSeparator)+systemToolPath)
+
+	f.Spawn = nil
+	f.LookPath = run.LookPath
+	f.Host = host.NewWithLookPath(run.LookPath, hostTools)
+	// The real host answers a real child's start time, so this test keeps the
+	// production budget instead of the shortened one the fixture gives the
+	// fictional machine.
+	f.fingerprint = fingerprintTimeout
+	f.Node = &nodejs.Resolver{LookPath: run.LookPath, Glob: filepath.Glob, Stat: os.Stat}
+	f.Dial = nil // the server really listens
+	f.Settings.StartTimeout = 20 * time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	result, err := f.Start(ctx)
+	if err != nil {
+		if data, readErr := os.ReadFile(f.Settings.LogPath); readErr == nil {
+			t.Fatalf("Start: %v\n--- server log ---\n%s", err, data)
+		}
+		t.Fatalf("Start: %v", err)
+	}
+
+	record, ok := f.stateRecord(t)
+	if !ok {
+		t.Fatal("a successful start must write a record")
+	}
+	// As in the same-group wrapper test: stopping is registered the moment the
+	// server is real, so no failed assertion below can leave it serving. The
+	// fixture's own 90-second exit is only the backstop behind this.
+	t.Cleanup(func() {
+		if _, err := f.Stop(context.Background()); err != nil {
+			t.Logf("cleanup stop: %v", err)
+		}
+	})
+	if record.PID != result.Status.ListenerPID {
+		t.Fatalf("record pid = %d, want the listener %d", record.PID, result.Status.ListenerPID)
+	}
+	if record.SpawnedPID == 0 || record.SpawnedPID == record.PID {
+		t.Fatalf("record = %+v, want the spawned wrapper recorded separately", record)
+	}
+	if !strings.Contains(record.URL, "token=DETACHED") {
+		t.Fatalf("record URL = %q, want the address the server announced", record.URL)
+	}
+	// The fixture is only worth what it proves while the listener really sits
+	// outside the wrapper's group: without that boundary the group evidence
+	// alone would carry the test and nothing here would pin the detached shape.
+	listenerGroup, groupErr := syscall.Getpgid(record.PID)
+	if groupErr != nil || listenerGroup == record.SpawnedPID {
+		t.Fatalf("the listener (pid %d, group %d, err %v) never left the wrapper's group %d; the fixture does not reproduce the shape under test",
+			record.PID, listenerGroup, groupErr, record.SpawnedPID)
+	}
+
+	// Stopping must end the server even though it left the wrapper's group:
+	// the record names the listener directly, and the group is only the
+	// cleanup that follows.
+	if _, err := f.Stop(ctx); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
 	for _, pid := range []int{record.PID, record.SpawnedPID} {
 		deadline := time.Now().Add(5 * time.Second)
 		for f.Host.Inspect(ctx, pid).Alive && time.Now().Before(deadline) {

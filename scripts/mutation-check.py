@@ -580,6 +580,20 @@ MUTATIONS: list[tuple[str, str, str, str, list[str]]] = [
         "LockTimeout = 6",
         ["./internal/exitcode/", "./internal/cli/"],
     ),
+    (
+        "a script that left the group is no longer reached through the parent chain",
+        "internal/host/group_unix.go",
+        "\treturn h.parentChainReaches(ancestor, pid)",
+        "\treturn false",
+        ["./internal/host/"],
+    ),
+    (
+        "a group stops answering for its members once the leader was reaped",
+        "internal/host/group_unix.go",
+        "\tif group, err := syscall.Getpgid(pid); err == nil && group == ancestor {",
+        "\tif false {",
+        ["./internal/host/"],
+    ),
 ]
 
 

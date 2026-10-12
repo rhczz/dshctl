@@ -2223,6 +2223,24 @@
     "note": "重写后仍在树中，钉住同一行为"
   },
   {
+    "test": "internal/host/facts_linux_test.go::TestParseParentPID",
+    "file": "internal/host/facts_linux_test.go",
+    "package": "internal/host",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "ppid 字段解析：名字含空格/括号、非数字与负值都拒绝",
+    "note": ""
+  },
+  {
+    "test": "internal/host/facts_linux_test.go::TestParentFromProcReadsThisProcess",
+    "file": "internal/host/facts_linux_test.go",
+    "package": "internal/host",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "proc 直读本进程的父 pid 且与 os.Getppid 一致",
+    "note": ""
+  },
+  {
     "test": "internal/host/facts_linux_test.go::TestStartTimeFromProcReadsThisProcess",
     "file": "internal/host/facts_linux_test.go",
     "package": "internal/host",
@@ -2383,6 +2401,24 @@
     "disposition": "kept",
     "evidence": "",
     "note": "重写后仍在树中，钉住同一行为"
+  },
+  {
+    "test": "internal/host/group_unix_test.go::TestDescendsFromReachesAChildThatLeftTheGroup",
+    "file": "internal/host/group_unix_test.go",
+    "package": "internal/host",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "detach 出的子进程（自有会话/进程组）必须被父进程链认领为自家监听器",
+    "note": ""
+  },
+  {
+    "test": "internal/host/group_unix_test.go::TestDescendsFromKeepsAnsweringForAGroupWhoseLeaderExited",
+    "file": "internal/host/group_unix_test.go",
+    "package": "internal/host",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "组长被收割后组仍回答其成员——收养幸存者依赖这条性质，链不能取代组",
+    "note": ""
   },
   {
     "test": "internal/host/group_windows_test.go::TestDescendsFromWalksTheParentChain",
@@ -7279,6 +7315,15 @@
     "disposition": "kept",
     "evidence": "",
     "note": "随包从 internal/service 迁移到 internal/service，行为未变"
+  },
+  {
+    "test": "internal/service/wrapper_test.go::TestStartAcrossAWrapperThatDetachesTheServer",
+    "file": "internal/service/wrapper_test.go",
+    "package": "internal/service",
+    "behavior": "",
+    "disposition": "new-test",
+    "evidence": "pnpm 11 形状端到端复现：启动认领自家监听器、记录指认监听器、stop 到达静止",
+    "note": ""
   },
   {
     "test": "internal/service/wrapper_test.go::TestStartRefusesWhenALiveRecordIsNotListening",

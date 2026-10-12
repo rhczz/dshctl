@@ -430,8 +430,9 @@ func (s *Service) waitForListening(ctx context.Context, expectedPID int, exited 
 // It is the evidence that a listener which is not the spawned pid is still ours:
 // dshctl launches a package script, and the process that binds the port is a
 // descendant of what it spawned. Unix answers through the process group the
-// wrapper leads, Windows through the parent-pid chain — one question, one
-// method, both platforms.
+// wrapper leads and, when the runner detached its scripts out of that group,
+// through the parent-pid chain; Windows through the chain alone. A chain that
+// has been broken by processes that are gone answers "no", never a guess.
 func (s *Service) descendsFromSpawned(spawnedPID, pid int) bool {
 	if spawnedPID <= 0 || pid <= 0 {
 		return false

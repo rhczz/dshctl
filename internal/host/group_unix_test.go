@@ -3,6 +3,8 @@
 package host
 
 import (
+	"bufio"
+	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
@@ -12,8 +14,10 @@ import (
 	"time"
 )
 
-// TestDescendsFromUsesTheProcessGroup pins the Unix evidence: a child started
-// in its own group belongs to that group — and to nothing else.
+// TestDescendsFromUsesTheProcessGroup pins the first Unix evidence: a child
+// started in its own group belongs to that group — and the group is what
+// answers for it, since the parent chain is only consulted for a process the
+// group does not cover.
 func TestDescendsFromUsesTheProcessGroup(t *testing.T) {
 	command := exec.Command("sleep", "5")
 	if _, err := exec.LookPath("sleep"); err != nil {
@@ -35,8 +39,16 @@ func TestDescendsFromUsesTheProcessGroup(t *testing.T) {
 	if !host.DescendsFrom(child, child) {
 		t.Fatal("a group leader must descend from its own group")
 	}
-	if host.DescendsFrom(os.Getpid(), child) {
-		t.Fatal("a child in its own group was reported as belonging to this process's group")
+	// A direct child in a group of its own is no longer in this process's
+	// group, but the parent chain still names this process. This flipped from
+	// "must be false" when the chain became the second Unix evidence: a
+	// package-script runner that detaches its scripts leaves descent as the
+	// only way to recognize the server, so the simplest tree must answer.
+	if !host.DescendsFrom(os.Getpid(), child) {
+		t.Fatal("a direct child was not recognized through the parent chain")
+	}
+	if host.DescendsFrom(child, os.Getpid()) {
+		t.Fatal("the ancestor was reported as a descendant of its own child")
 	}
 	if host.DescendsFrom(0, os.Getpid()) || host.DescendsFrom(os.Getpid(), 0) {
 		t.Fatal("impossible pids must never be reported as related")
@@ -295,5 +307,228 @@ func waitForGroupToBeGone(t *testing.T, host *Host, pid int) {
 			t.Fatalf("group %d still has members after the signal", pid)
 		}
 		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// The four markers name the helper stages of the two descent-shape tests. All
+// follow the helperenv rules: the value names the parent pid, and envForChild
+// strips every inherited marker before the child's own is appended.
+const (
+	chainWrapperEnv      = "DSHCTL_TEST_CHAIN_WRAPPER"
+	chainChildEnv        = "DSHCTL_TEST_CHAIN_CHILD"
+	leaderlessWrapperEnv = "DSHCTL_TEST_LEADERLESS_WRAPPER"
+	leaderlessChildEnv   = "DSHCTL_TEST_LEADERLESS_CHILD"
+)
+
+// helperTTL is how long a helper child blocks before ending on its own. The
+// tests end their helpers explicitly; the TTL is the backstop that turns a
+// missed cleanup into a two-minute stray instead of a permanent one.
+const helperTTL = 2 * time.Minute
+
+// blockUntilTTL keeps a helper process alive. The loop sleeps rather than
+// parking on an empty select so the runtime never mistakes the process for
+// deadlocked.
+func blockUntilTTL() {
+	deadline := time.Now().Add(helperTTL)
+	for time.Now().Before(deadline) {
+		time.Sleep(time.Second)
+	}
+}
+
+// TestDescendsFromReachesAChildThatLeftTheGroup pins the shape a modern
+// package-script runner creates: pnpm 11 runs every package script in a shell
+// it detaches into its own session so a terminal interrupt can be forwarded to
+// the script alone. The server therefore binds the port outside the process
+// group of the wrapper dshctl spawned. The group cannot vouch for it any more;
+// the parent chain can and must, or a start reports the server it just started
+// as a stranger's and refuses to manage it.
+func TestDescendsFromReachesAChildThatLeftTheGroup(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("locate the test binary: %v", err)
+	}
+	switch {
+	case os.Getenv(chainChildEnv) == helperMarker(os.Getppid()):
+		blockUntilTTL()
+		return
+	case os.Getenv(chainWrapperEnv) == helperMarker(os.Getppid()):
+		child := exec.Command(executable, "-test.run=^TestDescendsFromReachesAChildThatLeftTheGroup$")
+		child.Env = envForChild(chainChildEnv + "=" + helperMarker(os.Getpid()))
+		child.Stdin = nil
+		child.Stdout = nil
+		child.Stderr = nil
+		child.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+		if err := child.Start(); err != nil {
+			fmt.Fprintln(os.Stderr, "start the detached child:", err)
+			os.Exit(1)
+		}
+		fmt.Println(child.Process.Pid)
+		// The wrapper stays alive as the chain's root: a descendant is only
+		// reachable through parents that still exist.
+		blockUntilTTL()
+		return
+	}
+
+	wrapper := exec.Command(executable, "-test.run=^TestDescendsFromReachesAChildThatLeftTheGroup$")
+	wrapper.Env = envForChild(chainWrapperEnv + "=" + helperMarker(os.Getpid()))
+	wrapper.Stdin = nil
+	stdout, err := wrapper.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	wrapper.Stderr = nil
+	wrapper.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := wrapper.Start(); err != nil {
+		t.Fatalf("start the wrapper: %v", err)
+	}
+	wrapperPID := wrapper.Process.Pid
+	childPID := 0
+	t.Cleanup(func() {
+		// The child leads a session of its own, so no signal aimed at the
+		// wrapper's group reaches it. It is ended through its own group id
+		// while that id demonstrably still belongs to it: once it has been
+		// reaped, the value may name somebody else's group.
+		if childPID > 0 {
+			if group, groupErr := syscall.Getpgid(childPID); groupErr == nil && group == childPID {
+				_ = syscall.Kill(-childPID, syscall.SIGKILL)
+			}
+		}
+		if wrapper.ProcessState == nil {
+			_ = syscall.Kill(-wrapperPID, syscall.SIGKILL)
+		}
+		_ = wrapper.Process.Kill()
+		_ = wrapper.Wait()
+	})
+
+	line, err := bufio.NewReader(stdout).ReadString('\n')
+	if err != nil {
+		t.Fatalf("the wrapper never reported its child: %v", err)
+	}
+	childPID, err = strconv.Atoi(strings.TrimSpace(line))
+	if err != nil || childPID <= 0 {
+		t.Fatalf("the wrapper reported %q instead of a pid", line)
+	}
+
+	// The fixture is only worth what it proves once the child really left the
+	// wrapper's group and leads its own: a child that stayed in the group would
+	// let the group evidence answer, and the test would pass without ever
+	// asking the chain.
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		group, groupErr := syscall.Getpgid(childPID)
+		if groupErr == nil && group == childPID {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the child (pid %d) never formed a session of its own: %v", childPID, groupErr)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if group, groupErr := syscall.Getpgid(wrapperPID); groupErr != nil || group != wrapperPID {
+		t.Fatalf("the wrapper (pid %d) does not lead its own group: %v", wrapperPID, groupErr)
+	}
+
+	host := New(testTools)
+	if !host.DescendsFrom(wrapperPID, childPID) {
+		t.Fatalf("DescendsFrom(%d, %d) = false: a child that left the group was reported as a stranger", wrapperPID, childPID)
+	}
+	if host.DescendsFrom(childPID, wrapperPID) {
+		t.Fatalf("DescendsFrom(%d, %d) = true: the wrapper was reported as a descendant of its own child", childPID, wrapperPID)
+	}
+	if host.DescendsFrom(wrapperPID, os.Getpid()) {
+		t.Fatalf("DescendsFrom(%d, %d) = true: the test process was claimed by the wrapper it spawned", wrapperPID, os.Getpid())
+	}
+}
+
+// TestDescendsFromKeepsAnsweringForAGroupWhoseLeaderExited pins the property
+// survivor adoption rests on: a group outlives its leader, so a member is
+// still recognized after the wrapper that led the group was reaped. The parent
+// chain cannot answer here — the orphan was reparented to init — which is
+// exactly why the group must stay the first evidence rather than be replaced
+// by the chain.
+func TestDescendsFromKeepsAnsweringForAGroupWhoseLeaderExited(t *testing.T) {
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatalf("locate the test binary: %v", err)
+	}
+	switch {
+	case os.Getenv(leaderlessChildEnv) == helperMarker(os.Getppid()):
+		blockUntilTTL()
+		return
+	case os.Getenv(leaderlessWrapperEnv) == helperMarker(os.Getppid()):
+		child := exec.Command(executable, "-test.run=^TestDescendsFromKeepsAnsweringForAGroupWhoseLeaderExited$")
+		child.Env = envForChild(leaderlessChildEnv + "=" + helperMarker(os.Getpid()))
+		child.Stdin = nil
+		child.Stdout = nil
+		child.Stderr = nil
+		// No Setsid and no Setpgid: the child must stay in the wrapper's group,
+		// the shape a package script had before runners began detaching it.
+		if err := child.Start(); err != nil {
+			fmt.Fprintln(os.Stderr, "start the group child:", err)
+			os.Exit(1)
+		}
+		fmt.Println(child.Process.Pid)
+		// The wrapper exits at once: the group it leads must outlive it.
+		return
+	}
+
+	wrapper := exec.Command(executable, "-test.run=^TestDescendsFromKeepsAnsweringForAGroupWhoseLeaderExited$")
+	wrapper.Env = envForChild(leaderlessWrapperEnv + "=" + helperMarker(os.Getpid()))
+	wrapper.Stdin = nil
+	stdout, err := wrapper.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	wrapper.Stderr = nil
+	wrapper.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := wrapper.Start(); err != nil {
+		t.Fatalf("start the wrapper: %v", err)
+	}
+	wrapperPID := wrapper.Process.Pid
+	childPID := 0
+	t.Cleanup(func() {
+		// The group id is aimed at only while the child demonstrably holds it:
+		// that is the unambiguous proof no stranger owns the id by now.
+		if childPID > 0 {
+			if group, groupErr := syscall.Getpgid(childPID); groupErr == nil && group == wrapperPID {
+				_ = syscall.Kill(-wrapperPID, syscall.SIGKILL)
+			}
+		}
+		_ = wrapper.Process.Kill()
+		_ = wrapper.Wait()
+	})
+
+	line, err := bufio.NewReader(stdout).ReadString('\n')
+	if err != nil {
+		t.Fatalf("the wrapper never reported its child: %v", err)
+	}
+	childPID, err = strconv.Atoi(strings.TrimSpace(line))
+	if err != nil || childPID <= 0 {
+		t.Fatalf("the wrapper reported %q instead of a pid", line)
+	}
+	// The wrapper ends on its own; reaping it here is what makes the group
+	// leaderless while the child keeps the group alive.
+	if err := wrapper.Wait(); err != nil {
+		t.Fatalf("the wrapper did not exit cleanly: %v", err)
+	}
+
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		group, groupErr := syscall.Getpgid(childPID)
+		if groupErr == nil && group == wrapperPID {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the child (pid %d) never joined the wrapper's group: %v", childPID, groupErr)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	host := New(testTools)
+	if !host.DescendsFrom(wrapperPID, childPID) {
+		t.Fatalf("DescendsFrom(%d, %d) = false: a group stopped answering for its member once the leader was reaped", wrapperPID, childPID)
+	}
+	if host.DescendsFrom(childPID, wrapperPID) {
+		t.Fatalf("DescendsFrom(%d, %d) = true: the reaped wrapper was reported as a descendant of the child", childPID, wrapperPID)
 	}
 }
